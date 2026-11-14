@@ -34,14 +34,28 @@ try {
   Copy-Item (Join-Path $tmp $asset) (Join-Path $dest 'educationperfected.exe') -Force
   $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
   $entries = @(); if ($userPath) { $entries = $userPath -split ';' }
+  $addedToPath = $false
   if ($entries -notcontains $dest) {
     $combined = if ([string]::IsNullOrEmpty($userPath)) { $dest } else { "$userPath;$dest" }
     [Environment]::SetEnvironmentVariable('Path', $combined, 'User')
+    $addedToPath = $true
   }
   # Install record: uninstall reads this to remove exactly what this install created.
+  # pathEntries only covers what this installer actually added.
   $exePath = Join-Path $dest 'educationperfected.exe'
   $recordPath = Join-Path $dest 'educationperfected-install.json'
-  [ordered]@{ version = 1; method = 'install-ps1'; files = @($exePath, $recordPath); pathEntries = @($dest) } | ConvertTo-Json -Compress | Set-Content -Path $recordPath -Encoding ascii
+  $recordedPathEntries = @()
+  if ($addedToPath) {
+    $recordedPathEntries = @($dest)
+  } elseif (Test-Path -LiteralPath $recordPath -PathType Leaf) {
+    # Reinstall over an earlier install.ps1: keep the PATH ownership it recorded,
+    # so uninstall can still remove the entry it added.
+    try {
+      $previousRecord = Get-Content -Raw -LiteralPath $recordPath | ConvertFrom-Json
+      if ($previousRecord.method -eq 'install-ps1' -and @($previousRecord.pathEntries) -contains $dest) { $recordedPathEntries = @($dest) }
+    } catch {}
+  }
+  [ordered]@{ version = 1; method = 'install-ps1'; files = @($exePath, $recordPath); pathEntries = $recordedPathEntries } | ConvertTo-Json -Compress | Set-Content -Path $recordPath -Encoding ascii
   Write-Host "Verified and installed to $dest"
   Write-Host 'Open a NEW terminal, then run: educationperfected setup'
 } finally {

@@ -7,7 +7,11 @@ for(const required of ['Install rpm tooling for Linux package lanes','apt-get in
 const sh=fs.readFileSync(path.join(__dirname,'../installer/install.sh'),'utf8');
 for(const required of ['set -eu','SHA256SUMS','sha256sum','Checksum mismatch','/.local/bin','EP_INSTALL_BASE_URL','educationperfected-$os-$arch','educationperfected-install.json','method\\":\\"install-sh'])assert.ok(sh.includes(required),required);
 const ps1=fs.readFileSync(path.join(__dirname,'../installer/install.ps1'),'utf8');
-for(const required of ['Get-FileHash','SHA256SUMS','Checksum mismatch','LOCALAPPDATA','EP_INSTALL_BASE_URL','educationperfected-windows-x64.exe','Test-Path $base','educationperfected.exe','educationperfected-install.json','ConvertTo-Json',"method = 'install-ps1'"])assert.ok(ps1.includes(required),required);
+for(const required of ['Get-FileHash','SHA256SUMS','Checksum mismatch','LOCALAPPDATA','EP_INSTALL_BASE_URL','educationperfected-windows-x64.exe','Test-Path $base','educationperfected.exe','educationperfected-install.json','ConvertTo-Json',"method = 'install-ps1'",'$addedToPath','$recordedPathEntries'])assert.ok(ps1.includes(required),required);
+assert.ok(ps1.includes('$addedToPath = $true'),'install.ps1 tracks whether it added the PATH entry');
+assert.ok(ps1.indexOf('$addedToPath = $true')<ps1.indexOf('Set-Content -Path $recordPath'),'pathEntries only records a PATH entry the installer actually added');
+assert.ok(ps1.includes('if ($addedToPath)'),'recorded pathEntries are gated on what the installer added');
+assert.ok(ps1.includes("$previousRecord.method -eq 'install-ps1'"),'reinstall keeps PATH ownership an earlier install.ps1 recorded');
 const npmdir=path.join(__dirname,'../npm/educationperfected');
 const pkg=JSON.parse(fs.readFileSync(path.join(npmdir,'package.json'),'utf8'));
 assert.equal(pkg.name,'educationperfected');assert.equal(pkg.scripts.postinstall,'node install.js');assert.ok(pkg.bin.educationperfected);

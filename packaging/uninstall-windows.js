@@ -31,8 +31,10 @@ function windowsUninstallHelperScript({ pid, mode, log, files = [], pathEntries 
         'Start-Sleep -Seconds 2',
     ];
     if (mode === 'files') {
+        // Directories are never deleted: the record lists files, and a stray
+        // directory entry must not turn into a recursive removal.
         lines.push(
-            'foreach ($f in ' + psArray(files) + ') { try { Remove-Item -LiteralPath $f -Force -Recurse -ErrorAction Stop; Log "removed $f" } catch { Log "FAILED to remove ${f}: $($_.Exception.Message)" } }',
+            'foreach ($f in ' + psArray(files) + ') { if (Test-Path -LiteralPath $f -PathType Container) { Log "skipped directory $f" } else { try { Remove-Item -LiteralPath $f -Force -ErrorAction Stop; Log "removed $f" } catch { Log "FAILED to remove ${f}: $($_.Exception.Message)" } } }',
         );
         if (pathEntries.length) {
             lines.push(
@@ -75,7 +77,12 @@ function windowsUninstallHelperScript({ pid, mode, log, files = [], pathEntries 
 function startWindowsUninstallHelper({ pid, mode, log, files, pathEntries, shortcuts, uninstaller, tmp, spawnDetached }) {
     const helper = path.join(tmp, 'educationperfected-uninstall-' + pid + '-' + Date.now().toString(36) + '.ps1');
     fs.writeFileSync(helper, windowsUninstallHelperScript({ pid, mode, log, files, pathEntries, shortcuts, uninstaller }), { mode: 0o700 });
-    spawnDetached('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', helper]);
+    const child = spawnDetached('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', helper]);
+    // A failed spawn (no powershell.exe) emits 'error' asynchronously; without a
+    // listener it would crash the CLI after uninstall already returned.
+    if (child && typeof child.on === 'function') {
+        child.on('error', error => { try { fs.appendFileSync(log, 'helper spawn failed: ' + error.message + '\n'); } catch { /* log is best-effort */ } });
+    }
     return helper;
 }
 

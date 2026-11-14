@@ -11,7 +11,14 @@ assert.equal(normalizeRecord({version:2,method:'npm'}),null,'record version must
 assert.equal(normalizeRecord({version:1,method:'curl'}),null,'unknown method rejected');
 assert.deepEqual(normalizeRecord({version:1,method:'npm'}),{version:1,method:'npm',files:[],pathEntries:[],shortcuts:[],uninstaller:null,receipt:null});
 assert.deepEqual(normalizeRecord({version:1,method:'deb',files:['/usr/bin/educationperfected'],pathEntries:'oops',shortcuts:[1]}).files,['/usr/bin/educationperfected']);
-assert.equal(normalizeRecord({version:1,method:'deb',pathEntries:'oops'}).pathEntries.length,0,'non-string arrays dropped');
+// PowerShell 5.1's ConvertTo-Json unwraps one-element arrays into bare strings
+// and empty arrays into null; both forms must still normalize.
+assert.deepEqual(normalizeRecord({version:1,method:'install-ps1',pathEntries:'C:\\Programs\\EducationPerfected'}).pathEntries,['C:\\Programs\\EducationPerfected'],'bare-string pathEntries counts as one entry');
+assert.deepEqual(normalizeRecord({version:1,method:'install-ps1',pathEntries:null}).pathEntries,[],'null pathEntries normalizes to none');
+assert.deepEqual(normalizeRecord({version:1,method:'install-ps1',files:'C:\\Programs\\EducationPerfected\\educationperfected.exe'}).files,[],'bare-string files dropped: the deletion list stays array-only');
+assert.deepEqual(normalizeRecord({version:1,method:'install-ps1',shortcuts:'C:\\shortcut.lnk'}).shortcuts,[],'bare-string shortcuts dropped');
+assert.deepEqual(normalizeRecord({version:1,method:'deb',pathEntries:[1],'shortcuts':['ok',2]}).pathEntries,[],'non-string arrays dropped');
+assert.deepEqual(normalizeRecord({version:1,method:'deb',pathEntries:[1],shortcuts:['ok',2]}).shortcuts,[],'mixed arrays dropped');
 // readInstallRecord: missing, malformed, valid; relative paths never read cwd.
 assert.equal(readInstallRecord(path.join(home,'missing')),null,'no record file');
 fs.writeFileSync(recordPathFor(exe),'not json');
@@ -47,10 +54,13 @@ assert.equal(psLiteral("C:\\it's"),"'C:\\it''s'",'single quotes doubled');
 assert.throws(()=>psLiteral('a\nb'),/newlines/);
 const filesScript=windowsUninstallHelperScript({pid:42,mode:'files',log:'C:\\ep-logs\\u.log',files:['C:\\ep\\educationperfected.exe'],pathEntries:['C:\\ep'],shortcuts:['C:\\ep\\ep.lnk']});
 assert.ok(filesScript.includes('Wait-Process -Id 42'),'helper waits for the CLI process');
-assert.ok(filesScript.includes('Remove-Item -LiteralPath $f -Force -Recurse'),'helper deletes files');
+assert.ok(filesScript.includes('Remove-Item -LiteralPath $f -Force'),'helper deletes files');
 assert.ok(filesScript.includes('C:\\ep\\educationperfected.exe'),'files embedded as literals');
 assert.ok(filesScript.includes("'c:\\ep'"),'PATH entries embedded lowercased for case-insensitive matching');
 assert.ok(filesScript.includes('ExpandString'),'PATH rewrite stays REG_EXPAND_SZ');
+assert.ok(filesScript.includes('PathType Container'),'files mode never recursively deletes a directory entry');
+assert.ok(filesScript.includes('skipped directory'),'directory entries are logged and skipped');
+assert.ok(!filesScript.includes('-Recurse'),'no recursive removal in files mode');
 assert.ok(filesScript.includes('$PSCommandPath'),'helper deletes itself');
 const npmScript=windowsUninstallHelperScript({pid:42,mode:'npm',log:'C:\\ep-logs\\u.log'});
 assert.ok(npmScript.includes('npm.cmd')&&npmScript.includes('uninstall -g educationperfected'));

@@ -43,9 +43,9 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
      else if(scenario==='download-lock')assert.ok(fs.existsSync(path.join(browsers,'inert-browser')),'live download lock retains the browsers');
      else assert.equal(fs.existsSync(browsers),false,'healthy browsers were chosen for removal')
     }
-    // No program removal was confirmed (stub choices carry no program key), so
-    // the executable stays and its path is printed for manual deletion.
-    assert.ok(output.includes('Delete the executable manually: inert.exe'));
+    // Program removal was offered but not confirmed (stub choices carry no
+    // program key): the executable stays, with no manual-delete nudge.
+    assert.ok(!output.includes('Delete the executable manually'),'declined program removal is not nagged about');
     assert.ok(output.includes('detected the install method'),'inert.exe has no record; method is inferred');
    }
    assert.ok(!output.includes('Error:'));
@@ -88,10 +88,10 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
   assert.ok(s.output.includes('from its install record'));assert.deepEqual(s.spawns,[]);assert.deepEqual(s.detached,[]);
   cleanup(s);
  }
- // install.sh with program NOT confirmed: files stay, manual line printed.
+ // install.sh with program NOT confirmed: files stay, no manual-delete nudge for a kept program.
  {
   const s=await runProgramScenario({method:'install-sh',record:{},platform:'linux',choices:{program:false}});
-  assert.equal(fs.existsSync(s.exe),true);assert.ok(s.output.includes('Delete the executable manually: '+s.exe));
+  assert.equal(fs.existsSync(s.exe),true);assert.ok(!s.output.includes('Delete the executable manually'));
   cleanup(s);
  }
  // npm on macOS/Linux: npm uninstall -g runs directly.
@@ -141,6 +141,16 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
   assert.ok(s.output.includes('finishes in the background'));assert.ok(!s.output.includes('Delete the executable manually'));
   cleanup(s);
  }
+ // Windows install.ps1 record written by PowerShell 5.1: pathEntries unwrapped
+ // to a bare string still reaches the helper as the PATH entry to remove.
+ {
+  const s=await runProgramScenario({method:'install-ps1',record:{pathEntries:'C:\\Programs\\EducationPerfected'},platform:'win32',choices:{program:true},execName:'educationperfected.exe'});
+  assert.equal(s.detached.length,1);
+  const helper=fs.readFileSync(s.detached[0][1][s.detached[0][1].length-1],'utf8');
+  assert.ok(helper.includes('c:\\programs\\educationperfected'),'bare-string PATH entry is removed by the helper');
+  assert.equal(s.result.programPending,true);
+  cleanup(s);
+ }
  // Windows npm: helper runs npm uninstall after exit.
  {
   const s=await runProgramScenario({method:'npm',record:{},platform:'win32',choices:{program:true},execName:'educationperfected.exe'});
@@ -173,6 +183,31 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
   const s=await runProgramScenario({method:'setup-exe',record:{uninstaller:'C:\\\\x\\\\unins000.exe'},platform:'win32',choices:{inno:false},execName:'educationperfected.exe'});
   assert.equal(s.result.cancelled,true);assert.deepEqual(s.detached,[]);
   cleanup(s);
+ }
+ // .pkg record without a receipt id: no program plan, no spawn with null args, manual line.
+ {
+  const s=await runProgramScenario({method:'pkg',record:{receipt:null},platform:'darwin',choices:{program:true}});
+  assert.deepEqual(s.spawns,[],'no sudo spawn without a receipt');
+  assert.ok(s.output.includes('Delete the executable manually: '+s.exe));
+  assert.equal(s.result.incomplete,false);
+  cleanup(s);
+ }
+ // A failing powershell.exe spawn (error event) is logged, never a crash.
+ {
+  const {EventEmitter}=require('node:events');
+  const home=fs.mkdtempSync(path.join(os.tmpdir(),'ep-uninstall-spawnerr-'));
+  const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'ep-uninstall-tmp-'));
+  try{
+   const runtime=createRuntimeDirectory({home});
+   const exe=path.join(home,'educationperfected.exe');fs.writeFileSync(exe,'inert');
+   fs.writeFileSync(path.join(home,'educationperfected-install.json'),JSON.stringify({version:1,method:'install-ps1',files:[exe]}));
+   const child=new EventEmitter();let output='';
+   const result=await uninstallCommand({home,ownDirectory:runtime.directory,cleanupOwn:async()=>{runtime.remove(true);},executable:exe,platform:'win32',env:{},tmpDir:tmp,pid:1,confirm:async()=>({login:false,data:false,browsers:false,program:true}),output:{write:t=>{output+=t;}},store:{async remove(){}},spawnDetached:()=>child});
+   assert.equal(result.programPending,true);
+   child.emit('error',new Error('inert spawn failure'));
+   const log=path.join(tmp,'educationperfected-uninstall.log');
+   assert.ok(fs.readFileSync(log,'utf8').includes('helper spawn failed: inert spawn failure'));
+  }finally{fs.rmSync(home,{recursive:true,force:true});fs.rmSync(tmp,{recursive:true,force:true});}
  }
  // Unknown system package (no record, /usr/bin, neither dpkg nor rpm owns it): no program prompt, manual line.
  {

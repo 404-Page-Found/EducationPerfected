@@ -86,7 +86,9 @@ function removalPlan(install,{platform,executable}){
   case 'rpm':
    return {kind:'package',command:['sudo','rpm','-e',PACKAGE_NAME],detail:'runs sudo rpm -e '+PACKAGE_NAME};
   case 'pkg':
-   return {kind:'pkg',files:ownedFiles,receipt:install.receipt,detail:'removes the installed files with sudo and forgets the installer receipt'};
+   // No receipt id means no receipt can be forgotten; without one this is a
+   // manual removal, not a null argument to spawn.
+   return install.receipt?{kind:'pkg',files:ownedFiles,receipt:install.receipt,detail:'removes the installed files with sudo and forgets the installer receipt'}:null;
   default:
    return null;
  }
@@ -170,7 +172,7 @@ async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=p
   }
  }
  if(programPending)output.write('The program removal finishes in the background after this program exits. Log: '+log+'\n');
- else if(!choices.program||!plan)output.write('Delete the executable manually: '+executable+'\n');
+ else if(!plan)output.write('Delete the executable manually: '+executable+'\n');
  return {incomplete,programPending};
 }
 module.exports={uninstallCommand,confirmUninstall,confirmInnoUninstall,safeRuntimeRoot,removalPlan};
