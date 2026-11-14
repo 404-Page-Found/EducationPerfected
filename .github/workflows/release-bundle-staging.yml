@@ -31,6 +31,15 @@ jobs:
         run: |
           set -euo pipefail
           case "$RUN_ID" in (*[!0-9]*|'') echo "source_run_id must be numeric"; exit 1;; esac
+          # The source run must be a green beta-preparation run of the very
+          # commit being staged: candidates upload before the later validation
+          # steps, and a run of another commit would attach the wrong payloads
+          # while the artifact name records only this run's commit.
+          gh api "repos/${{ github.repository }}/actions/runs/$RUN_ID" > source-run.json
+          [ "$(jq -r .path source-run.json)" = .github/workflows/beta-preparation.yml ] || { echo "source run $RUN_ID is not a beta-preparation run"; exit 1; }
+          [ "$(jq -r .conclusion source-run.json)" = success ] || { echo "source run $RUN_ID was not green"; exit 1; }
+          source_sha=$(jq -r .head_sha source-run.json)
+          [ "$source_sha" = "$GITHUB_SHA" ] || { echo "source run $RUN_ID built $source_sha, not the staged commit $GITHUB_SHA"; exit 1; }
           mkdir -p candidates
           curl -sf -H "Authorization: Bearer $GH_TOKEN" \
             "https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID/artifacts?per_page=100" > artifacts.json

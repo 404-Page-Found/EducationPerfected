@@ -8,6 +8,7 @@ for(const required of [
  'educationperfected-windows-x64-setup.exe','21 payload files',String.raw`sub(/^\*`,
  'name: release-bundle-v','retention-days: 90','if-no-files-found: error',
  '"\\(.id) \\(.name)"','%{redirect_url}','source_run_id must be numeric','release_version must be three numeric parts',
+ '/actions/runs/$RUN_ID"','.github/workflows/beta-preparation.yml','is not a beta-preparation run','was not green','not the staged commit','.head_sha','$GITHUB_SHA',
 ])assert.ok(source.includes(required),required);
 assert.ok(!source.includes('curl -sfL -H "Authorization'),'token must never follow a redirect');
 assert.doesNotMatch(source,/pull_request_target|contents: write|actions: write|packages: write|create-release|gh release|git push|softprops|ncipollo/);
