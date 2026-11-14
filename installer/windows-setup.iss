@@ -16,6 +16,10 @@ WizardStyle=modern
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 UninstallDisplayName=EducationPerfected
+SetupIconFile=..\branding\educationperfected.ico
+WizardImageFile=wizard-image.bmp
+WizardSmallImageFile=wizard-small.bmp
+UninstallDisplayIcon={app}\educationperfected.exe
 ChangesEnvironment=yes
 
 [Files]

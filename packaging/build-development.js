@@ -85,6 +85,8 @@ async function buildDevelopment(target) {
   require('./macos-sea-steps').finishMacosSea({executable,blob:config.output,node:process.execPath,postject:require.resolve('postject/dist/cli.js')});
  } else {
  cp.execFileSync(process.execPath, [require.resolve('postject/dist/cli.js'), executable, 'NODE_SEA_BLOB', config.output, '--sentinel-fuse', 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2'], { stdio: 'inherit' });
+ // Icon last: it is the final exe mutation, after the SEA blob injection.
+ if (target.executable.endsWith('.exe')) require('./windows-icon').applyWindowsIcon(executable, path.join(__dirname, '..', 'branding', 'educationperfected.ico'), require('../package.json').version);
  }
  // Browser is a SEA asset; no data is appended after executable generation.
  console.log('Development executable: ' + executable);
