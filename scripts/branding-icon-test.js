@@ -24,9 +24,13 @@ assert.equal(ico.readUInt16LE(4), 7, 'ico entry count');
 const icoSizes = [];
 for (let i = 0; i < 7; i++) {
  const off = 6 + 16 * i;
- icoSizes.push(ico[off] || 256);
+ const w = ico[off] || 256, h = ico[off + 1] || 256;
+ assert.equal(h, w, 'ico entry ' + i + ' must be square');
+ icoSizes.push(w);
  const imageOffset = ico.readUInt32LE(off + 12);
  assert.equal(ico.readUInt32BE(imageOffset), 0x89504e47, 'ico entry ' + i + ' is a PNG');
+ assert.equal(ico.readUInt32BE(imageOffset + 16), w, 'ico entry ' + i + ' PNG width matches its directory entry');
+ assert.equal(ico.readUInt32BE(imageOffset + 20), h, 'ico entry ' + i + ' PNG height matches its directory entry');
 }
 assert.deepEqual(icoSizes, [16, 24, 32, 48, 64, 128, 256]);
 
@@ -51,7 +55,9 @@ for (const required of ['SetupIconFile=..\\branding\\educationperfected.ico', 'W
 const builder = fs.readFileSync(path.join(__dirname, '../packaging/build-development.js'), 'utf8');
 assert.ok(builder.includes("require('./windows-icon').applyWindowsIcon"), 'builder applies the icon');
 assert.ok(builder.includes("endsWith('.exe')"), 'icon step is Windows-only');
-assert.ok(builder.indexOf('postject') < builder.indexOf('windows-icon'), 'icon is the final exe mutation');
+const windowsPostject = builder.indexOf("cp.execFileSync(process.execPath, [require.resolve('postject");
+assert.ok(windowsPostject !== -1, 'Windows postject injection call found');
+assert.ok(windowsPostject < builder.indexOf("require('./windows-icon')"), 'icon is the final exe mutation');
 const iconStep = fs.readFileSync(path.join(__dirname, '../packaging/windows-icon.js'), 'utf8');
 for (const required of ['IconGroupEntry', 'replaceIconsForResource', 'VersionInfo', '404-Page-Found']) assert.ok(iconStep.includes(required), required);
 assert.ok(require('../package.json').devDependencies.resedit, 'resedit is a dev dependency');
