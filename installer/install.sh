@@ -34,6 +34,8 @@ actual=${actual%% *}
 dest="$HOME/.local/bin"
 mkdir -p "$dest"
 install -m 755 "$tmp/$asset" "$dest/educationperfected"
+# Install record: uninstall reads this to remove exactly what this install created.
+printf '%s\n' "{\"version\":1,\"method\":\"install-sh\",\"files\":[\"$dest/educationperfected\",\"$dest/educationperfected-install.json\"]}" > "$dest/educationperfected-install.json"
 echo "Verified and installed to $dest/educationperfected"
 case ":$PATH:" in *":$dest:"*) ;; *) echo "Add $dest to your PATH to run it from anywhere.";; esac
 echo "Next: educationperfected setup"

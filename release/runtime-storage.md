@@ -60,9 +60,36 @@ locks are retained for inspection. Other live/uncertain runtime entries, browser
 download locks/staging, unknown root data or symlinks prevent browser deletion.
 It never recursively deletes tmp/root and reports retained data as incomplete.
 The current own native binding is removed only after native worker completion.
-The exe remains and its exact path is printed for manual deletion. Source CLI
-does not hold packaged runtime leases, so closing source copies is a user
-precondition, not claimed process discovery. No broad disk cleanup is promised.
+Source CLI does not hold packaged runtime leases, so closing source copies is
+a user precondition, not claimed process discovery. No broad disk cleanup is promised.
+
+## Program removal (install record)
+
+Every installer writes `educationperfected-install.json` next to the executable
+it installs: the method (`setup-exe`, `install-ps1`, `install-sh`, `npm`, `deb`,
+`rpm`, `pkg`), the program files it owns, any user PATH entry it added, and
+(for the setup exe) the shortcuts and uninstaller path. `uninstall` offers
+program removal as a final per-item prompt, default No, after the data/login
+prompts. Installs from before records existed (or raw downloads) have their
+method inferred from the executable's location - an `unins000.exe` beside it
+means the setup exe, an npm global package path means npm, the install.ps1
+directory means install.ps1, `/usr/bin` plus dpkg/rpm ownership means a system
+package, `/usr/local/bin` on macOS means the .pkg - and the inference is stated
+in the output. When no removal path is known, the CLI prints what it could not
+remove instead of guessing.
+
+Per method: the setup exe delegates to its own Inno uninstaller (which removes
+the program, shortcuts and PATH entry and asks about the saved login and app
+data itself); npm runs `npm uninstall -g educationperfected`; `.deb` runs
+`sudo apt remove educationperfected`; `.rpm` runs `sudo rpm -e educationperfected`;
+`.pkg` deletes its recorded files with sudo and runs `sudo pkgutil --forget
+com.404pf.educationperfected`; install.sh/install.ps1/raw binaries delete their
+recorded files (and the install.ps1 PATH entry). On Windows a detached
+PowerShell helper waits for the CLI process to exit before deleting anything -
+a running program cannot remove itself - appends to
+`%TEMP%\educationperfected-uninstall.log` and deletes itself; the CLI prints
+that the removal finishes in the background. Package-manager and npm removals
+report failure with the exact manual command and mark the run incomplete.
 
 Native credential fixtures use an explicitly inert cached-browser receipt in
 disposable homes to exercise setup's cache-reuse path without launching that

@@ -29,6 +29,7 @@ Name: "{group}\EducationPerfected"; Filename: "{app}\educationperfected.exe"
 Name: "{group}\Uninstall EducationPerfected"; Filename: "{uninstallexe}"
 
 [UninstallDelete]
+Type: files; Name: "{app}\educationperfected-install.json"
 Type: files; Name: "{app}\educationperfected.exe.backup"
 Type: files; Name: "{app}\educationperfected.exe.update-result"
 Type: files; Name: "{app}\educationperfected.exe.update.lock"
@@ -100,10 +101,43 @@ begin
     RegWriteExpandStringValue(HKCU, EnvironmentKey, 'Path', Cleaned);
 end;
 
+function JsonEscape(S: string): string;
+var
+  I: Integer;
+begin
+  Result := '';
+  for I := 1 to Length(S) do
+    if S[I] = '\' then
+      Result := Result + '\\'
+    else
+      Result := Result + S[I];
+end;
+
+{ Install record: the CLI uninstall reads this to learn the install method and
+  what this install created (program files, shortcuts, PATH entry, uninstaller). }
+procedure WriteInstallRecord;
+var
+  Json, PathPart: string;
+begin
+  PathPart := '';
+  if WizardIsTaskSelected('addtopath') then
+    PathPart := ',"pathEntries":["' + JsonEscape(ExpandConstant('{app}')) + '"]';
+  Json := '{"version":1,"method":"setup-exe"'
+    + ',"files":["' + JsonEscape(ExpandConstant('{app}\educationperfected.exe')) + '","' + JsonEscape(ExpandConstant('{app}\educationperfected-install.json')) + '"]'
+    + ',"shortcuts":["' + JsonEscape(ExpandConstant('{group}\EducationPerfected.lnk')) + '","' + JsonEscape(ExpandConstant('{group}\Uninstall EducationPerfected.lnk')) + '"]'
+    + ',"uninstaller":"' + JsonEscape(ExpandConstant('{app}\unins000.exe')) + '"'
+    + PathPart + '}';
+  SaveStringToFile(ExpandConstant('{app}\educationperfected-install.json'), Json, False);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if (CurStep = ssPostInstall) and WizardIsTaskSelected('addtopath') then
-    AddAppToPath;
+  if CurStep = ssPostInstall then
+  begin
+    if WizardIsTaskSelected('addtopath') then
+      AddAppToPath;
+    WriteInstallRecord;
+  end;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

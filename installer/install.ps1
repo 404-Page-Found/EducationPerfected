@@ -38,6 +38,10 @@ try {
     $combined = if ([string]::IsNullOrEmpty($userPath)) { $dest } else { "$userPath;$dest" }
     [Environment]::SetEnvironmentVariable('Path', $combined, 'User')
   }
+  # Install record: uninstall reads this to remove exactly what this install created.
+  $exePath = Join-Path $dest 'educationperfected.exe'
+  $recordPath = Join-Path $dest 'educationperfected-install.json'
+  [ordered]@{ version = 1; method = 'install-ps1'; files = @($exePath, $recordPath); pathEntries = @($dest) } | ConvertTo-Json -Compress | Set-Content -Path $recordPath -Encoding ascii
   Write-Host "Verified and installed to $dest"
   Write-Host 'Open a NEW terminal, then run: educationperfected setup'
 } finally {

@@ -34,5 +34,8 @@ function parseSums(text){
   const actual=crypto.createHash('sha256').update(binary).digest('hex');
   if(actual!==expected)throw new Error(`Checksum mismatch for ${asset}; download discarded.`);
   fs.writeFileSync(dest,binary,{mode:0o755});
+  // Install record: uninstall reads this to learn the install method.
+  const record=path.join(dir,'educationperfected-install.json');
+  fs.writeFileSync(record,JSON.stringify({version:1,method:'npm',files:[dest,record]}));
   console.log(`EducationPerfected ${pkg.version} verified and installed (${asset}).`);
 })().catch(error=>{console.error(error.message);process.exit(1);});

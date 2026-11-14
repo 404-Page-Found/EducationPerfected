@@ -15,6 +15,8 @@ case "$target" in
     payload=$(mktemp -d)
     mkdir -p "$payload/usr/local/bin"
     install -m 755 "$src" "$payload/usr/local/bin/educationperfected"
+    # Install record: uninstall reads this to remove exactly what this install created.
+    printf '%s\n' '{"version":1,"method":"pkg","files":["/usr/local/bin/educationperfected","/usr/local/bin/educationperfected-install.json"],"receipt":"com.404pf.educationperfected"}' > "$payload/usr/local/bin/educationperfected-install.json"
     pkg="$out/educationperfected-$target.pkg"
     pkgbuild --root "$payload" --identifier com.404pf.educationperfected --version "$version" --install-location / "$pkg" >/dev/null
     check=$(mktemp -d)
@@ -32,6 +34,8 @@ case "$target" in
     # .deb
     mkdir -p "$work/deb/DEBIAN" "$work/deb/usr/bin"
     install -m 755 "$src" "$work/deb/usr/bin/educationperfected"
+    # Install record: uninstall reads this to remove exactly what this install created.
+    printf '%s\n' '{"version":1,"method":"deb","files":["/usr/bin/educationperfected","/usr/bin/educationperfected-install.json"]}' > "$work/deb/usr/bin/educationperfected-install.json"
     printf 'Package: educationperfected\nVersion: %s\nArchitecture: %s\nMaintainer: 404-Page-Found\nDescription: Education Perfect helper CLI (packaged binary)\n' "$version" "$debarch" > "$work/deb/DEBIAN/control"
     dpkg-deb --build --root-owner-group "$work/deb" "$out/educationperfected_${version}_${debarch}.deb" >/dev/null
     ex=$(mktemp -d)
@@ -55,8 +59,11 @@ Packaged command-line app that opens Education Perfect in a dedicated browser wi
 %install
 mkdir -p %{buildroot}/usr/bin
 install -m 755 %{SOURCE0} %{buildroot}/usr/bin/educationperfected
+# Install record: uninstall reads this to remove exactly what this install created.
+printf '%s\\n' '{"version":1,"method":"rpm","files":["/usr/bin/educationperfected","/usr/bin/educationperfected-install.json"]}' > %{buildroot}/usr/bin/educationperfected-install.json
 %files
 /usr/bin/educationperfected
+/usr/bin/educationperfected-install.json
 SPEC
     rpmbuild -bb --define "_topdir $work/rpm" "$work/rpm/SPECS/educationperfected.spec" >/dev/null
     rpm_file=$(find "$work/rpm/RPMS" -name '*.rpm' | head -1)
