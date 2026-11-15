@@ -55,8 +55,7 @@ This version name does not mean the packaged CLI has shipped; its release gates 
 
 
 ## Installation
-1. download the EducationPerfected program, starter script, launcher, and test scripts ([index.js](index.js), [start.cmd](start.cmd) or [start.sh](start.sh), the [bin/](bin/) folder, and the [scripts/](scripts/) folder) and place them in the same folder  
-   (the scripts expect [package.json](package.json) and [package-lock.json](package-lock.json) in that same folder - get them from the repo; if you copied the files out of a git checkout, copy those along with the `bin/` and `scripts/` folders)
+1. download the full source ZIP of the `main` branch (on [the repo page](https://github.com/404-Page-Found/EducationPerfected): **Code -> Download ZIP**) and extract it into a new folder - the program needs the whole tree ([index.js](index.js) loads the [lib/](lib/) folder and the CLI loads [packaging/](packaging/)), so copying out only some files fails with `Cannot find module './lib/...'`
 2. install [node.js](https://nodejs.org/) - version **22.12 or newer** for running the source program (that's what the pinned Puppeteer requires). Building a standalone development executable requires **Node 22.23.4 exactly**, as explained below.
 3. open Command Prompt/Terminal **in the folder where `index.js` is located** (right click -> open in terminal or use the `cd` command to change the directory)
 4. install the dependencies with `npm ci` in your opened Command Prompt/Terminal window
@@ -81,22 +80,41 @@ on EP's login page._
 *NOTE: `npm ci` normally downloads a compatible Chrome browser automatically (via Puppeteer's install script). If the first run complains that it can't find a browser, open up Terminal in the same folder and run 
 `npx puppeteer browsers install chrome` to download it manually. If your npm is configured not to run install scripts (for example npm 12's `allowScripts` gate), the download is skipped and this step is required.*
 
+### Release artifacts (not yet published)
+
+No stable packaged release is published yet; the gates in the sections below still apply. When one is published, the [Publish workflow](.github/workflows/publish.yml) attaches these assets to it (see the [release notes](release/release-notes-2026.11.15.md)):
+
+- **Windows:** run `educationperfected-windows-x64-setup.exe` (per-user, no admin), download the raw `educationperfected-windows-x64.exe`, or run `install.ps1`
+- **macOS:** `educationperfected-macos-arm64.pkg` or `educationperfected-macos-x64.pkg` (unsigned - right-click it and choose Open), the raw `educationperfected-macos-*` binary, or `install.sh`
+- **Linux:** the `.deb` or `.rpm` for your architecture, the raw `educationperfected-linux-*` binary, or `install.sh`
+- **npm:** `npm install -g educationperfected`
+
+`install.sh`, `install.ps1` and the npm package verify the download against the release's `SHA256SUMS`; check manual downloads against it yourself. Every installer installs an `educationperfected` command: run `educationperfected setup` once (it asks consent for a one-time Chrome download from Google, then offers an optional saved login), then run `educationperfected`.
+
 
 ## Usage
 ### Running the script
 
-Once installed, there are different ways to run the script using Node.js, but the basic way is to open up Terminal and 
-type `node "[path to file]"` - e.g. `node "C:\index.js"` (unless .js when, double-clicked, executes with node by default)  
+Once installed, the basic way is the interactive CLI. Open a terminal in the folder where `index.js` is located, run `npm ci` once, then:
 
-Alternatively, I have provided simple "start" scripts that basically saves the above command in a simple shell script
-that you can double-click to run. [start.cmd](start.cmd) is for Windows, and [start.sh](start.sh) is for Linux/Mac (bash).
-Save the appropriate starter script in the ***same** folder as index.js* and double-click it to run the script.
+    npm run cli
+
+The CLI opens a browser window, loads EP's login page and waits. Sign in in the browser (school SSO, Google, Microsoft or Clever work too), open a task, then type commands in the terminal:
+
+- `start` - start auto-answering; `stop` - stop it
+- `mode auto` - answer and submit automatically (default); `mode semi` - fill answers but leave submitting to you
+- `refresh` - learn the answers from a task starter page's word lists (once per new task)
+- `status` - show current status
+- `inspect-self-mark` - read-only capture of a self-mark (Reflection) page
+- `quit` - close the CLI
+
+The legacy hotkey-only program is still there if you want it: run `node index.js`, or double-click [start.cmd](start.cmd) (Windows) or [start.sh](start.sh) (Linux/Mac).
 
 You can close the browser window or the popped-up terminal window whenever you are done.  
 If you run into weird behavior, try restarting the program.
 
 ### Dependencies
-The program's only runtime dependency is [Puppeteer](https://github.com/puppeteer/puppeteer), pinned to **25.16.0** in [package.json](package.json) and locked (with its own dependencies) in [package-lock.json](package-lock.json). Each Puppeteer version pairs with a Chrome build that it downloads and launches - Chrome 156 for this one. Install with `npm ci`, or just use one of the starter scripts, which run it for you when needed. To bump Puppeteer, change the version in `package.json`, run `npm install`, and commit the updated lockfile.
+The program has four runtime dependencies, pinned in [package.json](package.json) and locked (with their own dependencies) in [package-lock.json](package-lock.json): [Puppeteer](https://github.com/puppeteer/puppeteer) **25.16.0** with `@puppeteer/browsers` **3.2.6** drives and downloads the browser (each Puppeteer version pairs with a Chrome build - Chrome 156 for this one), `@napi-rs/keyring` **2.1.2** handles the optional saved login in the OS credential store, and `modern-tar` **0.8.6** unpacks the downloaded browser archives. Install with `npm ci`, or just use one of the starter scripts, which run it for you when needed. To bump Puppeteer, change the version in `package.json`, run `npm install`, and commit the updated lockfile.
 
 That version was exercised by a local smoke test ([scripts/smoke-test.js](scripts/smoke-test.js)) against a mock EP site ([scripts/mock-ep.js](scripts/mock-ep.js)) covering the Puppeteer calls this program makes: login form fill and submit, reading the word lists, typing and submitting answers, reading and dismissing the wrong-answer modal, and the completion screen. Run it yourself with `npm run smoke` (use `SMOKE_HEADFUL=1` to watch a visible window, or `SMOKE_EXECUTABLE_PATH`/`SMOKE_BROWSER_URL` to target a browser you already have).  
 The Smart Lesson and audio handlers have their own end-to-end test ([scripts/handler-test.js](scripts/handler-test.js), run it with `npm run test:handlers`). It drives the program's real answer loop against local fixtures ([scripts/mock-ep.js](scripts/mock-ep.js)) that were built from notes taken while inspecting the live site (a multiple-choice lesson slide and an audio task, sanitised of account data) - they are reconstructions, not recorded sessions.  
@@ -122,13 +140,13 @@ features, but it is a lot slower.)
 Note that the learned dictionary lives only in the running program's memory - restart the program and you'll need
 to press Refresh Words again for the task's word list.
 
-All three functions (**Start Answering**, **Toggle Mode**, and **Refresh Words**) are triggered by keyboard shortcuts
-outlined below.
+All three functions (**Start Answering**, **Toggle Mode**, and **Refresh Words**) are triggered by the CLI commands above
+(`start`/`stop`, `mode auto`/`mode semi`, `refresh`) or by the keyboard shortcuts outlined below.
 
 ### Hotkeys
 
 Upon starting, the program opens the browser and gets EP ready (including logging in if credentials are set) - but it does not begin auto-answering until you tell it to.  
-**All functions are triggered via *hotkeys/keybindings* as listed below:**
+**The same functions are also triggered via *hotkeys/keybindings*, in the CLI and the legacy program alike:**
 
 - **Refresh Words -> <kbd>Opt/Alt</kbd> + <kbd>R</kbd>:**  
   *To be used on task-starter page with list of words and translations*  
@@ -346,8 +364,7 @@ TODO list? or never-DO list? no one knows :P
 - Dedicated anti-cheat bypass features
 - Even better answer parsing
 
-A dedicated desktop app has also been floated as a possible future direction; it would be a separate effort
-and is not part of this repository.
+A dedicated desktop app is a planned phase of this repository - tracked in [issue #8](https://github.com/404-Page-Found/EducationPerfected/issues/8), after the packaged CLI.
 
 
 ## License and rights status
