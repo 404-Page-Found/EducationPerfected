@@ -18,7 +18,7 @@ The original's README used to claim its status was: **_CURRECT STATUS: ALL inten
 _*Last time they checked... which was... two years ago???*_  
 That has since been re-verified here: **the program has been run against the live Education Perfect service and confirmed working** for the supported (word-to-word / Dash) tasks. Don't assume it stays working forever, though - EP can still change.
 
-- This repo's development program is **V2026** (package version `2026.11.15`), not a published packaged release: an independent JavaScript ([node.js](https://nodejs.org/)) program that uses the [Puppeteer](https://github.com/puppeteer/puppeteer) library to drive a web browser around.
+- This repo's development program is **V2026** (package version `2026.11.16`), not a published packaged release: an independent JavaScript ([node.js](https://nodejs.org/)) program that uses the [Puppeteer](https://github.com/puppeteer/puppeteer) library to drive a web browser around.
 - As of the latest updates, the anti-cheat workaround no longer trips anti-cheat detection.
 - The program has been run against the live Education Perfect service and confirmed working for the supported (word-to-word / Dash) tasks.
 - The task-page and wrong-answer-modal selectors were checked against what EP's live bundles currently ship, and an end-to-end run through a real task on the live service confirmed the markup reading was correct.
@@ -57,7 +57,7 @@ This version name does not mean the packaged CLI has shipped; its release gates 
 ## Installation
 ### Installer (recommended)
 
-Installers will be available with **v2026.11.15**; no V2026 packaged release is published yet. The [Publish workflow](.github/workflows/publish.yml) attaches them to the release (see the [release notes](release/release-notes-2026.11.15.md)). The gates in the sections below still apply.
+Installers will be available with **v2026.11.16**; no V2026 packaged release is published yet. The [Publish workflow](.github/workflows/publish.yml) attaches them to the release (see the [release notes](release/release-notes-2026.11.16.md)). The gates in the sections below still apply.
 
 The installer is the same on every platform; pick yours:
 
@@ -75,7 +75,7 @@ The installer is the same on every platform; pick yours:
 
 **Linux:**
 1. Download the `.deb` or `.rpm` for your architecture and `SHA256SUMS` from the release. Check the download against `SHA256SUMS` before installing it.
-2. Install the package with your package manager (for example `sudo apt install ./educationperfected_2026.11.15_amd64.deb` or `sudo dnf install ./educationperfected-2026.11.15-1.x86_64.rpm`). It puts `educationperfected` in `/usr/bin`, which is already on your PATH.
+2. Install the package with your package manager (for example `sudo apt install ./educationperfected_2026.11.16_amd64.deb` or `sudo dnf install ./educationperfected-2026.11.16-1.x86_64.rpm`). It puts `educationperfected` in `/usr/bin`, which is already on your PATH.
 3. Run `educationperfected setup`. It asks consent for a one-time Chrome download from Google, then offers an optional saved login.
 4. Run `educationperfected`.
 
@@ -411,7 +411,7 @@ access them automatically. Service use may be subject to
 
 ## CLI credential setup (source build)
 
-Run `educationperfected setup` for first-time installation (or `node bin/cli.js setup` from source). It asks before downloading pinned Chrome from Google, verifies the archive checksum, reuses an existing verified cache, then offers credential setup. Email and password stay visible while you type. Leave the email empty to skip saving. It never opens EP or answers a question. `check-credentials` checks the native saved login without printing it; `forget-credentials` removes the app's login. `help`/`-h`/`--help` shows commands; `version`/`-v`/`--version` prints 2026.11.15. Legacy credential/update/uninstall flags are refused with a subcommand hint, before any runtime/store/download action.
+Run `educationperfected setup` for first-time installation (or `node bin/cli.js setup` from source). It asks before downloading pinned Chrome from Google, verifies the archive checksum, reuses an existing verified cache, then offers credential setup. Email and password stay visible while you type. Leave the email empty to skip saving. It never opens EP or answers a question. `check-credentials` checks the native saved login without printing it; `forget-credentials` removes the app's login. `help`/`-h`/`--help` shows commands; `version`/`-v`/`--version` prints 2026.11.16. Legacy credential/update/uninstall flags are refused with a subcommand hint, before any runtime/store/download action.
 
 The native store uses Windows Credential Manager, macOS Keychain, or Linux Secret Service. On Linux, an unlocked Secret Service session (for example GNOME Keyring or KWallet) is required; there is no plaintext or nonpersistent kernel-keyring fallback. If the store is unavailable, ordinary browser/manual login still works. Never put a password in a command argument.
 
@@ -536,7 +536,7 @@ A separate [downloadable release policy](release/downloadable-beta-policy.md) de
 an unsigned executable candidate that does not bundle Chrome. It requires an interactive terminal on first
 run and asks before downloading a fixed Chrome for Testing version directly from Google,
 then retains it in a local cache. It needs internet for that first download and
-is not an offline all-in-one bundle. Stable version `2026.11.15` is being prepared without a prerelease suffix. It is not published or certified: five-target
+is not an offline all-in-one bundle. Stable version `2026.11.16` is being prepared without a prerelease suffix. It is not published or certified: five-target
 native validation, exact-artifact notices/integrity evidence and release approval
 remain required. Existing development builds that embed Chrome are not eligible
 for this publication path. Source ZIP use is unchanged: `npm ci`, then `npm run cli`.

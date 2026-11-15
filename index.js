@@ -1,4 +1,4 @@
-// V2026 (package version 2026.11.15)
+// V2026 (package version 2026.11.16)
 
 const puppeteer = require('puppeteer');
 const { detectQuestion } = require('./lib/detect-question');

@@ -7,7 +7,7 @@ on:
         required: true
         type: string
       release_version:
-        description: 'Release version label, for example 2026.11.15'
+        description: 'Release version label, for example 2026.11.16'
         required: true
         type: string
 permissions:
