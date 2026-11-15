@@ -24,6 +24,10 @@ for(const required of [
  'npm-publish:','id-token: write','NPM_TOKEN','--provenance','--access public',
  'gh release download "$TAG" -R "$GITHUB_REPOSITORY"','already on the registry; skipping publish',
  'Re-run failed jobs','--ignore-scripts npm@12.2.2','vars.NPM_TRUSTED_PUBLISHING',
+ // GitHub Packages mirrors the same verified tarball under the owner scope;
+ // GITHUB_TOKEN only, double-publish safe, draft releases never mirrored.
+ 'github-packages-publish:','packages: write','@404-page-found/educationperfected','npm.pkg.github.com',
+ 'already on GitHub Packages; skipping publish','secrets.GITHUB_TOKEN',
 ])assert.ok(source.includes(required),required);
 assert.ok(!source.includes('not a draft; refusing'),'a zero-asset published release is accepted for recovery');
 assert.ok(!source.includes('release/release-notes-'),'release notes are GitHub-generated; no hand-written notes file is bundled');
@@ -34,4 +38,4 @@ assert.ok(!source.includes('--clobber'),'never replaces assets');
 assert.doesNotMatch(source,/pull_request_target|git push|gh release create|gh release edit|gh release publish|gh release delete|types: \[created|softprops|ncipollo/);
 for(const line of source.split('\n'))if(line.includes('uses:'))assert.match(line,/\/[a-z0-9-]+@[a-f0-9]{40}(?:\s|$)/,'pinned action: '+line);
 assert.ok(require('../package.json').scripts['test:phase3'].includes('publish-workflow-policy-test.js'),'wired into test:phase3');
-console.log('Publish workflow: one button resolves the release commit, attaches a verified staged bundle or builds and validates from that commit, attaches only to zero-asset releases, refuses any release that has assets; never tags, edits or publishes. npm-publish then puts the byte-verified tarball on the registry once the release is live, skipping versions already published.');
+console.log('Publish workflow: one button resolves the release commit, attaches a verified staged bundle or builds and validates from that commit, attaches only to zero-asset releases, refuses a draft that has assets and leaves a published one untouched; never tags, edits or publishes. Once the release is live, npm-publish and github-packages-publish put the byte-verified tarball on the npm registry and GitHub Packages (owner-scoped name), skipping versions already published.');

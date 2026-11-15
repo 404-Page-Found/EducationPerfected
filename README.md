@@ -82,6 +82,12 @@ The installer is the same on every platform; pick yours:
 **Other ways to install:**
 - **Install scripts:** download `install.ps1` (Windows) or `install.sh` (macOS/Linux) from the release. After checking the script, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1` in PowerShell (bypass applies only to that process) or `sh install.sh` in a terminal. Follow the script's PATH instructions.
 - **npm:** run `npm install -g --allow-scripts=educationperfected educationperfected` (requires Node.js). The `--allow-scripts` opt-in is needed on npm 12+, which otherwise blocks the package's postinstall; the postinstall downloads the platform binary from the matching GitHub release and verifies it against that release's `SHA256SUMS`.
+- **GitHub Packages:** the same package is also published to GitHub's own npm registry as `@404-page-found/educationperfected`. GitHub requires a personal access token with `read:packages` even to install a public package, so use this route only if you prefer GitHub's registry over npmjs.com:
+  ```
+  npm config set @404-page-found:registry https://npm.pkg.github.com
+  npm config set //npm.pkg.github.com/:_authToken <your GitHub token>
+  npm install -g --allow-scripts=@404-page-found/educationperfected @404-page-found/educationperfected
+  ```
 
 After any of these, run `educationperfected setup`, then `educationperfected`. The install scripts and npm package verify the binary download against the release's `SHA256SUMS`; check manual downloads against it yourself. Raw platform binaries are also included for advanced use. On macOS/Linux, run `chmod +x <filename>` first; on macOS, remove quarantine with `xattr -d com.apple.quarantine <filename>` if blocked. Run the raw file by its path instead of `educationperfected` (for example, `.\educationperfected-windows-x64.exe setup` or `./educationperfected-macos-arm64 setup`).
 

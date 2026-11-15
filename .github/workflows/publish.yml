@@ -20,8 +20,11 @@ on:
 #    The verified files are attached to the draft and it STAYS a draft for
 #    manual review and publication. A zero-asset PUBLISHED release is also
 #    accepted, so a failed publish-first run can be retried without deleting
-#    the release. Any release that already has assets is refused: remove
-#    them manually to re-attach.
+#    the release. A DRAFT that already has assets is refused: remove them
+#    manually to re-attach. A PUBLISHED release that already has assets is
+#    left untouched, as on release:published - and the registry jobs still
+#    run, so a version released before a registry existed is backfilled by
+#    running this workflow with its tag.
 #  - release:published (fallback): if the owner publishes a release
 #    directly, the same pipeline attaches the verified files automatically -
 #    but only when the release has zero assets, so this never replaces
@@ -34,7 +37,7 @@ on:
 # from, never a rebuild of other bytes.
 # This workflow never creates tags, never edits or publishes a release, and
 # never replaces or removes assets.
-# npm publication is the last job and runs ONLY when the release is published
+# npm publication is a final job and runs ONLY when the release is published
 # (never for a draft) and only after the release files are in place: the npm
 # package's postinstall downloads the platform binary from the release, so the
 # registry package must not go live before the release does. Draft-first runs
@@ -52,6 +55,15 @@ on:
 # for a package that already exists. If it fails after the files were
 # attached, fix the credentials and use "Re-run failed jobs" - only
 # npm-publish runs again, the assets stay untouched.
+# GitHub Packages mirrors the same byte-verified tarball under the owner
+# scope, @404-page-found/educationperfected (that registry serves owner-
+# scoped names only, so the manifest name is the one change; the payload
+# bytes are the release's). Its repository field and the GITHUB_TOKEN
+# publisher link the package to this repository, so it appears under
+# Packages. The job runs on the same live-release conditions as npm-publish,
+# plus on a manual dispatch over an already-attached published release (the
+# backfill path). GITHUB_TOKEN (packages: write) is the only credential, and
+# a version already on GitHub Packages is skipped, so re-runs are safe.
 permissions: {}
 
 concurrency:
@@ -95,7 +107,7 @@ jobs:
           assets=$(jq '.assets | length' release.json)
           target=$(jq -r .target_commitish release.json)
           if [ "$assets" -ne 0 ]; then
-            if [ "$EVENT" = workflow_dispatch ]; then
+            if [ "$EVENT" = workflow_dispatch ] && [ "$draft" = true ]; then
               echo "Release $TAG already has $assets assets; remove them manually to re-attach."; exit 1
             fi
             echo "Release $TAG already has $assets assets; leaving it untouched."
@@ -598,3 +610,74 @@ jobs:
             exit 1
           fi
           echo "Published educationperfected@$version to the npm registry."
+  github-packages-publish:
+    needs: [plan, bundle, attach]
+    permissions:
+      contents: read
+      packages: write
+    # The same verified tarball, mirrored to GitHub Packages under the owner
+    # scope (that registry serves owner-scoped names only): the payload stays
+    # byte-identical to the release's npm tarball, only the manifest name
+    # changes. Runs wherever npm-publish can, and also on a manual dispatch
+    # against a published release whose files are already attached, which is
+    # how versions released before this job existed are backfilled.
+    if: ${{ !cancelled() && contains(fromJSON('["success","skipped"]'), needs.bundle.result) && contains(fromJSON('["success","skipped"]'), needs.attach.result) && needs.plan.outputs.draft == 'false' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ inputs.tag || github.event.release.tag_name }}
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.4
+      - name: Download the release tarball and re-verify it against SHA256SUMS
+        run: |
+          set -euo pipefail
+          version=${TAG#v}
+          mkdir npm-dist && cd npm-dist
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" --pattern "educationperfected-$version.tgz" --pattern SHA256SUMS
+          grep " educationperfected-$version.tgz\$" SHA256SUMS | sha256sum -c -
+      - name: Prepare the owner-scoped package from the verified tarball
+        env:
+          PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version=${TAG#v}
+          mkdir gpr
+          tar -xzf "npm-dist/educationperfected-$version.tgz" -C gpr
+          cd gpr/package
+          [ "$(jq -r .name package.json)" = educationperfected ]
+          [ "$(jq -r .version package.json)" = "$version" ] || { echo "tarball version is not $version"; exit 1; }
+          # GitHub Packages serves owner-scoped names only; the payload below
+          # stays byte-identical to the release tarball, only the manifest
+          # name changes.
+          jq '.name = "@404-page-found/educationperfected"' package.json > package.scoped.json
+          mv package.scoped.json package.json
+          # GITHUB_TOKEN authenticates the read check and the publish; it is
+          # written to this job-local .npmrc only.
+          printf '@404-page-found:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=%s\n' "$PACKAGES_TOKEN" > .npmrc
+      - name: Skip when this version is already on GitHub Packages
+        id: registry
+        working-directory: gpr/package
+        run: |
+          set -euo pipefail
+          version=${TAG#v}
+          if published=$(npm view "@404-page-found/educationperfected@$version" version 2>view.err) && [ "$published" = "$version" ]; then
+            echo "@404-page-found/educationperfected@$version is already on GitHub Packages; skipping publish."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          grep -q E404 view.err || { echo "GitHub Packages check failed:"; cat view.err; exit 1; }
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+      - name: Publish to GitHub Packages
+        if: steps.registry.outputs.exists == 'false'
+        working-directory: gpr/package
+        run: |
+          set -euo pipefail
+          version=${TAG#v}
+          if ! npm publish; then
+            echo "::error::GitHub Packages publish failed. The release files and the npmjs package stay untouched; fix the cause and use 'Re-run failed jobs' - only failed jobs run again."
+            exit 1
+          fi
+          echo "Published @404-page-found/educationperfected@$version to GitHub Packages."
