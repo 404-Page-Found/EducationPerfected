@@ -512,8 +512,9 @@ jobs:
           assets=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate | jq -s --arg t "$TAG" 'add | [.[] | select(.tag_name == $t)] | first | .assets | length')
           [ "$assets" -eq 0 ] || { echo "Release $TAG gained $assets assets since the run started; refusing to attach."; exit 1; }
           cd bundle
-          gh release upload "$TAG" -- *
-          count=$(gh release view "$TAG" --json assets --jq '.assets | length')
+          # No checkout in this job: gh release needs the repository named.
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" -- *
+          count=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')
           echo "Attached $count assets to $TAG. Publication stays manual; this workflow only attaches files."
   npm-publish:
     needs: [plan, bundle, attach]
@@ -544,7 +545,8 @@ jobs:
           set -euo pipefail
           version=${TAG#v}
           mkdir npm-dist && cd npm-dist
-          gh release download "$TAG" --pattern "educationperfected-$version.tgz" --pattern SHA256SUMS
+          # No checkout in this job either: name the repository explicitly.
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" --pattern "educationperfected-$version.tgz" --pattern SHA256SUMS
           grep " educationperfected-$version.tgz\$" SHA256SUMS | sha256sum -c -
       - name: Check the tarball is this release's package
         run: |
