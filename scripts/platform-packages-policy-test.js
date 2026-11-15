@@ -21,4 +21,4 @@ for(const required of ['EP_INSTALL_BASE_URL','SHA256SUMS','Checksum mismatch','m
 const staging=fs.readFileSync(path.join(__dirname,'../.github/workflows/release-bundle-staging.yml'),'utf8');
 for(const required of ['21 payload files','install.sh','install.ps1','educationperfected-macos-arm64.pkg','_amd64.deb','.x86_64.rpm','educationperfected-${RELEASE_VERSION}.tgz'])assert.ok(staging.includes(required),required);
 assert.ok(require('../package.json').scripts['test:phase3'].includes('platform-packages-policy-test.js'),'wired into test:phase3');
-console.log('Platform packages: pkg/deb/rpm byte-verified in lanes, curl/PowerShell installers verify SHA256SUMS, npm package prepared (never published by CI).');
+console.log('Platform packages: pkg/deb/rpm byte-verified in lanes, curl/PowerShell installers verify SHA256SUMS, npm package prepared and published by the Publish workflow once the release is live.');

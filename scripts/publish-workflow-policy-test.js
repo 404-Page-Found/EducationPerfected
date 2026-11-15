@@ -18,11 +18,16 @@ for(const required of [
  'build-downloadable','downloadable-candidate-','persist-credentials: false',
  'byte-identical','21 payload files','release-notes.md','THIRD-PARTY-NOTICES-$target.zip',
  'educationperfected-windows-x64-setup.exe','retention-days: 90','if-no-files-found: error',
- 'attach=true','bundle_id','label=$version-validation.1',
+ 'attach=true','bundle_id','label=$version-validation.1','draft=$draft',
+ // npm publication: last job, live releases only, byte-verified tarball,
+ // double-publish safe, explicit credentials, recoverable on failure.
+ 'npm-publish:','id-token: write','NPM_TOKEN','--provenance','--access public',
+ 'gh release download "$TAG"','already on the registry; skipping publish',
+ 'Re-run failed jobs','--ignore-scripts npm@12.2.2','vars.NPM_TRUSTED_PUBLISHING',
 ])assert.ok(source.includes(required),required);
 assert.ok(!source.includes('not a draft; refusing'),'a zero-asset published release is accepted for recovery');
 assert.ok(!source.includes('--clobber'),'never replaces assets');
 assert.doesNotMatch(source,/pull_request_target|git push|gh release create|gh release edit|gh release publish|gh release delete|types: \[created|softprops|ncipollo/);
 for(const line of source.split('\n'))if(line.includes('uses:'))assert.match(line,/\/[a-z0-9-]+@[a-f0-9]{40}(?:\s|$)/,'pinned action: '+line);
 assert.ok(require('../package.json').scripts['test:phase3'].includes('publish-workflow-policy-test.js'),'wired into test:phase3');
-console.log('Publish workflow: one button resolves the release commit, attaches a verified staged bundle or builds and validates from that commit, attaches only to zero-asset releases, refuses any release that has assets; never tags, edits or publishes.');
+console.log('Publish workflow: one button resolves the release commit, attaches a verified staged bundle or builds and validates from that commit, attaches only to zero-asset releases, refuses any release that has assets; never tags, edits or publishes. npm-publish then puts the byte-verified tarball on the registry once the release is live, skipping versions already published.');

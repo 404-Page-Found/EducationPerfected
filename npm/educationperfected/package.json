@@ -3,6 +3,11 @@
   "version": "2026.11.15",
   "description": "Education Perfect helper CLI (downloads the verified platform binary from GitHub releases)",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/404-Page-Found/EducationPerfected.git",
+    "directory": "npm/educationperfected"
+  },
   "bin": {
     "educationperfected": "bin/educationperfected.js"
   },

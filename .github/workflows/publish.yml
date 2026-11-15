@@ -32,8 +32,26 @@ on:
 # bundle byte-identical to the validated candidates, and attaches it. The
 # attached files are always the exact bytes validated in the run they came
 # from, never a rebuild of other bytes.
-# This workflow never creates tags, never edits or publishes a release, never
-# replaces or removes assets, and never touches npm.
+# This workflow never creates tags, never edits or publishes a release, and
+# never replaces or removes assets.
+# npm publication is the last job and runs ONLY when the release is published
+# (never for a draft) and only after the release files are in place: the npm
+# package's postinstall downloads the platform binary from the release, so the
+# registry package must not go live before the release does. Draft-first runs
+# skip it; publishing the draft fires release:published, whose run leaves the
+# attached files untouched and runs it. The tarball is downloaded back from
+# the release and re-verified against the release's SHA256SUMS, so the
+# registry receives the exact bytes that were validated and attached. A
+# version already on the registry is skipped, so re-runs are safe.
+# Credentials: the NPM_TOKEN secret when set; otherwise OIDC trusted
+# publishing (npm CLI >= 11.5.1 auto-detects it), which is used only when the
+# NPM_TRUSTED_PUBLISHING repository variable is true - set it after trusted
+# publishing is configured on npmjs.com for this repo and publish.yml. With
+# neither, the job fails BEFORE publishing with the setup steps; the first
+# publish needs NPM_TOKEN, because npmjs.com only offers trusted publishing
+# for a package that already exists. If it fails after the files were
+# attached, fix the credentials and use "Re-run failed jobs" - only
+# npm-publish runs again, the assets stay untouched.
 permissions: {}
 
 concurrency:
@@ -53,6 +71,7 @@ jobs:
       sha: ${{ steps.plan.outputs.sha }}
       bundle_id: ${{ steps.plan.outputs.bundle_id }}
       label: ${{ steps.plan.outputs.label }}
+      draft: ${{ steps.plan.outputs.draft }}
     steps:
       - name: Resolve the release, its commit and any verified staged bundle
         id: plan
@@ -66,6 +85,7 @@ jobs:
           echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "tag must be v<three numeric parts>, got $TAG"; exit 1; }
           gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > release.json
           draft=$(jq -r .draft release.json)
+          echo "draft=$draft" >> "$GITHUB_OUTPUT"
           assets=$(jq '.assets | length' release.json)
           target=$(jq -r .target_commitish release.json)
           if [ "$assets" -ne 0 ]; then
@@ -489,3 +509,84 @@ jobs:
           gh release upload "$TAG" -- *
           count=$(gh release view "$TAG" --json assets --jq '.assets | length')
           echo "Attached $count assets to $TAG. Publication stays manual; this workflow only attaches files."
+  npm-publish:
+    needs: [plan, bundle, attach]
+    permissions:
+      contents: read
+      id-token: write
+    # Runs after the files are attached to a LIVE release (attach == true, or a
+    # release:published event where the release already has its files). Draft
+    # releases skip it; publishing the draft fires release:published and it
+    # runs there. See the header for the ordering rationale and recovery.
+    if: ${{ !cancelled() && contains(fromJSON('["success","skipped"]'), needs.bundle.result) && contains(fromJSON('["success","skipped"]'), needs.attach.result) && needs.plan.outputs.draft == 'false' && (needs.plan.outputs.attach == 'true' || github.event_name == 'release') }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ inputs.tag || github.event.release.tag_name }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.4
+          registry-url: https://registry.npmjs.org
+      # Pinned and script-free: trusted publishing needs npm CLI >= 11.5.1.
+      - name: Install a pinned npm for trusted publishing support (>= 11.5.1)
+        run: npm install -g --ignore-scripts npm@12.2.2
+      - name: Download the release tarball and re-verify it against SHA256SUMS
+        run: |
+          set -euo pipefail
+          version=${TAG#v}
+          mkdir npm-dist && cd npm-dist
+          gh release download "$TAG" --pattern "educationperfected-$version.tgz" --pattern SHA256SUMS
+          grep " educationperfected-$version.tgz\$" SHA256SUMS | sha256sum -c -
+      - name: Check the tarball is this release's package
+        run: |
+          set -euo pipefail
+          version=${TAG#v}
+          tar -xzf "npm-dist/educationperfected-$version.tgz" -O package/package.json > npm-pkg.json
+          [ "$(jq -r .name npm-pkg.json)" = educationperfected ]
+          [ "$(jq -r .version npm-pkg.json)" = "$version" ] || { echo "tarball version is not $version"; exit 1; }
+      - name: Skip when this version is already on the registry
+        id: registry
+        run: |
+          set -euo pipefail
+          version=${TAG#v}
+          if published=$(npm view "educationperfected@$version" version 2>view.err) && [ "$published" = "$version" ]; then
+            echo "educationperfected@$version is already on the registry; skipping publish."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          grep -q E404 view.err || { echo "registry check failed:"; cat view.err; exit 1; }
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+      # Honest pre-flight: with id-token: write an OIDC request token always
+      # exists, so trusted publishing is used only on the owner's explicit
+      # opt-in (the repository variable), never silently.
+      - name: Check npm credentials before publishing
+        if: steps.registry.outputs.exists == 'false'
+        env:
+          NPM_TRUSTED_PUBLISHING: ${{ vars.NPM_TRUSTED_PUBLISHING }}
+        run: |
+          set -euo pipefail
+          if [ -n "${NPM_TOKEN:-}" ]; then
+            echo "Publishing with the NPM_TOKEN secret."
+          elif [ "${NPM_TRUSTED_PUBLISHING:-}" = "true" ]; then
+            echo "No NPM_TOKEN secret; using OIDC trusted publishing, enabled by the NPM_TRUSTED_PUBLISHING repository variable (must be configured on npmjs.com: package settings -> Trusted Publisher, 404-Page-Found / EducationPerfected / publish.yml, allowed to npm publish)."
+          else
+            echo "::error::No npm credentials. Add an NPM_TOKEN repository secret (npmjs.com -> Access Tokens -> Granular Access Token with Read and write on packages); the first publish needs it, because npmjs.com only offers trusted publishing for a package that already exists. Once trusted publishing IS configured for 404-Page-Found/EducationPerfected workflow publish.yml, set the NPM_TRUSTED_PUBLISHING repository variable to true instead. Then re-run this failed job."
+            exit 1
+          fi
+      - name: Publish to the npm registry
+        if: steps.registry.outputs.exists == 'false'
+        working-directory: npm-dist
+        run: |
+          set -euo pipefail
+          version=${TAG#v}
+          if [ -n "${NPM_TOKEN:-}" ]; then
+            printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > .npmrc
+          fi
+          if ! npm publish "educationperfected-$version.tgz" --access public --provenance; then
+            echo "::error::npm publish failed. The release files are already attached and stay attached; fix the npm credentials (NPM_TOKEN secret, or npmjs.com trusted publisher for 404-Page-Found/EducationPerfected workflow publish.yml) and use 'Re-run failed jobs' - only this job runs again."
+            exit 1
+          fi
+          echo "Published educationperfected@$version to the npm registry."

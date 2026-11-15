@@ -81,7 +81,7 @@ The installer is the same on every platform; pick yours:
 
 **Other ways to install:**
 - **Install scripts:** download `install.ps1` (Windows) or `install.sh` (macOS/Linux) from the release. After checking the script, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1` in PowerShell (bypass applies only to that process) or `sh install.sh` in a terminal. Follow the script's PATH instructions.
-- **npm:** download `educationperfected-2026.11.15.tgz` from the release, then run `npm install -g --allow-scripts=educationperfected ./educationperfected-2026.11.15.tgz` (requires Node.js).
+- **npm:** run `npm install -g --allow-scripts=educationperfected educationperfected` (requires Node.js). The `--allow-scripts` opt-in is needed on npm 12+, which otherwise blocks the package's postinstall; the postinstall downloads the platform binary from the matching GitHub release and verifies it against that release's `SHA256SUMS`.
 
 After any of these, run `educationperfected setup`, then `educationperfected`. The install scripts and npm package verify the binary download against the release's `SHA256SUMS`; check manual downloads against it yourself. Raw platform binaries are also included for advanced use. On macOS/Linux, run `chmod +x <filename>` first; on macOS, remove quarantine with `xattr -d com.apple.quarantine <filename>` if blocked. Run the raw file by its path instead of `educationperfected` (for example, `.\educationperfected-windows-x64.exe setup` or `./educationperfected-macos-arm64 setup`).
 
