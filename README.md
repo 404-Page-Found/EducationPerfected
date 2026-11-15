@@ -59,15 +59,27 @@ This version name does not mean the packaged CLI has shipped; its release gates 
 
 Installers will be available with **v2026.11.15**; no V2026 packaged release is published yet. The [Publish workflow](.github/workflows/publish.yml) attaches them to the release (see the [release notes](release/release-notes-2026.11.15.md)). The gates in the sections below still apply.
 
-**Windows (recommended):**
+The installer is the same on every platform; pick yours:
+
+**Windows:**
 1. Download `educationperfected-windows-x64-setup.exe` and `SHA256SUMS` from the release. Check the download against `SHA256SUMS` before running it.
 2. Run the installer (per-user, no admin). Select **Add EducationPerfected to your PATH**. Builds are unsigned; if SmartScreen shows "Windows protected your PC", choose **More info -> Run anyway**.
 3. Open a new terminal and run `educationperfected setup`. It asks consent for a one-time Chrome download from Google, then offers an optional saved login.
 4. Run `educationperfected`.
 
-**Other installation options:**
-- **macOS:** run `educationperfected-macos-arm64.pkg` or `educationperfected-macos-x64.pkg` (unsigned - right-click it and choose Open).
-- **Linux:** install the `.deb` or `.rpm` for your architecture.
+**macOS:**
+1. Download `educationperfected-macos-arm64.pkg` (Apple Silicon) or `educationperfected-macos-x64.pkg` (Intel) and `SHA256SUMS` from the release. Check the download against `SHA256SUMS` before running it.
+2. Run the installer; it puts `educationperfected` in `/usr/local/bin`, which is already on your PATH. Builds are unsigned; right-click the `.pkg` and choose **Open**.
+3. Open a new terminal and run `educationperfected setup`. It asks consent for a one-time Chrome download from Google, then offers an optional saved login.
+4. Run `educationperfected`.
+
+**Linux:**
+1. Download the `.deb` or `.rpm` for your architecture and `SHA256SUMS` from the release. Check the download against `SHA256SUMS` before installing it.
+2. Install the package with your package manager (for example `sudo apt install ./educationperfected_2026.11.15_amd64.deb` or `sudo dnf install ./educationperfected-2026.11.15-1.x86_64.rpm`). It puts `educationperfected` in `/usr/bin`, which is already on your PATH.
+3. Run `educationperfected setup`. It asks consent for a one-time Chrome download from Google, then offers an optional saved login.
+4. Run `educationperfected`.
+
+**Other ways to install:**
 - **Install scripts:** download `install.ps1` (Windows) or `install.sh` (macOS/Linux) from the release. After checking the script, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1` in PowerShell (bypass applies only to that process) or `sh install.sh` in a terminal. Follow the script's PATH instructions.
 - **npm:** download `educationperfected-2026.11.15.tgz` from the release, then run `npm install -g --allow-scripts=educationperfected ./educationperfected-2026.11.15.tgz` (requires Node.js).
 
