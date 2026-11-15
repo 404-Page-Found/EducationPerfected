@@ -104,7 +104,7 @@ fs.writeFileSync(path.join(out,'sea.json'),JSON.stringify({assets:{manifest:'ine
     const workflow=fs.readFileSync(path.resolve(__dirname,'../.github/workflows/beta-preparation.yml'),'utf8');
     assert.match(workflow,/^name: V2026 stable-release preparation \(no publication\)$/m);
     const stableVersion=require('../package.json').version;
-    assert.equal(stableVersion,'2026.11.14');
+    assert.equal(stableVersion,'2026.11.15');
     assert.equal(require('../package-lock.json').version,stableVersion);
     assert.equal(require('../package-lock.json').packages[''].version,stableVersion);
     const active=workflow.split('\n').filter(line=>!line.trimStart().startsWith('#')).join('\n');
