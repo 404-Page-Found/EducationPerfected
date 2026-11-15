@@ -68,10 +68,10 @@ Installers will be available with **v2026.11.15**; no V2026 packaged release is 
 **Other installation options:**
 - **macOS:** run `educationperfected-macos-arm64.pkg` or `educationperfected-macos-x64.pkg` (unsigned - right-click it and choose Open).
 - **Linux:** install the `.deb` or `.rpm` for your architecture.
-- **Install scripts:** download `install.ps1` (Windows) or `install.sh` (macOS/Linux) from the release. Run `.\install.ps1` in PowerShell or `sh install.sh` in a terminal. Follow the script's PATH instructions.
+- **Install scripts:** download `install.ps1` (Windows) or `install.sh` (macOS/Linux) from the release. After checking the script, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1` in PowerShell (bypass applies only to that process) or `sh install.sh` in a terminal. Follow the script's PATH instructions.
 - **npm:** download `educationperfected-2026.11.15.tgz` from the release, then run `npm install -g ./educationperfected-2026.11.15.tgz` (requires Node.js).
 
-After any of these, run `educationperfected setup`, then `educationperfected`. The install scripts and npm package verify the binary download against the release's `SHA256SUMS`; check manual downloads against it yourself. Raw platform binaries are also included for advanced use; run their file name instead of `educationperfected`.
+After any of these, run `educationperfected setup`, then `educationperfected`. The install scripts and npm package verify the binary download against the release's `SHA256SUMS`; check manual downloads against it yourself. Raw platform binaries are also included for advanced use. On macOS/Linux, run `chmod +x <filename>` first; on macOS, remove quarantine with `xattr -d com.apple.quarantine <filename>` if blocked. Run the raw file by its path instead of `educationperfected` (for example, `.\educationperfected-windows-x64.exe setup` or `./educationperfected-macos-arm64 setup`).
 
 ### From source (advanced)
 
