@@ -3,9 +3,9 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const source=fs.readFileSync(path.join(__dirname,'../.github/workflows/publish.yml'),'utf8');
 for(const required of [
  'name: Publish','workflow_dispatch:','tag:','types: [published]','contents: write','actions: read',
- // Least privilege: nothing at top level; contents: write only on the attach job.
+ // Least privilege: nothing at top level; contents: write only where drafts or assets demand it.
  'permissions: {}',
- 'releases/tags/$TAG','.draft','.assets | length','.target_commitish','Not Found',
+ 'releases?per_page=100','--paginate','select(.tag_name == $t)','.draft','.assets | length','.target_commitish','Not Found',
  'release-bundle-v','workflow_run.head_sha','.github/workflows/release-bundle-staging.yml','.conclusion',
  'sha256sum -c SHA256SUMS','20 payloads + SHA256SUMS','%{redirect_url}',
  'gh release upload "$TAG" -- *','Publication stays manual',
@@ -27,6 +27,8 @@ for(const required of [
 ])assert.ok(source.includes(required),required);
 assert.ok(!source.includes('not a draft; refusing'),'a zero-asset published release is accepted for recovery');
 assert.ok(!source.includes('release/release-notes-'),'release notes are GitHub-generated; no hand-written notes file is bundled');
+assert.ok(!source.includes('releases/tags/$TAG'),'the by-tag endpoint 404s on draft releases, the primary path; resolve via the releases list');
+assert.ok(!source.includes('releases/tags/'),'no release-by-tag lookups anywhere: drafts are invisible to that endpoint');
 assert.ok(!source.includes('--clobber'),'never replaces assets');
 assert.doesNotMatch(source,/pull_request_target|git push|gh release create|gh release edit|gh release publish|gh release delete|types: \[created|softprops|ncipollo/);
 for(const line of source.split('\n'))if(line.includes('uses:'))assert.match(line,/\/[a-z0-9-]+@[a-f0-9]{40}(?:\s|$)/,'pinned action: '+line);

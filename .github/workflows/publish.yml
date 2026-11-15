@@ -62,7 +62,9 @@ jobs:
   plan:
     permissions:
       actions: read
-      contents: read
+      # write, not read: draft releases are visible only with push access,
+      # and the draft-first flow resolves a draft. Nothing here pushes.
+      contents: write
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     outputs:
@@ -83,7 +85,11 @@ jobs:
           set -euo pipefail
           version=${TAG#v}
           echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "tag must be v<three numeric parts>, got $TAG"; exit 1; }
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > release.json
+          # The by-tag release endpoint returns published releases only (404 for drafts),
+          # and a draft is the primary path; list and match the tag instead.
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate > releases.json
+          jq -s --arg t "$TAG" 'add | [.[] | select(.tag_name == $t)] | first' releases.json > release.json
+          [ "$(jq -r .id release.json)" != null ] || { echo "No release (draft or published) named $TAG. Save an EMPTY draft release with tag $TAG first, then run Publish."; exit 1; }
           draft=$(jq -r .draft release.json)
           echo "draft=$draft" >> "$GITHUB_OUTPUT"
           assets=$(jq '.assets | length' release.json)
@@ -502,7 +508,8 @@ jobs:
           set -euo pipefail
           # Final guard, checked immediately before upload on both paths: never
           # attach over existing assets.
-          assets=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets | length')
+          # Same draft-safe resolution as the plan job: the by-tag endpoint 404s on drafts.
+          assets=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate | jq -s --arg t "$TAG" 'add | [.[] | select(.tag_name == $t)] | first | .assets | length')
           [ "$assets" -eq 0 ] || { echo "Release $TAG gained $assets assets since the run started; refusing to attach."; exit 1; }
           cd bundle
           gh release upload "$TAG" -- *
