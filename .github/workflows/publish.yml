@@ -3,23 +3,35 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing empty DRAFT release tag (v<version>) to attach the verified bundle to'
+        description: 'Existing EMPTY release tag (v<version>), draft or published, to build, verify and attach the release files to'
         required: true
         type: string
   release:
     types: [published]
 
-# Attach-only automation. Two entry points, both refusing to touch any release
-# that already has assets, and both ending in a manual owner review:
-#  - workflow_dispatch (primary): the owner saves an EMPTY draft release, then
-#    runs this workflow with its tag. Drafts fire no release events (GitHub
-#    limitation), so the button is the only way to reach a draft. The assets
-#    are attached to the draft and it STAYS a draft for manual publication.
-#    A draft that already has assets is refused: remove them manually to
-#    re-attach.
-#  - release:published (fallback): if the owner publishes a release directly,
-#    the verified assets are attached automatically - but only when the
-#    release has zero assets, so this never replaces anything.
+# One button from an empty release to verified, attached files. The commit
+# comes from the release itself - its tag, or its target (paste the full
+# commit SHA as the target; a branch target is resolved once, at run start) -
+# so main may move freely after the release is created; the build never
+# follows it. No separate staging has to be redone.
+#  - workflow_dispatch (primary): the owner saves an EMPTY draft release
+#    (drafts fire no release events, a GitHub limitation, so the button is
+#    the only way to reach a draft), then runs this workflow with its tag.
+#    The verified files are attached to the draft and it STAYS a draft for
+#    manual review and publication. A zero-asset PUBLISHED release is also
+#    accepted, so a failed publish-first run can be retried without deleting
+#    the release. Any release that already has assets is refused: remove
+#    them manually to re-attach.
+#  - release:published (fallback): if the owner publishes a release
+#    directly, the same pipeline attaches the verified files automatically -
+#    but only when the release has zero assets, so this never replaces
+#    anything.
+# Either path first looks for a verified staged bundle for that exact commit
+# and attaches it directly; otherwise this run builds the five native
+# candidates from that commit with every validation lane, assembles the
+# bundle byte-identical to the validated candidates, and attaches it. The
+# attached files are always the exact bytes validated in the run they came
+# from, never a rebuild of other bytes.
 # This workflow never creates tags, never edits or publishes a release, never
 # replaces or removes assets, and never touches npm.
 permissions:
@@ -31,11 +43,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  attach:
+  plan:
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 10
+    outputs:
+      attach: ${{ steps.plan.outputs.attach }}
+      version: ${{ steps.plan.outputs.version }}
+      sha: ${{ steps.plan.outputs.sha }}
+      bundle_id: ${{ steps.plan.outputs.bundle_id }}
+      label: ${{ steps.plan.outputs.label }}
     steps:
-      - name: Resolve the release, its commit and whether to attach
+      - name: Resolve the release, its commit and any verified staged bundle
         id: plan
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -49,16 +67,15 @@ jobs:
           draft=$(jq -r .draft release.json)
           assets=$(jq '.assets | length' release.json)
           target=$(jq -r .target_commitish release.json)
-          if [ "$EVENT" = workflow_dispatch ]; then
-            [ "$draft" = true ] || { echo "Release $TAG is not a draft; refusing to modify a published release."; exit 1; }
-            [ "$assets" -eq 0 ] || { echo "Draft $TAG already has $assets assets; remove them manually to re-attach."; exit 1; }
-          else
-            if [ "$assets" -ne 0 ]; then
-              echo "Release $TAG already has $assets assets; leaving it untouched."
-              echo "attach=false" >> "$GITHUB_OUTPUT"
-              exit 0
+          if [ "$assets" -ne 0 ]; then
+            if [ "$EVENT" = workflow_dispatch ]; then
+              echo "Release $TAG already has $assets assets; remove them manually to re-attach."; exit 1
             fi
+            echo "Release $TAG already has $assets assets; leaving it untouched."
+            echo "attach=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          [ "$draft" = true ] || echo "Release $TAG is already published with zero assets; attaching the verified files to it."
           gitapi="repos/$GITHUB_REPOSITORY/git"
           if refjson=$(gh api "$gitapi/ref/tags/$TAG" 2>ref-error.txt); then
             ref=$(echo "$refjson" | jq -r .object.sha)
@@ -68,51 +85,380 @@ jobs:
               sha=$ref
             fi
           elif grep -q 'Not Found' ref-error.txt; then
-            # A draft's new tag exists only after publication; use the head of
-            # the branch the release targets, resolved now.
-            sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$target" --jq '.sha')
+            # A draft's new tag exists only after publication. The release's
+            # target names the intended commit: a full SHA is used verbatim,
+            # a branch name is resolved once, now. main moving later does not
+            # retarget this run.
+            if echo "$target" | grep -qE '^[0-9a-f]{40}$'; then
+              sha=$target
+            else
+              sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$target" --jq '.sha')
+            fi
           else
             echo "Tag ref lookup failed for $TAG:"; cat ref-error.txt; exit 1
           fi
           echo "$sha" | grep -qE '^[0-9a-f]{40}$' || { echo "could not resolve a commit for $TAG"; exit 1; }
+          # Package file names embed package.json's version; refuse a commit
+          # whose version is not this tag's version.
+          pkgv=$(gh api "repos/$GITHUB_REPOSITORY/contents/package.json?ref=$sha" --jq '.content' | base64 -d | jq -r .version)
+          [ "$pkgv" = "$version" ] || { echo "package.json at $sha is version $pkgv, not $version"; exit 1; }
+          # A verified staged bundle for this exact commit attaches directly;
+          # otherwise this run builds and validates from the commit. Bundles
+          # this workflow assembled and verified itself qualify the same way.
+          want="release-bundle-v$version-$sha"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100&name=$want" > artifacts.json
+          filter='[.artifacts[] | select(.name == $n and (.expired | not) and .workflow_run.head_sha == $s)]'
+          bundle_id=''
+          if [ "$(jq --arg n "$want" --arg s "$sha" "$filter | length" artifacts.json)" -ge 1 ]; then
+            latest=$(jq -r --arg n "$want" --arg s "$sha" "$filter | sort_by(.created_at) | last | [.id, .workflow_run.id] | @tsv" artifacts.json)
+            id=${latest%%$'\t'*}
+            runid=${latest##*$'\t'}
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$runid" > staging-run.json
+            path=$(jq -r .path staging-run.json)
+            case "$path" in
+              .github/workflows/release-bundle-staging.yml|.github/workflows/publish.yml) ;;
+              *) echo "bundle artifact came from $path, not a release bundling workflow"; exit 1;;
+            esac
+            [ "$(jq -r .conclusion staging-run.json)" = success ] || { echo "bundling run $runid was not green"; exit 1; }
+            bundle_id=$id
+            echo "Verified staged bundle $want found (artifact $id from $path); attaching it directly."
+          else
+            echo "No verified staged bundle $want; this run will build and validate from $sha."
+          fi
+          # The internal build label names the build, not a published version.
           echo "attach=true" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-      - name: Find the staging bundle built from that commit
-        id: bundle
-        if: steps.plan.outputs.attach == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.plan.outputs.version }}
-          SHA: ${{ steps.plan.outputs.sha }}
+          echo "bundle_id=$bundle_id" >> "$GITHUB_OUTPUT"
+          echo "label=$version-validation.1" >> "$GITHUB_OUTPUT"
+  candidates:
+    needs: plan
+    if: ${{ needs.plan.outputs.attach == 'true' && needs.plan.outputs.bundle_id == '' }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            target: linux-x64
+          - runner: ubuntu-22.04-arm
+            target: linux-arm64
+          - runner: windows-2025
+            target: windows-x64
+          - runner: macos-15
+            target: macos-arm64
+          - runner: macos-15-intel
+            target: macos-x64
+    runs-on: ${{ matrix.runner }}
+    env:
+      RESOLVED_SHA: ${{ needs.plan.outputs.sha }}
+      VALIDATION_LABEL: ${{ needs.plan.outputs.label }}
+      CANDIDATE_TARGET: ${{ matrix.target }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.4
+      - name: Validate candidate label, clean source and native host
+        # The build scripts refuse a checkout that is not the intended commit;
+        # RESOLVED_SHA is that commit (the release's), not the dispatch ref's.
+        run: GITHUB_SHA="$RESOLVED_SHA" node scripts/beta-candidate.js check "$VALIDATION_LABEL" "$CANDIDATE_TARGET"
+      - name: Install pinned dependencies without lifecycle hooks
+        run: npm ci --ignore-scripts
+      - name: Run build-preparation contracts
         run: |
           set -euo pipefail
-          want="release-bundle-v$VERSION-$SHA"
-          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100&name=$want" > artifacts.json
-          filter='[.artifacts[] | select(.name == $n and (.expired | not) and .workflow_run.head_sha == $s)]'
-          if [ "$(jq --arg n "$want" --arg s "$SHA" "$filter | length" artifacts.json)" -lt 1 ]; then
-            echo "No usable staging bundle $want. Run Release bundle staging for that commit first (or check the target branch has not moved since the release was created)."
-            exit 1
-          fi
-          latest=$(jq -r --arg n "$want" --arg s "$SHA" "$filter | sort_by(.created_at) | last | [.id, .workflow_run.id] | @tsv" artifacts.json)
-          id=${latest%%$'\t'*}
-          runid=${latest##*$'\t'}
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$runid" > staging-run.json
-          path=$(jq -r .path staging-run.json)
-          [ "$path" = .github/workflows/release-bundle-staging.yml ] || { echo "bundle artifact came from $path, not release-bundle-staging.yml"; exit 1; }
-          [ "$(jq -r .conclusion staging-run.json)" = success ] || { echo "staging run $runid was not green"; exit 1; }
-          echo "id=$id" >> "$GITHUB_OUTPUT"
-      - name: Download and verify the bundle
-        if: steps.plan.outputs.attach == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ARTIFACT_ID: ${{ steps.bundle.outputs.id }}
+          npm run test:beta-preparation
+          npm run test:release-gate
+          node scripts/sea-checksum-test.js
+          node scripts/build-preflight-test.js
+          node scripts/packaged-startup-evidence-test.js
+          node scripts/test-startup-failure-test.js
+          node scripts/windows-navigation-panel-test.js
+          node scripts/runtime-directory-test.js
+          if [ "$RUNNER_OS" = Windows ]; then python_bin=python; else python_bin=python3; fi
+          "$python_bin" scripts/windows-conpty-test.py
+          "$python_bin" scripts/downloadable-first-run-windows-test.py
+      - name: Build fresh native candidate and inventory exact bytes
+        id: candidate_build
+        run: GITHUB_SHA="$RESOLVED_SHA" node scripts/beta-candidate.js build-downloadable "$VALIDATION_LABEL" "$CANDIDATE_TARGET"
+      - name: Build the per-user Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw 'Inno Setup 6 (ISCC.exe) not found on this runner image.' }
+          $version = node -p "require('./package.json').version"
+          $root = (Get-Location).Path
+          $out = Join-Path $root 'build\windows-x64-downloadable'
+          $src = Join-Path $out 'educationperfected.exe'
+          $iss = Join-Path $root 'installer\windows-setup.iss'
+          & $iscc "/DAppVersion=$version" "/DSourceExe=$src" "/DOutputDir=$out" $iss | Out-Host
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Checksum the Windows installer
+        if: runner.os == 'Windows'
+        run: |
+          cd build/windows-x64-downloadable
+          sha256sum educationperfected-windows-x64-setup.exe >> SHA256SUMS
+      - name: Install rpm tooling for Linux package lanes
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm rpm2cpio
+      - name: Build and byte-verify platform packages
+        if: runner.os != 'Windows'
+        run: |
+          version=$(node -p "require('./package.json').version")
+          scripts/build-packages.sh "$CANDIDATE_TARGET" "$version" "build/$CANDIDATE_TARGET-downloadable/educationperfected" "build/$CANDIDATE_TARGET-downloadable"
+      - name: Pack the npm installer package
+        if: matrix.target == 'linux-x64'
+        run: |
+          version=$(node -p "require('./package.json').version")
+          (cd npm/educationperfected && npm pack --pack-destination "../../build/$CANDIDATE_TARGET-downloadable" >/dev/null)
+          test -f "build/$CANDIDATE_TARGET-downloadable/educationperfected-$version.tgz"
+      - name: Checksum the platform packages
+        if: runner.os != 'Windows'
+        run: |
+          cd "build/$CANDIDATE_TARGET-downloadable"
+          for f in educationperfected-*.pkg educationperfected_*.deb educationperfected-*.rpm educationperfected-*.tgz; do
+            if [ -e "$f" ]; then sha256sum "$f" >> SHA256SUMS; fi
+          done
+      - name: Exercise install.sh end-to-end against the local candidate
+        if: runner.os != 'Windows'
+        run: |
+          dist=$(mktemp -d)
+          cp "build/$CANDIDATE_TARGET-downloadable/educationperfected" "$dist/educationperfected-$CANDIDATE_TARGET"
+          (cd "$dist" && sha256sum -- * > SHA256SUMS)
+          home=$(mktemp -d)
+          EP_INSTALL_BASE_URL="file://$dist" HOME="$home" sh installer/install.sh test-version
+          "$home/.local/bin/educationperfected" version | head -1
+      - name: Exercise the npm package end-to-end against the local candidate
+        if: matrix.target == 'linux-x64'
+        run: |
+          version=$(node -p "require('./package.json').version")
+          dist=$(mktemp -d)
+          cp "build/$CANDIDATE_TARGET-downloadable/educationperfected" "$dist/educationperfected-$CANDIDATE_TARGET"
+          (cd "$dist" && sha256sum -- * > SHA256SUMS)
+          app=$(mktemp -d) && cd "$app" && npm init -y >/dev/null
+          EP_INSTALL_BASE_URL="file://$dist" npm install "$OLDPWD/build/$CANDIDATE_TARGET-downloadable/educationperfected-$version.tgz" >/dev/null
+          "./node_modules/.bin/educationperfected" version | head -1
+      - name: Exercise install.ps1 end-to-end against the local candidate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dist = Join-Path $env:RUNNER_TEMP 'ep-dist'
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+          Copy-Item 'build\windows-x64-downloadable\educationperfected.exe' (Join-Path $dist 'educationperfected-windows-x64.exe')
+          $hash = (Get-FileHash -Algorithm SHA256 (Join-Path $dist 'educationperfected-windows-x64.exe')).Hash.ToLowerInvariant()
+          "$hash  educationperfected-windows-x64.exe" | Set-Content (Join-Path $dist 'SHA256SUMS')
+          $env:EP_INSTALL_BASE_URL = $dist
+          & installer\install.ps1 -Version test-version
+          $installed = Join-Path $env:LOCALAPPDATA 'Programs\EducationPerfected\educationperfected.exe'
+          if (-not (Test-Path $installed)) { throw 'install.ps1 did not install the executable' }
+      # Candidate artifacts are this run's handoff to the bundle job, named
+      # for the release's commit, not the dispatch ref's.
+      - name: Upload validated downloadable candidate bundle
+        if: ${{ !cancelled() && steps.candidate_build.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: downloadable-candidate-${{ matrix.target }}-${{ needs.plan.outputs.sha }}
+          path: |
+            build/${{ matrix.target }}-downloadable/educationperfected*
+            build/${{ matrix.target }}-downloadable/THIRD-PARTY-NOTICES
+            build/${{ matrix.target }}-downloadable/SHA256SUMS
+          retention-days: 90
+          if-no-files-found: error
+      - name: Direct-download offline contracts
+        run: npm run test:browser-download
+      - name: Start virtual display for Linux local browser fixture
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb x11-utils
+          Xvfb :99 -screen 0 1280x1024x24 > "$RUNNER_TEMP/ep-xvfb.log" 2>&1 &
+          ready=0
+          for attempt in $(seq 1 50); do
+            if DISPLAY=:99 xdpyinfo > "$RUNNER_TEMP/ep-display.log" 2>&1; then ready=1; break; fi
+            sleep 0.2
+          done
+          [ "$ready" -eq 1 ] || { echo 'Virtual display did not become ready'; exit 1; }
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+      - name: Observe exact downloadable SEA against local fixture
+        run: node scripts/downloadable-cli-test.js
+      - name: Actual SEA first-run interactive consent and direct acquisition
+        if: runner.os != 'Windows'
+        run: python3 scripts/downloadable-first-run-posix.py
+      - name: Windows actual SEA first-run public consent and direct acquisition
+        if: ${{ !cancelled() && steps.candidate_build.outcome == 'success' && runner.os == 'Windows' }}
+        run: python scripts/downloadable-first-run-windows.py
+      - name: Windows independent before versus after owned Chrome sandbox setup
+        if: ${{ !cancelled() && steps.candidate_build.outcome == 'success' && runner.os == 'Windows' }}
+        run: node scripts/windows-navigation-panel.js
+      - name: Select exact downloadable artifact for existing credential fixtures
+        id: store_candidate
+        if: ${{ !cancelled() && steps.candidate_build.outcome == 'success' }}
+        run: GITHUB_SHA="$RESOLVED_SHA" node scripts/stage-downloadable-store-fixture.js
+      - name: Prepare private Linux credential-store prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends dbus-x11 gnome-keyring libglib2.0-bin
+      - name: Linux exact SEA private native-store setup and deletion
+        if: runner.os == 'Linux'
+        run: sh scripts/packaged-store-integration.sh
+      - name: macOS exact SEA owned-keychain setup health and deletion
+        if: runner.os == 'macOS'
+        run: python3 scripts/macos-isolated-store-test.py
+      - name: Windows exact SEA hosted synthetic setup health and deletion
+        if: ${{ !cancelled() && steps.store_candidate.outcome == 'success' && runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          $env:EP_FIXTURE_PYTHON = python -c "import sys; print(sys.executable)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/windows-packaged-store-delete-test.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  bundle:
+    needs: [plan, candidates]
+    if: ${{ needs.plan.outputs.attach == 'true' && (needs.candidates.result == 'success' || needs.candidates.result == 'skipped') }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ needs.plan.outputs.version }}
+      SHA: ${{ needs.plan.outputs.sha }}
+      BUNDLE_ID: ${{ needs.plan.outputs.bundle_id }}
+    steps:
+      # The installer scripts and release notes come from the released commit,
+      # not the dispatch ref.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        if: env.BUNDLE_ID == ''
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+      - name: Download this run's validated candidate artifacts
+        if: env.BUNDLE_ID == ''
+        run: |
+          set -euo pipefail
+          curl -sf -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" > artifacts.json
+          # Two-step download: the API replies with a signed redirect; the token
+          # is never sent to the redirect target.
+          jq -r '.artifacts[] | select(.name | startswith("downloadable-candidate-")) | "\(.id) \(.name)"' artifacts.json \
+            | while read -r id name; do
+                url=$(curl -sf -H "Authorization: Bearer $GH_TOKEN" -o /dev/null -w '%{redirect_url}' \
+                  "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$id/zip")
+                test -n "$url"
+                curl -sf "$url" -o "$name.zip"
+                mkdir -p "candidates/$name"
+                unzip -q "$name.zip" -d "candidates/$name"
+              done
+          count=$(find candidates -maxdepth 1 -type d -name 'downloadable-candidate-*' | wc -l)
+          if [ "$count" -ne 5 ]; then echo "Expected 5 candidate artifacts, found $count"; exit 1; fi
+      - name: Assemble and verify the release bundle
+        if: env.BUNDLE_ID == ''
+        run: |
+          set -euo pipefail
+          root=$(pwd)
+          staging="release-bundle-v$VERSION"
+          mkdir -p "$staging"
+          for spec in \
+            "windows-x64 educationperfected.exe educationperfected-windows-x64.exe" \
+            "macos-arm64 educationperfected educationperfected-macos-arm64" \
+            "macos-x64 educationperfected educationperfected-macos-x64" \
+            "linux-x64 educationperfected educationperfected-linux-x64" \
+            "linux-arm64 educationperfected educationperfected-linux-arm64"; do
+            set -- $spec
+            target=$1; exe=$2; renamed=$3
+            dir=$(echo "candidates/downloadable-candidate-$target"-*)
+            test -d "$dir"
+            (cd "$dir" && sha256sum -c SHA256SUMS > /dev/null)
+            expected=$(awk -v f="$exe" '$2 == f {print $1}' "$dir/SHA256SUMS")
+            test -n "$expected"
+            cp "$dir/$exe" "$staging/$renamed"
+            actual=$(sha256sum "$staging/$renamed" | awk '{print $1}')
+            if [ "$actual" != "$expected" ]; then echo "$renamed is not byte-identical to the validated candidate"; exit 1; fi
+            (cd "$dir" && zip -qr "$root/$staging/THIRD-PARTY-NOTICES-$target.zip" THIRD-PARTY-NOTICES)
+          done
+          # Extra per-target assets: installer, packages, npm tarball. Each must
+          # exist in its candidate artifact and be byte-identical to the
+          # candidate's checksum (the '*' binary-mode marker is normalized).
+          for pair in \
+            "windows-x64:educationperfected-windows-x64-setup.exe" \
+            "macos-arm64:educationperfected-macos-arm64.pkg" \
+            "macos-x64:educationperfected-macos-x64.pkg" \
+            "linux-x64:educationperfected_${VERSION}_amd64.deb" \
+            "linux-x64:educationperfected-${VERSION}-1.x86_64.rpm" \
+            "linux-x64:educationperfected-${VERSION}.tgz" \
+            "linux-arm64:educationperfected_${VERSION}_arm64.deb" \
+            "linux-arm64:educationperfected-${VERSION}-1.aarch64.rpm"; do
+            target=${pair%%:*}; name=${pair#*:}
+            dir=$(echo "candidates/downloadable-candidate-$target"-*)
+            expected=$(awk -v n="$name" '{f=$2; sub(/^\*/, "", f); if (f == n) {print $1; exit}}' "$dir/SHA256SUMS")
+            test -n "$expected" || { echo "no checksum for $name in the $target candidate"; exit 1; }
+            cp "$dir/$name" "$staging/$name"
+            actual=$(sha256sum "$staging/$name" | awk '{print $1}')
+            if [ "$actual" != "$expected" ]; then echo "$name is not byte-identical to the validated candidate"; exit 1; fi
+          done
+          cp installer/install.sh installer/install.ps1 "$staging/"
+          cp "release/release-notes-$VERSION.md" "$staging/release-notes.md"
+          (cd "$staging" && sha256sum -- * > SHA256SUMS && sha256sum -c SHA256SUMS > /dev/null)
+          echo "Bundle verified: all executables and packages byte-identical to the validated candidates; SHA256SUMS covers the 21 payload files (5 raw executables, Windows installer, 2 pkg, 2 deb, 2 rpm, npm tarball, install.sh, install.ps1, 5 notices zips, release-notes.md)."
+      - name: Download and verify the staged bundle
+        if: env.BUNDLE_ID != ''
         run: |
           set -euo pipefail
           # Two-step download: the API replies with a signed redirect; the token
           # is never sent to the redirect target.
           url=$(curl -sf -H "Authorization: Bearer $GH_TOKEN" -o /dev/null -w '%{redirect_url}' \
-            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID/zip")
+            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$BUNDLE_ID/zip")
+          test -n "$url"
+          curl -sf "$url" -o bundle.zip
+          entries=$(unzip -Z1 bundle.zip | wc -l)
+          if [ "$entries" -ne 22 ]; then echo "Expected 22 bundle entries (21 payloads + SHA256SUMS), found $entries"; exit 1; fi
+          mkdir "release-bundle-v$VERSION"
+          unzip -q bundle.zip -d "release-bundle-v$VERSION"
+          (cd "release-bundle-v$VERSION" && sha256sum -c SHA256SUMS)
+      - name: Hand the verified bundle to the attach job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: env.BUNDLE_ID == ''
+        with:
+          name: release-bundle-v${{ needs.plan.outputs.version }}-${{ needs.plan.outputs.sha }}
+          path: release-bundle-v${{ needs.plan.outputs.version }}/
+          retention-days: 90
+          if-no-files-found: error
+  attach:
+    needs: [plan, bundle]
+    if: ${{ needs.plan.outputs.attach == 'true' && needs.bundle.result == 'success' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify the bundle
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          SHA: ${{ needs.plan.outputs.sha }}
+          BUNDLE_ID: ${{ needs.plan.outputs.bundle_id }}
+        run: |
+          set -euo pipefail
+          if [ -n "$BUNDLE_ID" ]; then
+            id=$BUNDLE_ID
+          else
+            want="release-bundle-v$VERSION-$SHA"
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100&name=$want" > artifacts.json
+            filter='[.artifacts[] | select(.name == $n and (.expired | not) and .workflow_run.id == $r)]'
+            if [ "$(jq --arg n "$want" --argjson r "$GITHUB_RUN_ID" "$filter | length" artifacts.json)" -lt 1 ]; then
+              echo "This run produced no verified bundle $want"; exit 1
+            fi
+            id=$(jq -r --arg n "$want" --argjson r "$GITHUB_RUN_ID" "$filter | sort_by(.created_at) | last | .id" artifacts.json)
+          fi
+          # Two-step download: the API replies with a signed redirect; the token
+          # is never sent to the redirect target.
+          url=$(curl -sf -H "Authorization: Bearer $GH_TOKEN" -o /dev/null -w '%{redirect_url}' \
+            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$id/zip")
           test -n "$url"
           curl -sf "$url" -o bundle.zip
           entries=$(unzip -Z1 bundle.zip | wc -l)
@@ -121,7 +467,6 @@ jobs:
           unzip -q bundle.zip -d bundle
           (cd bundle && sha256sum -c SHA256SUMS)
       - name: Attach the verified files to the release
-        if: steps.plan.outputs.attach == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.tag || github.event.release.tag_name }}

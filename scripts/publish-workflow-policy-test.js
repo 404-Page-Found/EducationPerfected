@@ -7,11 +7,20 @@ for(const required of [
  'release-bundle-v','workflow_run.head_sha','.github/workflows/release-bundle-staging.yml','.conclusion',
  'sha256sum -c SHA256SUMS','21 payloads + SHA256SUMS','%{redirect_url}',
  'gh release upload "$TAG" -- *','Publication stays manual',
- 'not a draft; refusing to modify a published release','already has $assets assets; remove them manually to re-attach',
+ 'already has $assets assets; remove them manually to re-attach',
  'gained $assets assets since the run started; refusing to attach','leaving it untouched',
+ // The release's own commit drives the build; a branch target is resolved once, never followed.
+ 'main moving later does not','retarget this run','ref: ${{ needs.plan.outputs.sha }}',
+ 'package.json at $sha is version','GITHUB_SHA="$RESOLVED_SHA"',
+ // Build path: five validated native candidates, byte-identical assembly.
+ 'build-downloadable','downloadable-candidate-','persist-credentials: false',
+ 'byte-identical','21 payload files','release-notes.md','THIRD-PARTY-NOTICES-$target.zip',
+ 'educationperfected-windows-x64-setup.exe','retention-days: 90','if-no-files-found: error',
+ 'attach=true','bundle_id','label=$version-validation.1',
 ])assert.ok(source.includes(required),required);
-assert.ok(!source.includes('uses:'),'pure shell: no external actions to pin');
+assert.ok(!source.includes('not a draft; refusing'),'a zero-asset published release is accepted for recovery');
 assert.ok(!source.includes('--clobber'),'never replaces assets');
 assert.doesNotMatch(source,/pull_request_target|git push|gh release create|gh release edit|gh release publish|gh release delete|types: \[created|softprops|ncipollo/);
+for(const line of source.split('\n'))if(line.includes('uses:'))assert.match(line,/\/[a-z0-9-]+@[a-f0-9]{40}(?:\s|$)/,'pinned action: '+line);
 assert.ok(require('../package.json').scripts['test:phase3'].includes('publish-workflow-policy-test.js'),'wired into test:phase3');
-console.log('Publish workflow: manual button attaches the verified bundle to an empty draft; automatic attach only after publish with zero assets; refuses to touch any release that has assets; never tags, edits or publishes.');
+console.log('Publish workflow: one button resolves the release commit, attaches a verified staged bundle or builds and validates from that commit, attaches only to zero-asset releases, refuses any release that has assets; never tags, edits or publishes.');
