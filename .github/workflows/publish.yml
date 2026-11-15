@@ -430,9 +430,8 @@ jobs:
             if [ "$actual" != "$expected" ]; then echo "$name is not byte-identical to the validated candidate"; exit 1; fi
           done
           cp installer/install.sh installer/install.ps1 "$staging/"
-          cp "release/release-notes-$VERSION.md" "$staging/release-notes.md"
           (cd "$staging" && sha256sum -- * > SHA256SUMS && sha256sum -c SHA256SUMS > /dev/null)
-          echo "Bundle verified: all executables and packages byte-identical to the validated candidates; SHA256SUMS covers the 21 payload files (5 raw executables, Windows installer, 2 pkg, 2 deb, 2 rpm, npm tarball, install.sh, install.ps1, 5 notices zips, release-notes.md)."
+          echo "Bundle verified: all executables and packages byte-identical to the validated candidates; SHA256SUMS covers the 20 payload files (5 raw executables, Windows installer, 2 pkg, 2 deb, 2 rpm, npm tarball, install.sh, install.ps1, 5 notices zips)."
       - name: Download and verify the staged bundle
         if: env.BUNDLE_ID != ''
         run: |
@@ -444,7 +443,7 @@ jobs:
           test -n "$url"
           curl -sf "$url" -o bundle.zip
           entries=$(unzip -Z1 bundle.zip | wc -l)
-          if [ "$entries" -ne 22 ]; then echo "Expected 22 bundle entries (21 payloads + SHA256SUMS), found $entries"; exit 1; fi
+          if [ "$entries" -ne 21 ]; then echo "Expected 21 bundle entries (20 payloads + SHA256SUMS), found $entries"; exit 1; fi
           mkdir "release-bundle-v$VERSION"
           unzip -q bundle.zip -d "release-bundle-v$VERSION"
           (cd "release-bundle-v$VERSION" && sha256sum -c SHA256SUMS)
@@ -491,7 +490,7 @@ jobs:
           test -n "$url"
           curl -sf "$url" -o bundle.zip
           entries=$(unzip -Z1 bundle.zip | wc -l)
-          if [ "$entries" -ne 22 ]; then echo "Expected 22 bundle entries (21 payloads + SHA256SUMS), found $entries"; exit 1; fi
+          if [ "$entries" -ne 21 ]; then echo "Expected 21 bundle entries (20 payloads + SHA256SUMS), found $entries"; exit 1; fi
           mkdir bundle
           unzip -q bundle.zip -d bundle
           (cd bundle && sha256sum -c SHA256SUMS)

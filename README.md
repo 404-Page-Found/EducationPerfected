@@ -57,7 +57,7 @@ This version name does not mean the packaged CLI has shipped; its release gates 
 ## Installation
 ### Installer (recommended)
 
-Installers will be available with **v2026.11.16**; no V2026 packaged release is published yet. The [Publish workflow](.github/workflows/publish.yml) attaches them to the release (see the [release notes](release/release-notes-2026.11.16.md)). The gates in the sections below still apply.
+Installers will be available with **v2026.11.16**; no V2026 packaged release is published yet. The [Publish workflow](.github/workflows/publish.yml) attaches them to the release. The gates in the sections below still apply.
 
 The installer is the same on every platform; pick yours:
 

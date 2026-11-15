@@ -7,7 +7,7 @@ for(const required of [
  'permissions: {}',
  'releases/tags/$TAG','.draft','.assets | length','.target_commitish','Not Found',
  'release-bundle-v','workflow_run.head_sha','.github/workflows/release-bundle-staging.yml','.conclusion',
- 'sha256sum -c SHA256SUMS','21 payloads + SHA256SUMS','%{redirect_url}',
+ 'sha256sum -c SHA256SUMS','20 payloads + SHA256SUMS','%{redirect_url}',
  'gh release upload "$TAG" -- *','Publication stays manual',
  'already has $assets assets; remove them manually to re-attach',
  'gained $assets assets since the run started; refusing to attach','leaving it untouched',
@@ -16,7 +16,7 @@ for(const required of [
  'package.json at $sha is version','GITHUB_SHA="$RESOLVED_SHA"',
  // Build path: five validated native candidates, byte-identical assembly.
  'build-downloadable','downloadable-candidate-','persist-credentials: false',
- 'byte-identical','21 payload files','release-notes.md','THIRD-PARTY-NOTICES-$target.zip',
+ 'byte-identical','20 payload files','THIRD-PARTY-NOTICES-$target.zip',
  'educationperfected-windows-x64-setup.exe','retention-days: 90','if-no-files-found: error',
  'attach=true','bundle_id','label=$version-validation.1','draft=$draft',
  // npm publication: last job, live releases only, byte-verified tarball,
@@ -26,6 +26,7 @@ for(const required of [
  'Re-run failed jobs','--ignore-scripts npm@12.2.2','vars.NPM_TRUSTED_PUBLISHING',
 ])assert.ok(source.includes(required),required);
 assert.ok(!source.includes('not a draft; refusing'),'a zero-asset published release is accepted for recovery');
+assert.ok(!source.includes('release/release-notes-'),'release notes are GitHub-generated; no hand-written notes file is bundled');
 assert.ok(!source.includes('--clobber'),'never replaces assets');
 assert.doesNotMatch(source,/pull_request_target|git push|gh release create|gh release edit|gh release publish|gh release delete|types: \[created|softprops|ncipollo/);
 for(const line of source.split('\n'))if(line.includes('uses:'))assert.match(line,/\/[a-z0-9-]+@[a-f0-9]{40}(?:\s|$)/,'pinned action: '+line);
