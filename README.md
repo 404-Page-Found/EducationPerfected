@@ -55,6 +55,27 @@ This version name does not mean the packaged CLI has shipped; its release gates 
 
 
 ## Installation
+### Installer (recommended)
+
+Installers will be available with **v2026.11.15**; no V2026 packaged release is published yet. The [Publish workflow](.github/workflows/publish.yml) attaches them to the release (see the [release notes](release/release-notes-2026.11.15.md)). The gates in the sections below still apply.
+
+**Windows (recommended):**
+1. Download `educationperfected-windows-x64-setup.exe` and `SHA256SUMS` from the release. Check the download against `SHA256SUMS` before running it.
+2. Run the installer (per-user, no admin). Select **Add EducationPerfected to your PATH**. Builds are unsigned; if SmartScreen shows "Windows protected your PC", choose **More info -> Run anyway**.
+3. Open a new terminal and run `educationperfected setup`. It asks consent for a one-time Chrome download from Google, then offers an optional saved login.
+4. Run `educationperfected`.
+
+**Other installation options:**
+- **macOS:** run `educationperfected-macos-arm64.pkg` or `educationperfected-macos-x64.pkg` (unsigned - right-click it and choose Open).
+- **Linux:** install the `.deb` or `.rpm` for your architecture.
+- **Install scripts:** download `install.ps1` (Windows) or `install.sh` (macOS/Linux) from the release. Run `.\install.ps1` in PowerShell or `sh install.sh` in a terminal. Follow the script's PATH instructions.
+- **npm:** download `educationperfected-2026.11.15.tgz` from the release, then run `npm install -g ./educationperfected-2026.11.15.tgz` (requires Node.js).
+
+After any of these, run `educationperfected setup`, then `educationperfected`. The install scripts and npm package verify the binary download against the release's `SHA256SUMS`; check manual downloads against it yourself. Raw platform binaries are also included for advanced use; run their file name instead of `educationperfected`.
+
+### From source (advanced)
+
+Use this route to run the source directly; it needs Node.js and the full repository.
 1. download the full source ZIP of the `main` branch (on [the repo page](https://github.com/404-Page-Found/EducationPerfected): **Code -> Download ZIP**) and extract it into a new folder - the program needs the whole tree ([index.js](index.js) loads the [lib/](lib/) folder and the CLI loads [packaging/](packaging/)), so copying out only some files fails with `Cannot find module './lib/...'`
 2. install [node.js](https://nodejs.org/) - version **22.12 or newer** for running the source program (that's what the pinned Puppeteer requires). Building a standalone development executable requires **Node 22.23.4 exactly**, as explained below.
 3. open Command Prompt/Terminal **in the folder where `index.js` is located** (right click -> open in terminal or use the `cd` command to change the directory)
@@ -80,22 +101,12 @@ on EP's login page._
 *NOTE: `npm ci` normally downloads a compatible Chrome browser automatically (via Puppeteer's install script). If the first run complains that it can't find a browser, open up Terminal in the same folder and run 
 `npx puppeteer browsers install chrome` to download it manually. If your npm is configured not to run install scripts (for example npm 12's `allowScripts` gate), the download is skipped and this step is required.*
 
-### Release artifacts (not yet published)
-
-No stable packaged release is published yet; the gates in the sections below still apply. When one is published, the [Publish workflow](.github/workflows/publish.yml) attaches these assets to it (see the [release notes](release/release-notes-2026.11.15.md)):
-
-- **Windows:** run `educationperfected-windows-x64-setup.exe` (per-user, no admin), download the raw `educationperfected-windows-x64.exe`, or run `install.ps1`
-- **macOS:** `educationperfected-macos-arm64.pkg` or `educationperfected-macos-x64.pkg` (unsigned - right-click it and choose Open), the raw `educationperfected-macos-*` binary, or `install.sh`
-- **Linux:** the `.deb` or `.rpm` for your architecture, the raw `educationperfected-linux-*` binary, or `install.sh`
-- **npm:** `npm install -g educationperfected`
-
-`install.sh`, `install.ps1` and the npm package verify the download against the release's `SHA256SUMS`; check manual downloads against it yourself. Every installer installs an `educationperfected` command: run `educationperfected setup` once (it asks consent for a one-time Chrome download from Google, then offers an optional saved login), then run `educationperfected`.
 
 
 ## Usage
 ### Running the script
 
-Once installed, the basic way is the interactive CLI. Open a terminal in the folder where `index.js` is located, run `npm ci` once, then:
+For an installer-based installation, run `educationperfected` in a terminal. For a source installation, open a terminal in the folder where `index.js` is located, run `npm ci` once, then:
 
     npm run cli
 
