@@ -14,6 +14,7 @@ const { createSubmitGapsOnce } = require('./lib/gaps-submit-once');
 const { createSubmitDropdownOnce } = require('./lib/dropdown-once');
 const { createSelectMultiOnce } = require('./lib/multi-select-once');
 const { playMultiChoiceSelection } = require('./lib/multi-choice-handler');
+const { playHighlightRound } = require('./lib/highlight-handler');
 const { createSelectChoiceOnce } = require('./lib/choice-select-once');
 const { detectQuestionInPage } = require('./lib/detect-question');
 const { diagnostic } = require('./lib/diagnostics');
@@ -1753,6 +1754,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 { type: 'textbox', play: playSelectionDescriptorRound },
                 { type: 'numberbox', play: playSelectionDescriptorRound },
                 { type: 'dropdown', play: playSelectionDescriptorRound },
+                { type: 'highlight', play: playSelectionDescriptorRound },
                 { type: 'audio', play: handleTypedRound },
                 { type: 'typed', play: handleTypedRound },
             ];
@@ -1795,7 +1797,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         console.log('Selection slide changed during detection; re-reading it in a fresh pass.');
                         return true;
                     }
-                    const play = descriptor.kind === 'dropdown' ? playDropdownRound : descriptor.kind === 'numberbox' ? playNumberBoxRound : descriptor.kind === 'textbox' ? playTextboxRound : descriptor.kind === 'gaps' ? playGapsRound : playChoiceRound;
+                    const play = descriptor.kind === 'dropdown' ? playDropdownRound : descriptor.kind === 'numberbox' ? playNumberBoxRound : descriptor.kind === 'textbox' ? playTextboxRound : descriptor.kind === 'gaps' ? playGapsRound : descriptor.kind === 'highlight' ? playHighlightRound : playChoiceRound;
                     // Preserve even if Stop/errors arrive after Submit but before
                     // the handler's next modal poll. No selection cleanup deletes dialogs.
                     preserveSelectionModal=true;
