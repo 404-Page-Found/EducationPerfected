@@ -26,13 +26,14 @@ async function promptDownload({input=process.stdin,output=process.stdout,home=os
 // Progress for the browser download: an in-place bar on a terminal, plain 10% lines otherwise (logs, pipes).
 function megabytes(bytes){return (bytes/1048576).toFixed(1);}
 function createProgress(output=process.stdout){
- const live=Boolean(output.isTTY);let last=-1,done=false;
+ const live=Boolean(output.isTTY);let last=-1,lastBucket=-1,done=false;
  return (downloaded,total)=>{
   if(done||!(total>0)||!(downloaded>=0))return;
   const fraction=Math.min(1,downloaded/total),percent=Math.floor(fraction*100);
   if(percent===last)return;
-  if(!live&&percent!==100&&percent%10!==0)return;
-  last=percent;
+  const bucket=Math.floor(percent/10);
+  if(!live&&bucket===lastBucket)return;
+  last=percent;lastBucket=bucket;
   const width=30,filled=Math.round(fraction*width);
   const line='['+'#'.repeat(filled)+'-'.repeat(width-filled)+'] '+String(percent).padStart(3)+'%  '+megabytes(downloaded)+' / '+megabytes(total)+' MB';
   if(percent===100){done=true;output.write((live?'\r':'')+line+'\n');}

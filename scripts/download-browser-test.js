@@ -18,6 +18,10 @@ const pins=require('../packaging/browser-downloads.json');
    for(const output of [tty,plain]){const progress=createProgress(output);progress(0,0);progress(50,100);progress(50,100);progress(100,100);progress(100,100);}
    assert.match(tty.text,/\r\[#{15}-{15}\]  50%  0\.0 \/ 0\.0 MB/);assert.match(tty.text,/\r\[#{30}\] 100%/);assert.equal(tty.text.match(/100%/g).length,1);assert.ok(tty.text.endsWith('\n'));
    assert.equal(plain.text.split('\n').filter(Boolean).length,2);assert.doesNotMatch(plain.text,/\r/);
+   const skip={isTTY:false,text:'',write(chunk){this.text+=chunk;}};
+   const sp=createProgress(skip);sp(9,100);sp(11,100);sp(19,100);sp(100,100);
+   assert.match(skip.text,/\]   9%/);assert.match(skip.text,/\]  11%/);assert.doesNotMatch(skip.text,/19%/);assert.match(skip.text,/\] 100%/);
+   assert.equal(skip.text.split('\n').filter(Boolean).length,3);
   }
   let reported=false;
   await assert.rejects(ensureBrowser({...base,consent:async()=>false,install:()=>{throw new Error('Must not download');}}),/cancelled/);
