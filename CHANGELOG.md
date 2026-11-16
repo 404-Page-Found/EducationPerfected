@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Smart Lesson highlight questions: click-the-correct-tokens slides (`HIGHLIGHT_COMPONENT`) in explicitly auto-marked Smart Lessons are now answered under a narrow source-derived contract. The answer comes from the correct token indexes EP ships to the client; the handler clicks each correct token once with a full identity and selection re-check around every input, submits once, and stops instead of guessing on anything outside the contract (mixed slides, stored selections, malformed marking or token metadata, single-answer slides with multiple correct tokens). Synthetic fixture coverage only; no live highlight slide has been captured or answered yet.
+- Smart Lesson highlight questions: click-the-correct-tokens slides (`HIGHLIGHT_COMPONENT`) in explicitly auto-marked Smart Lessons are now answered under a narrow source-derived contract. The answer comes from the correct token indexes EP ships to the client; the handler clicks each correct token once with a full identity and selection re-check around every input, submits once in auto mode, and leaves submission to the user in semi-auto mode. It stops instead of guessing on anything outside the contract (mixed slides, stored selections, malformed marking or token metadata, single-answer slides with multiple correct tokens). Synthetic fixture coverage only; no live highlight slide has been captured or answered yet.
 
 - Browser download progress: the first-run Chrome download now shows a progress bar with percent and MB downloaded. On a terminal the bar updates in place; in logs or pipes it prints a line every 10%.
 

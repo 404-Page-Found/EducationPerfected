@@ -117,6 +117,24 @@ const eachSequential = (values, run) => values.reduce((previous, value) => previ
             assert.equal(r.status, 'stopped', mutation + ': ' + JSON.stringify(r));
             assert.equal(await page.evaluate(() => highlightFixture.submits), mutation === 'sameKeyNext' ? 1 : 0, mutation);
         });
+        // A token covered by overlapping content is refused, never clicked blindly.
+        await setup(); await page.evaluate(() => {
+            highlightFixture.afterClick = () => {
+                const cover = document.createElement('div');
+                cover.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5)';
+                document.body.append(cover);
+            };
+        });
+        const covered = await playHighlightRound(page, await detectQuestion(page), { enter: true, timeout: 200 });
+        assert.equal(covered.status, 'stopped');
+        assert.match(covered.message, /covered/);
+        assert.deepEqual(await page.evaluate(() => [highlightFixture.clicks.length, highlightFixture.submits]), [1, 0]);
+        // Advancing to an unsupported slide is 'advanced', so the next detection
+        // pass reports the unsupported reason instead of a round timeout.
+        await setup(); await page.evaluate(() => { highlightFixture.unsupportedNext = true; });
+        assert.equal((await playHighlightRound(page, await detectQuestion(page), { enter: true, timeout: 400 })).status, 'advanced');
+        assert.equal(await page.evaluate(() => highlightFixture.submits), 1);
+        assert.equal((await detectQuestion(page)).kind, 'unsupported');
         // Completion signals: Continue without a next question, and the exit button.
         await setup(); await page.evaluate(() => { highlightFixture.continueOnly = true; });
         assert.equal((await playHighlightRound(page, await detectQuestion(page), { enter: true, timeout: 400 })).status, 'complete');
@@ -132,6 +150,6 @@ const eachSequential = (values, run) => values.reduce((previous, value) => previ
             document.body.append(modal);
         });
         assert.equal((await modalRun).status, 'modal');
-        console.log('Highlight: trusted per-token exact selection, one Submit, single-answer, semi-auto, completion/modal signals, 32 initial refusals and 8 mid-play refusals PASS. Source-derived synthetic only.');
+        console.log('Highlight: trusted per-token exact selection, one Submit, single-answer, semi-auto, covered-token and unsupported-next guards, completion/modal signals, 34 initial refusals and 8 mid-play refusals PASS. Source-derived synthetic only.');
     } finally { if (browser) await browser.close(); await new Promise(r => server.close(r)); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

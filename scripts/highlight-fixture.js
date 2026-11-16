@@ -33,7 +33,7 @@ function installHighlightFixture(config = {}) {
     const component = { type: 'highlight', id: comp.ComponentID, visualElement: element,
         componentState: state, marked: 1, renderingParameters: { mode: 1 } };
     const f = window.highlightFixture = { self, q, comp, state, questionElement, component, element,
-        tokens: [], clicks: [], submits: 0, nexts: 0 };
+        tokens: [], clicks: [], submits: 0 };
     q.questionDef.Components = [comp];
     words.forEach((word, index) => {
         const token = document.createElement('span');
@@ -68,6 +68,7 @@ function installHighlightFixture(config = {}) {
         f.submits++;
         if (f.keepSame) { submit.textContent = 'Next Question'; return; }
         q.questionIndex++;
+        if (f.unsupportedNext) { f.q.questionDef.Components.push({ ComponentTypeCode: 'TEXT_BOX_COMPONENT', ComponentID: 'z' }); }
         if (f.continueOnly) {
             element.remove();
             document.querySelector('#question-container-group')?.remove();
