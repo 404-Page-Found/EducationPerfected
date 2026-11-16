@@ -1,6 +1,6 @@
 // Offline contracts only. No browser downloaded, executed, or rights attested.
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {hostPin,ensureBrowser,promptDownload}=require('../packaging/download-browser');
+const {createProgress,hostPin,ensureBrowser,promptDownload}=require('../packaging/download-browser');
 const pins=require('../packaging/browser-downloads.json');
 (async()=>{
  for(const [platform,arch] of [['linux','x64'],['linux','arm64'],['darwin','x64'],['darwin','arm64'],['win32','x64']])assert.ok(hostPin(platform,arch).url.startsWith('https://storage.googleapis.com/'));
@@ -13,12 +13,19 @@ const pins=require('../packaging/browser-downloads.json');
  const base={home,api,extractor(){},platform:'linux',arch:'x64',output:{write(){}},consent:async()=>true};
  let calls=0;
  try {
+  {
+   const tty={isTTY:true,text:'',write(chunk){this.text+=chunk;}},plain={isTTY:false,text:'',write(chunk){this.text+=chunk;}};
+   for(const output of [tty,plain]){const progress=createProgress(output);progress(0,0);progress(50,100);progress(50,100);progress(100,100);progress(100,100);}
+   assert.match(tty.text,/\r\[#{15}-{15}\]  50%  0\.0 \/ 0\.0 MB/);assert.match(tty.text,/\r\[#{30}\] 100%/);assert.equal(tty.text.match(/100%/g).length,1);assert.ok(tty.text.endsWith('\n'));
+   assert.equal(plain.text.split('\n').filter(Boolean).length,2);assert.doesNotMatch(plain.text,/\r/);
+  }
+  let reported=false;
   await assert.rejects(ensureBrowser({...base,consent:async()=>false,install:()=>{throw new Error('Must not download');}}),/cancelled/);
   const root=path.join(home,'.educationperfected','browsers');assert.deepEqual(fs.readdirSync(root),[]);
   await assert.rejects(ensureBrowser({...base,install:async()=>{throw new Error('Network failed');}}),/Network failed/);assert.deepEqual(fs.readdirSync(root),[]);
   await assert.rejects(ensureBrowser({...base,install:async()=>({executablePath:__filename})}),/Unexpected/);assert.deepEqual(fs.readdirSync(root),[]);
   const file=await ensureBrowser({...base,install:async options=>{
-   calls++;assert.equal(options.expectedHash,hostPin('linux','x64').sha256);assert.equal(options.buildId,pins.version);assert.equal(options.installDeps,false);assert.equal(options.baseUrl,'https://storage.googleapis.com/chrome-for-testing-public');
+   calls++;assert.equal(options.expectedHash,hostPin('linux','x64').sha256);assert.equal(options.buildId,pins.version);assert.equal(options.installDeps,false);assert.equal(typeof options.downloadProgressCallback,'function');assert.equal(options.baseUrl,'https://storage.googleapis.com/chrome-for-testing-public');
    const executablePath=path.join(options.cacheDir,'chrome','test','chrome');fs.mkdirSync(path.dirname(executablePath),{recursive:true});fs.writeFileSync(executablePath,'inert-not-browser');return {executablePath};
   }});
   assert.equal(fs.readFileSync(file,'utf8'),'inert-not-browser');

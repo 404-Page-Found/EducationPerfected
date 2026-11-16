@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Browser download progress: the first-run Chrome download now shows a progress bar with percent and MB downloaded. On a terminal the bar updates in place; in logs or pipes it prints a line every 10%.
+
 - npm registry publication: the `Publish` workflow now publishes the byte-verified npm package to the registry itself, as its last job and only once the GitHub release is live (the package's postinstall downloads the platform binary from the release). A version already on the registry is skipped, so re-runs are safe; credentials are the `NPM_TOKEN` secret, or OIDC trusted publishing once the `NPM_TRUSTED_PUBLISHING` repository variable is set after configuring it on npmjs.com (the first publish needs the token, because npmjs.com only offers trusted publishing for a package that already exists), and the job fails before publishing with the setup steps when neither exists. The npm install route is now the plain registry install, `npm install -g --allow-scripts=educationperfected educationperfected` - the `--allow-scripts` opt-in is required on npm 12+, which blocks install scripts by default. Downloading the release `.tgz` to install it with npm is gone from the docs (the tarball stays attached as the publish artifact).
 
 - App icon: the project owner's E-and-check tile now brands the app. `branding/` keeps the source SVG plus derived PNG, `.ico` and `.icns` sets; the Windows executables embed the icon and a version identity at build time, and the Windows setup exe, its wizard, the Start Menu shortcuts and the Settings uninstall entry all show it. The macOS and Linux CLI packages carry no icon (bare CLI binaries have no standard icon slot); the `.icns` is ready for the desktop app.

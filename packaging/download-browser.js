@@ -23,6 +23,22 @@ async function promptDownload({input=process.stdin,output=process.stdout,home=os
  try { return await new Promise(resolve=>{rl.once('line',line=>{const answer=line.trim().toLowerCase();resolve(answer===''||answer==='y'||answer==='yes');});rl.once('close',()=>resolve(false));}); }
  finally {rl.close();}
 }
+// Progress for the browser download: an in-place bar on a terminal, plain 10% lines otherwise (logs, pipes).
+function megabytes(bytes){return (bytes/1048576).toFixed(1);}
+function createProgress(output=process.stdout){
+ const live=Boolean(output.isTTY);let last=-1,done=false;
+ return (downloaded,total)=>{
+  if(done||!(total>0)||!(downloaded>=0))return;
+  const fraction=Math.min(1,downloaded/total),percent=Math.floor(fraction*100);
+  if(percent===last)return;
+  if(!live&&percent!==100&&percent%10!==0)return;
+  last=percent;
+  const width=30,filled=Math.round(fraction*width);
+  const line='['+'#'.repeat(filled)+'-'.repeat(width-filled)+'] '+String(percent).padStart(3)+'%  '+megabytes(downloaded)+' / '+megabytes(total)+' MB';
+  if(percent===100){done=true;output.write((live?'\r':'')+line+'\n');}
+  else output.write(live?'\r'+line:line+'\n');
+ };
+}
 async function ensureBrowser({consent=promptDownload,install,api,home=os.homedir(),platform=process.platform,arch=process.arch,output=process.stdout,extractor=checkExtractor}={}){
  const pin=hostPin(platform,arch);
  // Do not share Puppeteer's cache or honor arbitrary browser/base-URL environment overrides.
@@ -56,7 +72,7 @@ async function ensureBrowser({consent=promptDownload,install,api,home=os.homedir
   api ||= require('@puppeteer/browsers');install ||= api.install;
   const browserPlatform=({'linux64':api.BrowserPlatform.LINUX,'linux-arm64':api.BrowserPlatform.LINUX_ARM,'mac-arm64':api.BrowserPlatform.MAC_ARM,'mac-x64':api.BrowserPlatform.MAC,'win64':api.BrowserPlatform.WIN64})[pin.platform];
   output.write('Downloading the pinned browser directly from Google. No system packages will be installed.\n');
-  const result=await install({browser:api.Browser.CHROME,buildId:pins.version,platform:browserPlatform,cacheDir:staging,baseUrl:'https://storage.googleapis.com/chrome-for-testing-public',expectedHash:pin.sha256,installDeps:false,unpack:true,logger:()=>undefined});
+  const result=await install({browser:api.Browser.CHROME,buildId:pins.version,platform:browserPlatform,cacheDir:staging,baseUrl:'https://storage.googleapis.com/chrome-for-testing-public',expectedHash:pin.sha256,installDeps:false,unpack:true,downloadProgressCallback:createProgress(output),logger:()=>undefined});
   const relative=path.relative(staging,result.executablePath);
   if(!relative||relative.startsWith('..')||path.isAbsolute(relative)||!fs.statSync(result.executablePath).isFile()||!fs.realpathSync(result.executablePath).startsWith(fs.realpathSync(staging)+path.sep))throw new Error('Unexpected downloaded browser location');
   fs.writeFileSync(path.join(staging,'COMPLETE.json'),JSON.stringify({version:pins.version,sha256:pin.sha256,executable:relative,executableSha256:await fileHash(result.executablePath)})+'\n',{mode:0o600});
@@ -66,4 +82,4 @@ async function ensureBrowser({consent=promptDownload,install,api,home=os.homedir
   return existing();
  } finally {clearTimeout(timer);process.removeListener('exit',cleanup);cleanup();}
 }
-module.exports={hostPin,ensureBrowser,promptDownload,checkExtractor};
+module.exports={createProgress,hostPin,ensureBrowser,promptDownload,checkExtractor};
