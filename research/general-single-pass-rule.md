@@ -66,13 +66,22 @@ can follow earlier verified inputs on other surfaces.
 
 ## Incremental shipping
 
-1. PR A (this branch): orchestrator framework + allow-mix parameters on every
-   reader, wired so today's supported mixes (dropdown/NB/TB families) route
-   through it unchanged. No newly answered combination yet; refusal output
-   shapes preserved. This is the refactor PR.
-2. PR B: choice and multi-select surfaces join the orchestrator
-   (select-only rounds + cross-surface submit verification).
-3. PR C: gaps and highlight surfaces join.
+1. PR A (this branch): orchestrator framework only - lib/slide-surfaces-state.js
+   probes every recognised surface and routes today's supported mixes
+   (dropdown/NB/TB families) through the existing reader bit-for-bit. No
+   newly answered combination, no reader change, refusal output shapes
+   preserved; the full handler battery stays green. This is the refactor PR.
+2. PR B: choice and multi-select surfaces join the orchestrator: the inline
+   choice reader extracts to lib/choice-state.js, multi-choice-state and the
+   extracted choice reader gain their allow-mix parameters, the handlers gain
+   select-only modes, and mixed fixtures prove the newly answered
+   combinations end to end.
+3. PR C: gaps and highlight surfaces join, with their allow-mix parameters
+   (the gaps component-registry admission included) and mixed fixtures.
+
+Each surface's allow-mix parameter lands in the PR that first exercises it
+end to end: param-only unit tests would need the mixed fixtures twice, and
+an uncalled parameter is dead code.
 
 Each PR keeps the whole test battery green, adds fixture coverage for the
 new mixes (Page's pasted diagnostics as fixtures), and follows the repo
@@ -120,8 +129,8 @@ PR A shape:
    'dropdown-numberbox' descriptor shape (bit-for-bit); other multi-surface
    combos return null so today's per-reader refusals are unchanged.
 2. detectQuestion calls the new module in place of readDropdownNumberBox.
-3. allowMix params land on gaps/multi/highlight readers + extracted choice
-   reader, with unit tests; orchestrator does not call them yet (PRs B/C).
-4. Existing suites must pass unchanged; new unit tests for the probe and
-   the new allowMix params. SonarCloud: move, don't copy - shared helpers
-   for the mixed descriptor assembly.
+3. allowMix params land per surface in the PR that wires that surface into
+   the orchestrator (B: choice + multi-select; C: gaps + highlight), tested
+   by that PR's mixed fixtures.
+4. Existing suites must pass unchanged in every PR. SonarCloud: move, don't
+   copy - shared helpers for the mixed descriptor assembly.
