@@ -40,7 +40,26 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
     const requestDropdownSubmitApproval = (approval, onCancel) => requestSubmitApproval(approval, 'Dropdown Submit', `${approval.dropdownCount} dropdown`, onCancel);
     const requestNumberBoxSubmitApproval = (approval, onCancel) => requestSubmitApproval(approval, 'Number-box Submit', `${approval.boxCount} boxes`, onCancel);
     const requestDropdownNumberBoxSubmitApproval = (approval, onCancel) => requestSubmitApproval(approval, 'Dropdown+number-box Submit', `${approval.dropdownCount} dropdowns and ${approval.boxCount} number boxes`, onCancel);
-    controls = await launch({ onBrowserClosed, onBrowserDisconnected: browserGone, dropdownSubmitApprover: requestDropdownSubmitApproval, numberBoxSubmitApprover: requestNumberBoxSubmitApproval, dropdownNumberBoxSubmitApprover: requestDropdownNumberBoxSubmitApproval });
+    const requestReflectionText = (approval, onCancel) => new Promise(resolve => {
+        if (!terminal || pendingApproval || quitPromise) { resolve(false); return; }
+        let unregisterCancel = null;
+        const request = { approval, label: 'Reflection fill', phase: 'text', text: null, resolve: null };
+        const finish = value => {
+            unregisterCancel?.();
+            unregisterCancel = null;
+            if (pendingApproval === request) pendingApproval = null;
+            resolve(value);
+        };
+        request.resolve = finish;
+        pendingApproval = request;
+        unregisterCancel = typeof onCancel === 'function' ? onCancel(() => {
+            if (pendingApproval !== request) return;
+            output.write('Reflection fill cancelled; no further input.\n');
+            finish(false);
+        }) : null;
+        output.write(`Reflection text required for ${approval.key}. Read the visible question and enter your own single-line response (1-2000 characters). Nothing is typed until you confirm. stop or quit cancels.\n`);
+    });
+    controls = await launch({ onBrowserClosed, onBrowserDisconnected: browserGone, dropdownSubmitApprover: requestDropdownSubmitApproval, numberBoxSubmitApprover: requestNumberBoxSubmitApproval, dropdownNumberBoxSubmitApprover: requestDropdownNumberBoxSubmitApproval, reflectionTextProvider: requestReflectionText });
     terminal = readline.createInterface({ input, output, terminal: Boolean(input.isTTY && output.isTTY) });
     output.write('Commands: start, stop, status, mode auto, mode semi, refresh, inspect-self-mark, quit\n');
     const print = () => output.write(JSON.stringify(controls.status()) + '\n');
@@ -55,6 +74,24 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
             const command = line.trim();
             if (pendingApproval) {
                 const request = pendingApproval;
+                if (request.phase === 'text' && !['quit', 'exit', 'stop'].includes(command)) {
+                    if (!require('../lib/reflection-handler').validReflectionText(line)) {
+                        request.resolve(false);
+                        output.write('Reflection text not supported; no input.\n');
+                        continue;
+                    }
+                    request.text = line;
+                    request.phase = 'confirm';
+                    output.write(`Reflection fill approval for ${request.approval.key}: ${JSON.stringify(line)}. Type yes to fill this response only. No Submit or self-grade will be clicked. Anything else cancels.\n`);
+                    continue;
+                }
+                if (request.phase) {
+                    const approved = request.phase === 'confirm' && command === 'yes';
+                    request.resolve(approved ? request.text : false);
+                    output.write(approved ? 'Reflection fill approved for this question only.\n' : 'Reflection fill not approved; no input.\n');
+                    if (command === 'quit' || command === 'exit') { await quit(); print(); break; }
+                    continue;
+                }
                 pendingApproval = null;
                 const approved = command === 'yes';
                 request.resolve(approved);
