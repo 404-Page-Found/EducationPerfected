@@ -23,7 +23,7 @@ const { playReflectionRound, validReflectionText } = require('../lib/reflection-
             assert.equal((await playReflectionRound(page, await detectQuestion(page), { requestText: async () => 'replacement' })).status, 'stopped');
             assert.deepEqual(await counters(), [text.length, text.length, 0, 0]);
         }
-        for (const value of [false, undefined, '', ' ', 'bad\ntext', '<html>', 'x'.repeat(2001), '\u202esecret']) {
+        for (const value of [false, undefined, '', ' ', 'bad\ntext', 'non\u00a0breaking', '<html>', 'x'.repeat(2001), '\u202esecret']) {
             await setup();
             assert.equal(validReflectionText(value), false);
             assert.equal((await playReflectionRound(page, await detectQuestion(page), { requestText: async () => value })).status, 'stopped');

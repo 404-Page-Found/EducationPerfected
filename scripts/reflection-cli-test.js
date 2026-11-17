@@ -43,6 +43,19 @@ const counters = page => page.evaluate(() => [reflectionFixture.keys.length, ref
             child.stdin.write('quit\n'); await wait(() => child.exitCode !== null); assert.equal(child.exitCode, 0);
         } finally { await session?.cleanup(); }
     }
+    for (const invalid of ['', '<html>', 'non\u00a0breaking', 'x'.repeat(2001)]) {
+        let session;
+        try {
+            session = await boot(); const { child, page, wait } = session;
+            child.stdin.write('start\n'); await wait(() => session.output.includes('Reflection text required for reflection:'));
+            const offset = session.output.length;
+            child.stdin.write(invalid + '\n');
+            await wait(() => session.output.slice(offset).includes('Reflection text not supported; no input.'));
+            assert.ok(!session.output.slice(offset).includes('Reflection fill approval for reflection:'));
+            assert.deepEqual(await counters(page), [0, 0, 0, 0]);
+            child.stdin.write('quit\n'); await wait(() => child.exitCode !== null); assert.equal(child.exitCode, 0);
+        } finally { await session?.cleanup(); }
+    }
     let session;
     try {
         session = await boot(); const { child, page, wait } = session;
@@ -53,5 +66,5 @@ const counters = page => page.evaluate(() => [reflectionFixture.keys.length, ref
         assert.deepEqual(await counters(page), [0, 0, 0, 0]);
         child.stdin.write('quit\n'); await wait(() => child.exitCode !== null); assert.equal(child.exitCode, 0);
     } finally { await session?.cleanup(); }
-    console.log('Reflection normal CLI PASS: text entry and separate typed-yes BEFORE input, auto/semi fill-only stop, no Submit or self-grade, denial and browser-stop cancellation in either prompt, content-free renderer refusal. Synthetic only.');
+    console.log('Reflection normal CLI PASS: text entry and separate typed-yes BEFORE input, auto/semi fill-only stop, no Submit or self-grade, denial and browser-stop cancellation in either prompt, invalid text rejected before approval/input, content-free renderer refusal. Synthetic only.');
 })().catch(e => { console.error(e); process.exitCode = 1; });
