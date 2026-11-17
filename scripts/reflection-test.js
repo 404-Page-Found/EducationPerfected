@@ -2,6 +2,7 @@ const assert = require('node:assert/strict'), puppeteer = require('puppeteer');
 const { createServer } = require('./mock-ep');
 const { detectQuestion } = require('../lib/detect-question');
 const { playReflectionRound, validReflectionText } = require('../lib/reflection-handler');
+const { readReflectionInPage } = require('../lib/reflection-state');
 (async () => {
     const server = createServer(); await new Promise(r => server.listen(0, '127.0.0.1', r)); let browser;
     try {
@@ -65,6 +66,19 @@ const { playReflectionRound, validReflectionText } = require('../lib/reflection-
         await setup(); await page.evaluate(() => { reflectionFixture.editor.textContent = 'existing'; });
         assert.equal((await playReflectionRound(page, await detectQuestion(page), { requestText: async () => text })).status, 'stopped');
         assert.deepEqual(await counters(), noInput);
+        // Atomic verifier: a live edit with the caret at its new end must not
+        // pass using the earlier empty snapshot. No subsequent key is sent.
+        await setup();
+        const baseline = await page.evaluateHandle(readReflectionInPage, null, undefined);
+        await page.evaluate(() => {
+            const el = reflectionFixture.editor;
+            el.focus(); el.textContent = 'external edit';
+            const range = document.createRange(); range.selectNodeContents(el); range.collapse(false);
+            const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+        });
+        assert.equal(await page.evaluate(readReflectionInPage, baseline, { verify: true, expected: '', focus: true }), false);
+        assert.deepEqual(await counters(), noInput);
+        await baseline.dispose();
         await page.goto(origin + '/lesson'); assert.equal((await detectQuestion(page)).kind, 'choice');
         console.log('Reflection handler PASS: user-authored fill-only, trusted input, no Submit/Next, marked/unmarked, auto/semi, no default text, prefilled and changed-state refusals, Assessment and unrelated choice unchanged. Synthetic only.');
     } finally { if (browser) await browser.close(); await new Promise(r => server.close(r)); }
