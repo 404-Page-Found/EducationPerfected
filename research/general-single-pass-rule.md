@@ -104,8 +104,9 @@ refusals) and lib/dropdown-numberbox-handler.js (fill order, submit target
 ownership, verifyBoxes click-time pattern, shared transition watch). The
 general orchestrator extracts their structure.
 
-Foreign-component refusal points per reader (PR A adds an allowMix param to
-each, default = today's behavior):
+Foreign-component refusal points per reader (each gains an allowMix
+parameter, default = today's behavior, in the PR that wires that surface
+into the orchestrator):
 
 - lib/textbox-state.js: readInputBoxesInPage(baseline, action, config,
   allowMix=false) already implements the pattern: foreignTypes +
