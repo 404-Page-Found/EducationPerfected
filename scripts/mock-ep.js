@@ -17,6 +17,7 @@ const { installHighlightFixture } = require('./highlight-fixture');
 const { installDropdownFixture } = require('./dropdown-fixture');
 const { installInputBoxFixture, inputBoxFixtures, numberBoxDefinition } = require('./textbox-fixture');
 const { installDropdownNumberBoxFixture } = require('./dropdown-numberbox-fixture');
+const { installWorkingFormulaFixture } = require('./working-formula-fixture');
 const { installReflectionFixture } = require('./reflection-fixture');
 
 const WORDS = [
@@ -453,6 +454,11 @@ function createServer() {
         if (url.pathname === '/lesson-reflection') {
             const variant = url.searchParams.get('variant') === 'unmarked' ? 'unmarked' : '';
             return send(lessonPage(false).replace('</body></html>', `<script>(${installReflectionFixture.toString()})(${JSON.stringify(variant)});</script></body></html>`));
+        }
+        if (url.pathname === '/lesson-working-formula') {
+            const raw = url.searchParams.get('variant') || '';
+            const variant = ['unmarked', 'delayed', 'prefilled', 'twosets', 'hints', 'freeform'].includes(raw) ? raw : '';
+            return send(lessonPage(false).replace('</body></html>', `<script>(${installWorkingFormulaFixture.toString()})(${JSON.stringify(variant)});</script></body></html>`));
         }
         if (url.pathname === '/lesson-textbox-variables') return send(lessonPage(false).replace('</body></html>', `<script>(${installInputBoxFixture.toString()})(${JSON.stringify(inputBoxFixtures['textbox-variables'])});</script></body></html>`));
         if (url.pathname === '/lesson-number-box-variables') return send(lessonPage(false).replace('</body></html>', `<script>(${installInputBoxFixture.toString()})(${JSON.stringify(inputBoxFixtures['numberbox-variables'])});</script></body></html>`));
