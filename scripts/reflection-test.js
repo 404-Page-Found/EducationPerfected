@@ -14,7 +14,7 @@ const { playReflectionRound, validReflectionText } = require('../lib/reflection-
         for (const enter of [true, false]) for (const variant of ['', 'unmarked']) {
             await setup(variant); const d = await detectQuestion(page);
             assert.equal(d.kind, 'reflection', JSON.stringify(d));
-            assert.deepEqual(Object.keys(d).sort(), ['empty', 'key', 'kind']);
+            assert.deepEqual(Object.keys(d).sort((a, b) => a.localeCompare(b)), ['empty', 'key', 'kind']);
             assert.equal((await playReflectionRound(page, d, { enter, requestText: async () => text })).status, 'reflection-filled');
             assert.equal(await page.evaluate(() => reflectionFixture.editor.textContent), text);
             assert.deepEqual(await counters(), [text.length, text.length, 0, 0]);
