@@ -433,12 +433,21 @@ function createServer() {
             // dropdowns, number boxes and a text box sharing one slide; this
             // fixture still builds four dropdowns, so it models the surface
             // mix, not the live two-dropdown counts); 'boxes-textbox' drops
-            // the dropdowns entirely (Page's seven number boxes + one text
-            // box live refusal shape, still with this fixture's six boxes);
+            // the dropdowns entirely and builds exactly Page's live refusal
+            // composition: seven number boxes plus one text box;
             // '-unmarked' authors every definition Marked 0.
             const textBoxItem = variant.includes('textbox') ? { id: 'text-0', answer: 'circumference' } : null;
             const dropdownAnswers = variant.startsWith('boxes-') ? [] : null;
-            return send(lessonPage(false).replace('</body></html>', `<script>(${installDropdownNumberBoxFixture.toString()})(${JSON.stringify(variant.endsWith('unmarked') ? 'unmarked' : '')},${JSON.stringify(numberBoxDefinition)},${JSON.stringify(textBoxItem)},${JSON.stringify(dropdownAnswers)});</script></body></html>`));
+            const numberBoxItems = variant.startsWith('boxes-') ? [
+                { id: 'box-0', answer: '30' },
+                { id: 'box-1', answer: '94.2', definition: { RoundingTypeCode: 'DP', RoundingAmount: 2 } },
+                { id: 'box-2', answer: '7' },
+                { id: 'box-3', answer: '3.5', definition: { RoundingTypeCode: 'DP', RoundingAmount: 1 } },
+                { id: 'box-4', answer: '12' },
+                { id: 'box-5', answer: '0.25', definition: { RoundingTypeCode: 'DP', RoundingAmount: 2 } },
+                { id: 'box-6', answer: '88' },
+            ] : null;
+            return send(lessonPage(false).replace('</body></html>', `<script>(${installDropdownNumberBoxFixture.toString()})(${JSON.stringify(variant.endsWith('unmarked') ? 'unmarked' : '')},${JSON.stringify(numberBoxDefinition)},${JSON.stringify(textBoxItem)},${JSON.stringify(dropdownAnswers)},${JSON.stringify(numberBoxItems)});</script></body></html>`));
         }
         if (url.pathname === '/lesson-reflection') {
             const variant = url.searchParams.get('variant') === 'unmarked' ? 'unmarked' : '';

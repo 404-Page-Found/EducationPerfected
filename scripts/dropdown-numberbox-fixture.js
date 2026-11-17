@@ -4,8 +4,9 @@
 // Marked 0, matching Page's live slide (all ten components authored unmarked,
 // runtime marked 1). dropdownAnswers overrides the dropdown answer list; an
 // empty array builds a number-box (+ optional text-box) slide with no
-// dropdowns, matching Page's live seven-box/one-text-box composition shape.
-function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxItem, dropdownAnswers) {
+// dropdowns; numberBoxItems overrides the six-box list (Page's live
+// seven-box/one-text-box composition passes seven).
+function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxItem, dropdownAnswers, numberBoxItems) {
     const injectorFrom = template => ({ parts: template.split(/({[^}]+})/g).map(part => /^\{[^}]+\}$/.test(part) ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
     const old = document.querySelector('.multi-choice-component');
     const self = window.angular.element(old).scope().self, q = self.model._currentQuestion, base = {}, group = document.createElement('div');
@@ -43,7 +44,7 @@ function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxIt
         select.addEventListener('keydown', e => { f.keys.push({ id, key: e.key, trusted: e.isTrusted }); f.beforeKey?.(e); });
         select.addEventListener('change', e => { const text = select.options[select.selectedIndex].text; state._selectedOption = original.find(o => o.Description.trim() === text.trim()) || null; f.changes.push({ id, index: select.selectedIndex, trusted: e.isTrusted }); f.afterChange?.(); });
     }
-    const items = [
+    const items = numberBoxItems || [
         { id: 'box-0', answer: '30' },
         { id: 'box-1', answer: '94.2', definition: { RoundingTypeCode: 'DP', RoundingAmount: 2 } },
         { id: 'box-2', answer: '7' },

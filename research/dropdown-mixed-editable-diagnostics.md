@@ -104,9 +104,10 @@ around every input, then the submit-readiness wait and one Submit. (The
 typed terminal approval that once sat between readiness and Submit was
 removed on 17 November 2026: the user defines every typed-yes-before-Submit
 step as live-proven. Refusals and guards are unchanged.)
-Any refusal stays content-free and stops with zero key input and zero
-Submits; the single-surface slides keep their own handlers and refusals
-unchanged.
+A preflight refusal stays content-free with zero key input and zero
+Submits; a guard that fails later stops the question without retry and can
+follow earlier verified inputs on the other surfaces. The single-surface
+slides keep their own handlers and refusals unchanged.
 
 Live proof landed 17 November 2026: Page's two-dropdown, six-number-box,
 one-text-box slide completed a live run on the merged handler. The

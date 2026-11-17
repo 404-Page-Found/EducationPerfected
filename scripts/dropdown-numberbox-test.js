@@ -166,6 +166,7 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
         assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [0, 0]);
         // Shared assertions for the surface-mix completion cases below.
         const sixSubmittedBoxes = [['30', '30'], ['94.20', '94.20'], ['7', '7'], ['3.5', '3.5'], ['12', '12'], ['0.25', '0.25']];
+        const sevenSubmittedBoxes = [...sixSubmittedBoxes, ['88', '88']];
         const submittedBoxValues = () => page.evaluate(() => dropdownNumberBoxFixture.submittedBoxValues);
         const submittedOnceNoNext = async () => assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [1, 0]);
         const unmarkedCompletes = async variant => {
@@ -241,12 +242,12 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
         await setup('boxes-textbox');
         d = await detectQuestion(page);
         assert.equal(d.kind, 'dropdown-numberbox', JSON.stringify(d));
-        assert.equal(d.dropdownCount, 0); assert.equal(d.boxes.length, 6); assert.equal(d.textBoxCount, 1);
+        assert.equal(d.dropdownCount, 0); assert.equal(d.boxes.length, 7); assert.equal(d.textBoxCount, 1);
         {
             const result = await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 300 });
             assert.equal(result.status, 'advanced', JSON.stringify(result));
             assert.deepEqual(await page.evaluate(() => dropdownNumberBoxFixture.submittedSelections), []);
-            assert.deepEqual(await submittedBoxValues(), sixSubmittedBoxes);
+            assert.deepEqual(await submittedBoxValues(), sevenSubmittedBoxes);
             assert.deepEqual(await page.evaluate(() => dropdownNumberBoxFixture.submittedTextBoxValues), [['circumference', 'circumference']]);
             await submittedOnceNoNext();
         }
