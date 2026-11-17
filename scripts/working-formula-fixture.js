@@ -14,6 +14,7 @@ function installWorkingFormulaFixture(variant, steps) {
     const old = document.querySelector('.multi-choice-component');
     const self = window.angular.element(old).scope().self, q = self.model._currentQuestion;
     self.model.gameMode = 3;
+    if (variant === 'unmarked') self.sectionData.activityGroup.isAutoMarked = false;
     const stepList = steps || ['V = lwh', 'V = 5 \\times 4 \\times 3', 'V = 60\\,\\text{cm}^3'];
     const marked = variant === 'unmarked' ? 0 : 1;
     const correctSteps = stepList.map((formula, i) => ({ Formula: formula, FormulaFormat: 2, CommentPreFormula: '', CommentPostFormula: '', Marked: true, ValidHint: variant === 'hints' && i === 1 }));
@@ -87,7 +88,9 @@ function installWorkingFormulaFixture(variant, steps) {
         f.enableTimer = setTimeout(() => { if (!f.neverEnable) submit.disabled = false; }, 120);
     };
     if (variant === 'delayed') {
-        hold();
+        // Disabled at mount; only answer input starts the debounce that
+        // re-enables, like EP's own asynchronous validation.
+        submit.disabled = true;
         document.addEventListener('input', hold, true);
     }
     submit.addEventListener('click', () => {

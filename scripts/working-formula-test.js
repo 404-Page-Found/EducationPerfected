@@ -23,11 +23,21 @@ const { playWorkingFormulaRound } = require('../lib/working-formula-handler');
         assert.deepEqual(await page.evaluate(() => workingFormulaFixture.finalized), ['CORRECT', 'CORRECT', 'CORRECT']);
         assert.deepEqual(await page.evaluate(() => [workingFormulaFixture.submits, workingFormulaFixture.q.questionIndex, workingFormulaFixture.nexts]), [1, 1, 0]);
         assert.deepEqual(await page.evaluate(() => workingFormulaFixture.state.formulaInput.rows.map(r => r.model.value)), ['']);
-        // Fill-only (semi mode): all rows typed, never submitted.
+        // Fill-only: all rows typed, never submitted, returned at once.
         await setup(); d = await detectQuestion(page);
-        const filled = await playWorkingFormulaRound(page, d, { enter: false, timeout: 0 });
+        const filled = await playWorkingFormulaRound(page, d, { fillOnly: true, enter: false, timeout: 0 });
         assert.equal(filled.status, 'filled', JSON.stringify(filled));
         assert.deepEqual(await page.evaluate(() => [workingFormulaFixture.submits, workingFormulaFixture.q.questionIndex]), [0, 0]);
+        // Semi mode: the verified fill waits for the user's own Submit; the
+        // round resolves only when that manual submit advances the question.
+        await setup(); d = await detectQuestion(page);
+        const semiRound = playWorkingFormulaRound(page, d, { enter: false, timeout: 0 });
+        await page.waitForFunction(() => workingFormulaFixture.finalized.length === 3);
+        assert.equal(await page.evaluate(() => workingFormulaFixture.submits), 0, 'semi mode must never submit');
+        await page.evaluate(() => [...document.querySelectorAll('#sa-navigation-controls button')].find(b => b.textContent.trim() === 'Submit').click());
+        const semi = await semiRound;
+        assert.equal(semi.status, 'advanced', JSON.stringify(semi));
+        assert.deepEqual(await page.evaluate(() => [workingFormulaFixture.submits, workingFormulaFixture.q.questionIndex]), [1, 1]);
         // Delayed Submit enablement: the readiness wait still submits once.
         await setup('delayed'); d = await detectQuestion(page);
         const delayed = await playWorkingFormulaRound(page, d, { enter: true, timeout: 2000 });
@@ -38,33 +48,34 @@ const { playWorkingFormulaRound } = require('../lib/working-formula-handler');
         for (const variant of ['prefilled', 'twosets', 'hints', 'freeform', 'unmarked']) {
             await setup(variant);
             d = await detectQuestion(page);
-            if (variant === 'unmarked') {
-                assert.equal(d.kind, 'workingformula', variant);
-                const stopped = await playWorkingFormulaRound(page, d, { enter: true, timeout: 0 });
-                assert.equal(stopped.status, 'stopped', variant); // autoMarked 'unknown' fails closed
-            } else {
-                assert.equal(d.kind, 'unsupported', variant + ': ' + JSON.stringify(d));
-            }
-            // prefilled keeps its stored row; unmarked holds the typed fill
-            // but never submits; the rest never touch the editor.
-            const untouched = variant === 'prefilled' ? [0, 1] : variant === 'unmarked' ? [0, 3] : [0, 0];
+            assert.equal(d.kind, 'unsupported', variant + ': ' + JSON.stringify(d));
+            // prefilled keeps its stored row; the rest never touch the editor.
+            const untouched = variant === 'prefilled' ? [0, 1] : [0, 0];
             assert.deepEqual(await page.evaluate(() => [workingFormulaFixture.submits, workingFormulaFixture.state.formulaInput.getWorkingSteps().length]), untouched, variant);
         }
-        // Tamper between fill and Submit: rewriting a row after the fill
-        // trips the submit-read verification; the round stops, unclicked.
-        await setup(); d = await detectQuestion(page);
+        // Submit enablement that never arrives: the readiness wait expires
+        // and the round stops without a click.
+        await setup('delayed'); d = await detectQuestion(page);
+        await page.evaluate(() => { workingFormulaFixture.neverEnable = true; });
+        const neverReady = await playWorkingFormulaRound(page, d, { enter: true, timeout: 500 });
+        assert.equal(neverReady.status, 'stopped', JSON.stringify(neverReady));
+        assert.equal(await page.evaluate(() => workingFormulaFixture.submits), 0);
+        // Tamper at Submit enablement: rewriting a row in the same instant
+        // Submit re-enables trips the submit-read verification; the round
+        // stops at the submit-target guard, unclicked.
+        await setup('delayed'); d = await detectQuestion(page);
         await page.evaluate(() => {
-            const input = workingFormulaFixture.state.formulaInput;
-            const origAdd = input.addFormulaRow.bind(input);
-            input.addFormulaRow = (...args) => {
-                const row = origAdd(...args);
-                if (input.rows.length === 3) setTimeout(() => { input.rows[0].model.value = 'tampered'; }, 0);
-                return row;
-            };
+            const submit = [...document.querySelectorAll('#sa-navigation-controls button')].find(b => b.textContent.trim() === 'Submit');
+            let disabled = true;
+            Object.defineProperty(submit, 'disabled', {
+                get: () => disabled,
+                set: value => { disabled = value; if (value === false) workingFormulaFixture.state.formulaInput.rows[0].model.value = 'tampered'; },
+            });
         });
-        const tampered = await playWorkingFormulaRound(page, d, { enter: true, timeout: 1000 });
+        const tampered = await playWorkingFormulaRound(page, d, { enter: true, timeout: 2000 });
         assert.equal(tampered.status, 'stopped', JSON.stringify(tampered));
+        assert.equal(tampered.diagnostic.guard, 'final-state-mismatch', JSON.stringify(tampered));
         assert.deepEqual(await page.evaluate(() => [workingFormulaFixture.submits, workingFormulaFixture.q.questionIndex]), [0, 0]);
-        console.log('Working-formula editor: typed rows verified, one Submit, fill-only semi mode, delayed readiness, five refusals, tamper stop PASS');
+        console.log('Working-formula editor: typed rows verified, one Submit, fill-only and semi-manual-submit modes, delayed and never-arriving readiness, five refusals, submit-time tamper stop PASS');
     } finally { try { if (browser) await browser.close(); } finally { await new Promise(r => server.close(r)); } }
 })().catch(e => { console.error(e); process.exitCode = 1; });
