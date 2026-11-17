@@ -17,29 +17,6 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
         output.write('Browser closed; exiting.\n');
         quit().catch(error => output.write(diagnostic(error, 'Shutdown') + '\n'));
     };
-    const requestSubmitApproval = (approval, label, detail, onCancel) => new Promise(resolve => {
-        if (!terminal || pendingApproval || quitPromise) { resolve(false); return; }
-        const request = { approval, resolve: null, label };
-        let unregisterCancel = null;
-        const finish = approved => {
-            unregisterCancel?.();
-            unregisterCancel = null;
-            if (pendingApproval === request) pendingApproval = null;
-            resolve(approved);
-        };
-        request.resolve = finish;
-        pendingApproval = request;
-        const cancel = () => {
-            if (pendingApproval !== request) return;
-            output.write(`${label} approval cancelled; stopping without Submit.\n`);
-            finish(false);
-        };
-        unregisterCancel = typeof onCancel === 'function' ? onCancel(cancel) : null;
-        output.write(`${label} approval required for ${approval.key} (${detail}). Confirm this is the named question visible in the browser. Type yes to submit this question once; anything else stops without Submit.\n`);
-    });
-    const requestDropdownSubmitApproval = (approval, onCancel) => requestSubmitApproval(approval, 'Dropdown Submit', `${approval.dropdownCount} dropdown`, onCancel);
-    const requestNumberBoxSubmitApproval = (approval, onCancel) => requestSubmitApproval(approval, 'Number-box Submit', `${approval.boxCount} boxes`, onCancel);
-    const requestDropdownNumberBoxSubmitApproval = (approval, onCancel) => requestSubmitApproval(approval, 'Dropdown+number-box Submit', `${approval.dropdownCount} dropdowns and ${approval.boxCount} number boxes`, onCancel);
     const requestReflectionText = (approval, onCancel) => new Promise(resolve => {
         if (!terminal || pendingApproval || quitPromise) { resolve(false); return; }
         let unregisterCancel = null;
@@ -59,7 +36,7 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
         }) : null;
         output.write(`Reflection text required for ${approval.key}. Read the visible question and enter your own single-line response (1-2000 characters). Nothing is typed until you confirm. stop or quit cancels.\n`);
     });
-    controls = await launch({ onBrowserClosed, onBrowserDisconnected: browserGone, dropdownSubmitApprover: requestDropdownSubmitApproval, numberBoxSubmitApprover: requestNumberBoxSubmitApproval, dropdownNumberBoxSubmitApprover: requestDropdownNumberBoxSubmitApproval, reflectionTextProvider: requestReflectionText });
+    controls = await launch({ onBrowserClosed, onBrowserDisconnected: browserGone, reflectionTextProvider: requestReflectionText });
     terminal = readline.createInterface({ input, output, terminal: Boolean(input.isTTY && output.isTTY) });
     output.write('Commands: start, stop, status, mode auto, mode semi, refresh, inspect-self-mark, quit\n');
     const print = () => output.write(JSON.stringify(controls.status()) + '\n');
@@ -92,12 +69,6 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
                     if (command === 'quit' || command === 'exit') { await quit(); print(); break; }
                     continue;
                 }
-                pendingApproval = null;
-                const approved = command === 'yes';
-                request.resolve(approved);
-                output.write(approved ? `${request.label} approved for ${request.approval.key} only.\n` : `${request.label} not approved; stopping without Submit.\n`);
-                if (command === 'quit' || command === 'exit') { await quit(); print(); break; }
-                continue;
             }
             try {
                 if (command === 'start') controls.start();

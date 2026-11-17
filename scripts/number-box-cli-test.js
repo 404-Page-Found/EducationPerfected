@@ -17,8 +17,8 @@ async function bootNumberBoxCli(path = '/lesson-number-box') {
     return session;
 }
 
-async function run(approval, succeed, options = {}) {
-    const { prepare, path, prompt = '(4 boxes).', expectedInputs = 11, expectedValues } = options;
+async function run(options = {}) {
+    const { prepare, path, expectedInputs = 11 } = options;
     let session;
     try {
         session = await bootNumberBoxCli(path);
@@ -28,22 +28,11 @@ async function run(approval, succeed, options = {}) {
         await wait(() => session.output.includes('"mode":"auto"'));
         const offset = session.output.length;
         child.stdin.write('start\n');
-        await wait(() => session.output.slice(offset).includes('Number-box Submit approval required for numberbox:'));
-        const promptOutput = session.output.slice(offset);
-        assert.equal(promptOutput.split('Number-box Submit approval required for numberbox:').length - 1, 1);
-        assert.equal(promptOutput.includes(prompt), true);
-        assert.deepEqual(await page.evaluate(() => [numberBoxFixture.inputs.length, numberBoxFixture.inputs.every(e => e.trusted), numberBoxFixture.submits, numberBoxFixture.nexts]), [expectedInputs, true, 0, 0]);
-        if (expectedValues) assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('input.number-box-component')].map(input => input.value)), expectedValues);
-        child.stdin.write(approval + '\n');
-        if (succeed) {
-            await wait(() => session.output.slice(offset).includes('Lesson completed.'));
-            assert.equal(session.output.slice(offset).split('Filled exact lesson number-box answers.').length - 1, 1);
-            assert.deepEqual(await page.evaluate(() => [numberBoxFixture.submits, numberBoxFixture.nexts]), [1, 0]);
-        } else {
-            await wait(() => session.output.slice(offset).includes('Number-box Submit not approved; stopping without Submit.'));
-            await wait(() => session.output.slice(offset).includes('Lesson number boxes stopped: changed or unsupported state; no retry.'));
-            assert.deepEqual(await page.evaluate(() => [numberBoxFixture.submits, numberBoxFixture.nexts]), [0, 0]);
-        }
+        await wait(() => session.output.slice(offset).includes('Lesson completed.'));
+        const runOutput = session.output.slice(offset);
+        assert.equal(runOutput.includes('approval'), false);
+        assert.equal(runOutput.split('Filled exact lesson number-box answers.').length - 1, 1);
+        assert.deepEqual(await page.evaluate(() => [numberBoxFixture.inputs.length, numberBoxFixture.inputs.every(e => e.trusted), numberBoxFixture.submits, numberBoxFixture.nexts]), [expectedInputs, true, 1, 0]);
         child.stdin.write('quit\n');
         await wait(() => child.exitCode !== null);
         assert.equal(child.exitCode, 0);
@@ -69,6 +58,7 @@ async function expectRefusal(prepare, guard, expectedInputs, options = {}) {
         await wait(() => session.output.slice(offset).includes('Unsupported question diagnostic '));
         const output = String(session.output.slice(offset));
         assert.equal(output.includes(`"guard":"${guard}"`), true);
+        assert.equal(output.includes('approval'), false);
         assert.equal(forbidden.some(text => output.includes(text)), false);
         assert.deepEqual(await page.evaluate(() => [numberBoxFixture.inputs.length, numberBoxFixture.submits, numberBoxFixture.nexts]), [expectedInputs, 0, 0]);
         child.stdin.write('quit\n');
@@ -80,31 +70,9 @@ async function expectRefusal(prepare, guard, expectedInputs, options = {}) {
 }
 
 (async () => {
-    await run('yes', true);
-    await run('no', false);
-    await run('yes', true, { prepare: unmarkAllBoxes });
-    await run('yes', true, { path: '/lesson-number-box-variables', prompt: '(1 boxes).', expectedInputs: 2, expectedValues: ['42'] });
-
-    let session;
-    try {
-        session = await bootNumberBoxCli();
-        const { child, page, wait } = session;
-        child.stdin.write('mode auto\n');
-        await wait(() => session.output.includes('"mode":"auto"'));
-        const offset = session.output.length;
-        child.stdin.write('start\n');
-        await wait(() => session.output.slice(offset).includes('Number-box Submit approval required for numberbox:'));
-        const stopped = await page.evaluate(() => window.epTestStop());
-        assert.equal(stopped.state, 'stopped');
-        await wait(() => session.output.slice(offset).includes('Number-box Submit approval cancelled; stopping without Submit.'));
-        assert.equal(session.output.slice(offset).includes('Lesson number boxes stopped: changed or unsupported state'), false);
-        assert.deepEqual(await page.evaluate(() => [numberBoxFixture.inputs.length, numberBoxFixture.inputs.every(e => e.trusted), numberBoxFixture.submits, numberBoxFixture.nexts]), [11, true, 0, 0]);
-        child.stdin.write('quit\n');
-        await wait(() => child.exitCode !== null);
-        assert.equal(child.exitCode, 0);
-    } finally {
-        await session?.cleanup();
-    }
+    await run();
+    await run({ prepare: unmarkAllBoxes });
+    await run({ path: '/lesson-number-box-variables', expectedInputs: 2 });
     await expectRefusal(() => { numberBoxFixture.self.sectionData.activityGroup.isAutoMarked = false; }, 'model-or-auto-mark', 0);
     await expectRefusal(() => {
         numberBoxFixture.afterInput = () => {
@@ -117,5 +85,5 @@ async function expectRefusal(prepare, guard, expectedInputs, options = {}) {
     await expectRefusal(() => { numberBoxFixture.base['box-c'][0].marked = 0; }, 'state-shape', 0);
     await expectRefusal(() => { const c = numberBoxFixture.base['box-c'][0]; c.visualElement = c.textBox; }, 'state-shape', 0);
     await expectRefusal(() => { numberBoxFixture.base['box-v'][0].componentState.optionsInjector[0].parts[0].text = 'tampered'; }, 'state-shape', 0, { path: '/lesson-number-box-variables', forbidden: ['42'] });
-    console.log('Number-box normal CLI PASS: DOM-order four boxes, 11 trusted characters, one typed-yes approval before one trusted Submit, non-yes denial stops without Submit, browser stop cancels pending approval without Submit, detection, Submit, runtime-marked, visual-element and injector refusal diagnostics, authored-unmarked slide completes, variable-template slide completes with one approval and one Submit, proven completion, no Next, clean quit. Synthetic only.');
+    console.log('Number-box normal CLI PASS: DOM-order four boxes, 11 trusted characters, one trusted Submit with no typed approval, detection, Submit, runtime-marked, visual-element and injector refusal diagnostics, authored-unmarked slide completes, variable-template slide completes with one Submit, proven completion, no Next, clean quit. Synthetic only.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

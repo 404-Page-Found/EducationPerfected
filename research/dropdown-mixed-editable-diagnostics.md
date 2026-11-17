@@ -97,9 +97,12 @@ all ten definitions - an authored-unmarked component is graded like a marked
 one (EP chunk606), so a slide mixing marking flags has no single answering
 contract and stays refused. Answers still come only from EP's own accepted
 answers: the dropdown `Correct` flags and the number-box `answerOptions`.
-Input runs the F4-popup dropdown flow, then per-character number-box typing
-with a full re-verification around every input, then the submit-readiness
-wait, the typed approval (dropdown and box counts shown), and one Submit.
+Input runs the F4-popup dropdown flow, then per-character typing of the
+number boxes (and text boxes when present) with a full re-verification
+around every input, then the submit-readiness wait and one Submit. (The
+typed terminal approval that once sat between readiness and Submit was
+removed on 17 November 2026: the user defines every typed-yes-before-Submit
+step as live-proven. Refusals and guards are unchanged.)
 Any refusal stays content-free and stops with zero key input and zero
 Submits; the single-surface slides keep their own handlers and refusals
 unchanged.

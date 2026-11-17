@@ -74,10 +74,9 @@ const series=(items,run)=>items.reduce((previous,item)=>previous.then(()=>run(it
         await session.page.goto(session.origin+'/lesson-dropdown?count=1&variant=annotated-text');
         await require('./dropdown-popup-test-helpers').installPopupEmulation(session.page);
         await session.page.evaluate(()=>{dropdownFixture.followingUnsupported=true;});
-        session.child.stdin.write('start\n');await session.wait(()=>session.output.includes('Dropdown Submit approval required'));
-        session.child.stdin.write('yes\n');await session.wait(()=>session.output.includes('answerLoop Exited.'));
+        session.child.stdin.write('start\n');await session.wait(()=>session.output.includes('answerLoop Exited.'));
         assert.deepEqual(await session.page.evaluate(()=>[dropdownFixture.submittedSelections,dropdownFixture.submits,dropdownFixture.nexts]),[[['Radius','Radius']],1,0]);
         session.child.stdin.write('quit\n');await session.wait(()=>session.child.exitCode!==null);
     }finally{await session.cleanup();}
-    console.log('Dropdown companions PASS:2source-shaped positives,21pre-input refusals,4mid-input identity stops,content-free count diagnostics,realCLI1dropdown+companion1approvedSubmit0Next. Synthetic only.');
+    console.log('Dropdown companions PASS:2source-shaped positives,21pre-input refusals,4mid-input identity stops,content-free count diagnostics,realCLI1dropdown+companion1Submit0NextNoApproval. Synthetic only.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

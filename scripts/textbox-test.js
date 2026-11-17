@@ -184,32 +184,22 @@ const { playTextboxRound, playNumberBoxRound } = require('../lib/textbox-handler
         let numberDescriptor = await detectQuestion(page);
         assert.equal(numberDescriptor.kind, 'numberbox');
         assert.deepEqual(numberDescriptor.boxes.map(b => b.answer), ['30', '30', '30', '94.20']);
-        let approvals = [];
         let result = await playNumberBoxRound(page, numberDescriptor, {
             enter: true,
-            timeout: 200,
-            requireSubmitApproval: true,
-            approveSubmit: async request => { approvals.push(request); return false; },
+            timeout: 1000,
         });
-        assert.equal(result.status, 'stopped');
-        assert.equal(approvals.length, 1);
-        assert.equal(approvals[0].key, numberDescriptor.key);
-        assert.equal(approvals[0].boxCount, 4);
+        assert.equal(result.status, 'advanced');
         assert.deepEqual(await page.evaluate(() => numberBoxFixture.inputs.map(e => e.id)), ['box-c', 'box-c', 'box-a', 'box-a', 'box-d', 'box-d', 'box-b', 'box-b', 'box-b', 'box-b', 'box-b']);
-        assert.deepEqual(await page.evaluate(() => [numberBoxFixture.inputs.length, numberBoxFixture.inputs.every(e => e.trusted), numberBoxFixture.submits]), [11, true, 0]);
+        assert.deepEqual(await page.evaluate(() => [numberBoxFixture.inputs.length, numberBoxFixture.inputs.every(e => e.trusted), numberBoxFixture.submits]), [11, true, 1]);
 
         const approvedNumberRound = async () => {
             numberDescriptor = await detectQuestion(page);
             assert.equal(numberDescriptor.kind, 'numberbox');
-            approvals = [];
             result = await playNumberBoxRound(page, numberDescriptor, {
                 enter: true,
                 timeout: 1000,
-                requireSubmitApproval: true,
-                approveSubmit: async request => { approvals.push(request); return true; },
             });
             assert.equal(result.status, 'advanced');
-            assert.equal(approvals.length, 1);
             assert.deepEqual(await page.evaluate(() => [numberBoxFixture.inputs.length, numberBoxFixture.inputs.every(e => e.trusted), numberBoxFixture.submits]), [11, true, 1]);
         };
         await page.goto(origin + '/lesson-number-box');
@@ -225,8 +215,6 @@ const { playTextboxRound, playNumberBoxRound } = require('../lib/textbox-handler
         result = await playNumberBoxRound(page, numberDescriptor, {
             enter: false,
             timeout: 0,
-            requireSubmitApproval: true,
-            approveSubmit: async () => { throw new Error('fill-only must not ask'); },
             log: () => { numberFilled = true; },
             shouldStop: () => numberFilled,
         });
@@ -239,8 +227,6 @@ const { playTextboxRound, playNumberBoxRound } = require('../lib/textbox-handler
         const semiResultPromise = playNumberBoxRound(page, numberDescriptor, {
             enter: false,
             timeout: 0,
-            requireSubmitApproval: true,
-            approveSubmit: async () => { throw new Error('semi-auto must not ask'); },
             // The user Submit must wait for the round's fill-complete log:
             // clicking earlier lands inside the round's post-fill state
             // checks, whose baseline-changed guard correctly refuses the
@@ -397,8 +383,6 @@ const { playTextboxRound, playNumberBoxRound } = require('../lib/textbox-handler
             const refused = await playNumberBoxRound(page, d, {
                 enter: true,
                 timeout: 200,
-                requireSubmitApproval: true,
-                approveSubmit: async () => { throw new Error('refusal must not ask'); },
             });
             assert.equal(refused.status, 'stopped', mutation);
             assert.equal(refused.reason, 'unsafe-or-changed-state', mutation);
@@ -412,7 +396,7 @@ const { playTextboxRound, playNumberBoxRound } = require('../lib/textbox-handler
             const vd = await detectQuestion(page);
             assert.equal(vd.kind, 'numberbox', JSON.stringify(vd));
             assert.deepEqual(vd.boxes.map(b => b.answer), ['42']);
-            const vr = await playNumberBoxRound(page, vd, { enter: true, timeout: 1000, requireSubmitApproval: true, approveSubmit: async () => true });
+            const vr = await playNumberBoxRound(page, vd, { enter: true, timeout: 1000 });
             assert.equal(vr.status, 'advanced');
             assert.deepEqual(await page.evaluate(() => [numberBoxFixture.inputs.length, numberBoxFixture.inputs.every(e => e.trusted), numberBoxFixture.submits]), [2, true, 1]);
         }
@@ -433,7 +417,7 @@ const { playTextboxRound, playNumberBoxRound } = require('../lib/textbox-handler
             assert.equal(bad.diagnostic.guard, 'state-shape');
             for (const [key, value] of Object.entries(facts)) assert.equal(bad.diagnostic[key], value, key);
             assert.equal(JSON.stringify(bad.diagnostic).includes('42'), false);
-            const refused = await playNumberBoxRound(page, bad, { enter: true, timeout: 200, requireSubmitApproval: true, approveSubmit: async () => { throw new Error('refusal must not ask'); } });
+            const refused = await playNumberBoxRound(page, bad, { enter: true, timeout: 200 });
             assert.equal(refused.status, 'stopped');
             assert.deepEqual(await page.evaluate(() => [numberBoxFixture.inputs.length, numberBoxFixture.submits]), [0, 0]);
         };
@@ -480,6 +464,6 @@ const { playTextboxRound, playNumberBoxRound } = require('../lib/textbox-handler
             assert.equal(refused.status, 'stopped');
             assert.deepEqual(await page.evaluate(() => [textboxFixture.inputs.length, textboxFixture.submits, document.querySelectorAll('input[type="radio"]:checked').length, textboxFixture.radioEvents.length]), [0, 0, 0, 0]);
         }
-        console.log('Textbox source-derived browser fixtures PASS: DOM-order2fields/9trustedcharacters/1Submit; fill-only0Submit; 25 initial refusals; 5 mid-input stops after1character/0Submit;3 deterministic unsupported/modal transitions. Number boxes: DOM-order4fields/11trustedcharacters, DP-format answer validation, one approval gate, 1Submit, fill-only0Submit, semi-auto advance after user Submit, authored-unmarked textbox and number-box rounds complete with 1Submit each, 31 sanitized guard diagnostics and33refusals; variable-template number-box and textbox slides fill+submit, eleven injector tamper refusals0input; mixed textbox+multichoice slide refuses with component-mix diagnostic0input. Not live proof.');
+        console.log('Textbox source-derived browser fixtures PASS: DOM-order2fields/9trustedcharacters/1Submit; fill-only0Submit; 25 initial refusals; 5 mid-input stops after1character/0Submit;3 deterministic unsupported/modal transitions. Number boxes: DOM-order4fields/11trustedcharacters, DP-format answer validation, 1Submit with no typed approval, fill-only0Submit, semi-auto advance after user Submit, authored-unmarked textbox and number-box rounds complete with 1Submit each, 31 sanitized guard diagnostics and33refusals; variable-template number-box and textbox slides fill+submit, eleven injector tamper refusals0input; mixed textbox+multichoice slide refuses with component-mix diagnostic0input. Not live proof.');
     } finally { try { if (browser) await browser.close(); } finally { await new Promise(r => server.close(r)); } }
 })().catch(e => { console.error(e); process.exitCode = 1; });

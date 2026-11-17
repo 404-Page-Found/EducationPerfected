@@ -3,7 +3,7 @@
 // fixture shapes (EP chunk606). variant 'unmarked' authors every definition
 // Marked 0, matching Page's live slide (all ten components authored unmarked,
 // runtime marked 1).
-function installDropdownNumberBoxFixture(variant, numberBoxDefinition) {
+function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxItem) {
     const injectorFrom = template => ({ parts: template.split(/({[^}]+})/g).map(part => /^\{[^}]+\}$/.test(part) ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
     const old = document.querySelector('.multi-choice-component');
     const self = window.angular.element(old).scope().self, q = self.model._currentQuestion, base = {}, group = document.createElement('div');
@@ -70,12 +70,31 @@ function installDropdownNumberBoxFixture(variant, numberBoxDefinition) {
             f.afterInput?.();
         });
     }
+    // Optional third surface: one lesson text box (EP chunk606
+    // NewTextBoxComponent: visualElement IS the input, never wrapped).
+    if (textBoxItem) {
+        const def = Object.assign({ ComponentTypeCode: 'TEXT_BOX_COMPONENT', ComponentID: textBoxItem.id, Marked: marked, InitialText: '', Options: [textBoxItem.raw || textBoxItem.answer] }, { CaseSensitive: true, MarkPunctuation: false, IgnoredCharacters: '' });
+        q.questionDef.Components.unshift(def);
+        const input = document.createElement('input');
+        input.className = 'text-box-component';
+        group.append(document.createTextNode(' Answer: '), input);
+        const metadataInstance = JSON.parse(JSON.stringify(def));
+        const state = { metadataInstance, answerOptions: [textBoxItem.answer], optionsInjector: def.Options.map(injectorFrom), variableOptions: [{ Code: 'synthetic-case', Value: 'true' }], injectedInitialText: '', userAnswer: '', isUserAnswerSet: false };
+        base[textBoxItem.id] = [{ id: textBoxItem.id, componentState: state, visualElement: input, textBox: input, renderingParameters: { mode: 1 }, marked: 1 }];
+        input.addEventListener('input', e => {
+            f.inputs.push({ id: textBoxItem.id, trusted: e.isTrusted });
+            state.userAnswer = input.value;
+            state.isUserAnswerSet = true;
+            f.afterInput?.();
+        });
+    }
     const oldSubmit = [...document.querySelectorAll('#sa-navigation-controls button')].find(b => b.textContent.trim() === 'Submit');
     const submit = oldSubmit.cloneNode(true);
     oldSubmit.replaceWith(submit);
     submit.addEventListener('click', () => {
         f.submittedSelections = [...group.querySelectorAll('select')].map(el => [el.options[el.selectedIndex].textContent, base[el.id][0].componentState._selectedOption?.Description]);
         f.submittedBoxValues = [...group.querySelectorAll('input.number-box-component')].map(el => { const entry = Object.values(base).flat().find(c => c.textBox === el); return [el.value, entry?.componentState.userAnswer]; });
+        f.submittedTextBoxValues = [...group.querySelectorAll('input.text-box-component')].map(el => { const entry = Object.values(base).flat().find(c => c.textBox === el); return [el.value, entry?.componentState.userAnswer]; });
         f.submits++;
         q.questionIndex++;
     });

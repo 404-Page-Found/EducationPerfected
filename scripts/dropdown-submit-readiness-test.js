@@ -60,17 +60,17 @@ async function checkReadinessBudget(){
         const setup=async mutation=>{await page.goto('http://127.0.0.1:'+server.address().port+'/lesson-dropdown?count=2');await page.evaluate(installDelay,mutation);};
         const counts=()=>page.evaluate(()=>[dropdownFixture.keys.length,dropdownFixture.submits,dropdownFixture.nexts]);
         const checkReady=async mutation=>{
-            await setup(mutation);let approvals=0;
-            const result=await playDropdownRound(page,await detectQuestion(page),{enter:true,timeout:800,requireSubmitApproval:true,approveSubmit:async()=>{approvals++;return true;}});
-            assert.equal(result.status,'advanced',mutation);assert.equal(approvals,1);
+            await setup(mutation);
+            const result=await playDropdownRound(page,await detectQuestion(page),{enter:true,timeout:800});
+            assert.equal(result.status,'advanced',mutation);
             assert.deepEqual(await counts(),[6,1,0]);assert.deepEqual(await page.evaluate(()=>dropdownFixture.submitClicks),[true]);
         };
         await checkReady('enable');await checkReady('insert');await checkReady('hidden');
         const checkRefusal=async(mutation,guard)=>{
-            await setup(mutation);let approvals=0;
-            const result=await playDropdownRound(page,await detectQuestion(page),{enter:true,timeout:400,requireSubmitApproval:true,approveSubmit:async()=>{approvals++;return true;}});
+            await setup(mutation);
+            const result=await playDropdownRound(page,await detectQuestion(page),{enter:true,timeout:400});
             assert.equal(result.selectionDiagnostic.phase,'submit-readiness',mutation);
-            assert.equal(result.selectionDiagnostic.guard,guard,mutation);assert.equal(approvals,0);
+            assert.equal(result.selectionDiagnostic.guard,guard,mutation);
             assert.deepEqual(await counts(),[6,0,0],mutation);
             if(mutation==='never')assert.deepEqual(result.selectionDiagnostic.submitState,{visible:1,enabled:0});
             if(mutation==='missing')assert.deepEqual(result.selectionDiagnostic.submitState,{visible:0,enabled:0});
@@ -82,7 +82,7 @@ async function checkReadinessBudget(){
         await checkRefusal('renderer','baseline-changed');
         await checkRefusal('cache','cached-selection-identity');
         await checkRefusal('assessment','assessment-mode');
-        // Integration refusal above also asserts no replay, approval or Submit.
+        // Integration refusal above also asserts no replay or Submit.
         // A slow read returning a ready button after the budget is not accepted.
         await setup('never');const read=page.evaluateHandle.bind(page);let capturedReady=false;
         page.evaluateHandle=async(fn,...args)=>{
@@ -104,16 +104,24 @@ async function checkReadinessBudget(){
         try{assert.equal((await playDropdownRound(page,await detectQuestion(page),{enter:true,timeout:800,shouldStop:()=>stop})).status,'aborted');}
         finally{page.evaluateHandle=original;}
         assert.deepEqual(await counts(),[6,0,0]);
-        // Final guards after approval remain authoritative, including button drift.
+        // Final guards between readiness and click remain authoritative,
+        // including button drift: mutate the moment a ready Submit is read.
         const checkFinalGuard=async mutation=>{
             await setup('enable');
-            const result=await playDropdownRound(page,await detectQuestion(page),{enter:true,timeout:800,requireSubmitApproval:true,approveSubmit:async()=>{
-                if(mutation==='deny')return false;
-                await page.evaluate(m=>{if(m==='disable'){document.querySelector('#sa-navigation-controls button').disabled=true;}if(m==='key'){dropdownFixture.q.questionIndex++;}if(m==='covered'){const cover=document.createElement('div');Object.assign(cover.style,{position:'fixed',inset:'0',zIndex:'99999',background:'white'});document.body.append(cover);}},mutation);return true;
-            }});
-            assert.equal(result.status,'stopped',mutation);assert.deepEqual(await counts(),[6,0,0],mutation);
+            const original=page.evaluateHandle.bind(page);
+            page.evaluateHandle=async(fn,...args)=>{
+                const h=await original(fn,...args);
+                if(args[1]==='submit'&&await h.evaluate(r=>!!r?.target).catch(()=>false)){
+                    await page.evaluate(m=>{if(m==='disable'){document.querySelector('#sa-navigation-controls button').disabled=true;}if(m==='key'){dropdownFixture.q.questionIndex++;}if(m==='covered'){const cover=document.createElement('div');Object.assign(cover.style,{position:'fixed',inset:'0',zIndex:'99999',background:'white'});document.body.append(cover);}},mutation);
+                }
+                return h;
+            };
+            try{
+                const result=await playDropdownRound(page,await detectQuestion(page),{enter:true,timeout:800});
+                assert.equal(result.status,'stopped',mutation);assert.deepEqual(await counts(),[6,0,0],mutation);
+            }finally{page.evaluateHandle=original;}
         };
-        await checkFinalGuard('deny');await checkFinalGuard('disable');await checkFinalGuard('covered');await checkFinalGuard('key');
+        await checkFinalGuard('disable');await checkFinalGuard('covered');await checkFinalGuard('key');
         await setup('enable');const click=page.mouse.click.bind(page.mouse);
         page.mouse.click=async(...args)=>{await click(...args);throw new Error('uncertain');};
         try{assert.equal((await playDropdownRound(page,await detectQuestion(page),{enter:true,timeout:800})).selectionDiagnostic.guard,'inspection-or-dispatch-uncertain');}
@@ -124,11 +132,10 @@ async function checkReadinessBudget(){
     try{
         await session.page.goto(session.origin+'/lesson-dropdown?count=2');await installPopupEmulation(session.page);await session.page.evaluate(installDelay,'enable');
         await session.page.evaluate(()=>{document.querySelector('#sa-navigation-controls button').addEventListener('click',()=>{dropdownFixture.group.remove();document.querySelector('#question-container-group').remove();dropdownFixture.self.model._currentQuestion=null;const exit=document.querySelector('button.exit-button');exit.hidden=false;exit.style.display='';});});
-        session.child.stdin.write('start\n');await session.wait(()=>session.output.includes('Dropdown Submit approval required'));
-        assert.deepEqual(await session.page.evaluate(()=>[dropdownFixture.keys.length,dropdownFixture.submits]),[8,0]);
-        session.child.stdin.write('yes\n');await session.wait(()=>session.output.includes('Lesson completed.'));
+        session.child.stdin.write('start\n');await session.wait(()=>session.output.includes('Lesson completed.'));
+        assert.equal(session.output.includes('Submit approval'),false);
         assert.deepEqual(await session.page.evaluate(()=>[dropdownFixture.keys.length,dropdownFixture.submits,dropdownFixture.nexts]),[8,1,0]);
         session.child.stdin.write('quit\n');await session.wait(()=>session.child.exitCode!==null);
     }finally{await session.cleanup();}
-    console.log('Dropdown Submit readiness PASS: delayed enable/insertion/unhide, exact-state polling, ambiguity/timeout/stale/cache/assessment/cancel guards, approval and final guards, uncertain-click-no-retry, two-dropdown F4 real CLI one approval/Submit. Synthetic only.');
+    console.log('Dropdown Submit readiness PASS: delayed enable/insertion/unhide, exact-state polling, ambiguity/timeout/stale/cache/assessment/cancel guards, final guards, uncertain-click-no-retry, two-dropdown F4 real CLI one Submit with no typed approval. Synthetic only.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

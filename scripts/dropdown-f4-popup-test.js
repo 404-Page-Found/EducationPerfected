@@ -83,8 +83,6 @@ const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restoreP
             inputMode: 'f4-popup',
             enter: true,
             timeout: 50,
-            requireSubmitApproval: true,
-            approveSubmit: async () => { throw new Error('must not ask after a mid-sequence failure'); },
         });
         assert.equal(result.status, 'stopped');
         assert.equal(result.selectionDiagnostic.phase, 'after-popup-arrow');
@@ -113,8 +111,6 @@ const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restoreP
             inputTrace: trace,
             enter: true,
             timeout: 50,
-            requireSubmitApproval: true,
-            approveSubmit: async () => { throw new Error('must not ask when trace capacity is exceeded'); },
         });
         assert.equal(result.status, 'stopped');
         assert.equal(result.selectionDiagnostic.phase, 'after-f4');
@@ -131,54 +127,33 @@ const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restoreP
         await setup(1);
         await installPopupEmulation(page);
         descriptor = await detectQuestion(page);
-        let approvalRequest = null;
         result = await playDropdownRound(page, descriptor, {
             inputMode: 'f4-popup',
             enter: true,
             timeout: 300,
-            requireSubmitApproval: true,
-            approveSubmit: async request => { approvalRequest = request; return true; },
         });
         assert.equal(result.status, 'advanced');
-        assert.deepEqual(approvalRequest, { key: descriptor.key, dropdownCount: 1, inputMode: 'f4-popup' });
         assert.deepEqual(await page.evaluate(() => [dropdownFixture.keys.map(event => event.key), dropdownFixture.keys.every(event => event.trusted), dropdownFixture.changes.map(event => event.index), dropdownFixture.submits, dropdownFixture.nexts]), [['F4', 'ArrowDown', 'ArrowDown', 'Enter'], true, [2], 1, 0]);
         await restorePopupEmulation(page);
 
         await setup(1);
         await installPopupEmulation(page);
         descriptor = await detectQuestion(page);
-        result = await playDropdownRound(page, descriptor, {
-            inputMode: 'f4-popup',
-            enter: true,
-            timeout: 50,
-            requireSubmitApproval: true,
-            approveSubmit: async () => false,
-        });
-        assert.equal(result.status, 'stopped');
-        assert.equal(result.selectionDiagnostic.guard, 'submit-not-approved');
-        assert.deepEqual(await page.evaluate(() => [dropdownFixture.keys.map(event => event.key), dropdownFixture.submits, dropdownFixture.nexts]), [['F4', 'ArrowDown', 'ArrowDown', 'Enter'], 0, 0]);
-        await restorePopupEmulation(page);
-
         await setup(3);
         await installPopupEmulation(page);
         descriptor = await detectQuestion(page);
-        let approvalCalls = 0;
         result = await playDropdownRound(page, descriptor, {
             inputMode: 'f4-popup',
             enter: true,
             timeout: 300,
-            requireSubmitApproval: true,
-            approveSubmit: async request => { approvalCalls++; approvalRequest = request; return true; },
         });
         assert.equal(result.status, 'advanced');
-        assert.equal(approvalCalls, 1);
-        assert.deepEqual(approvalRequest, { key: descriptor.key, dropdownCount: 3, inputMode: 'f4-popup' });
         assert.deepEqual(await page.evaluate(() => dropdownFixture.keys), expectedPopupKeys(3));
         assert.deepEqual(await page.evaluate(() => dropdownFixture.changes), expectedPopupChanges(3));
         assert.deepEqual(await page.evaluate(() => [dropdownFixture.submits, dropdownFixture.nexts]), [1, 0]);
         await restorePopupEmulation(page);
 
-        console.log('Dropdown F4 popup PASS: Linux-headless native popup exact path; synthetic popup guards, no navigation commit, unsupported-open, early-close, mid-sequence failure, trace-capacity loss and early-commit stop before Enter/Submit; multi-dropdown questions use one terminal approval before one Submit. Not Windows headful proof.');
+        console.log('Dropdown F4 popup PASS: Linux-headless native popup exact path; synthetic popup guards, no navigation commit, unsupported-open, early-close, mid-sequence failure, trace-capacity loss and early-commit stop before Enter/Submit; multi-dropdown questions submit once with no typed approval. Not Windows headful proof.');
     } finally {
         if (browser) await browser.close();
         await new Promise(resolve => server.close(resolve));

@@ -379,7 +379,7 @@ async function resolveCredentials(watchForSession) {
 
 // ===== Program ===== //
 
-async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected = () => {}, legacySignals = false, gapsFillOnly = false, choiceSelectOnly = false, gapsSubmitOnce = false, textboxFillOnly = false, dropdownSubmitOnce = false, multiSelectOnly = false, dropdownSubmitApprover, numberBoxSubmitApprover, dropdownNumberBoxSubmitApprover, reflectionTextProvider } = {}) {
+async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected = () => {}, legacySignals = false, gapsFillOnly = false, choiceSelectOnly = false, gapsSubmitOnce = false, textboxFillOnly = false, dropdownSubmitOnce = false, multiSelectOnly = false, reflectionTextProvider } = {}) {
     // F4 popup is the only normal-run dropdown input path. The older
     // Home/ArrowDown mechanism remains only in explicit synthetic regression
     // fixtures and the local EP-free diagnostic; there is no env rollback.
@@ -795,13 +795,13 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             let CLEANUP = null;  // promise of the most recent run's post-run modal cleanup
             let ENTER = true;
             let runReason = 'stopped';
-            const submitApprovalCancellers = new Set();
-            const onSubmitApprovalCancel = cancel => {
-                submitApprovalCancellers.add(cancel);
-                return () => submitApprovalCancellers.delete(cancel);
+            const pendingReflectionCancellers = new Set();
+            const onReflectionRequestCancel = cancel => {
+                pendingReflectionCancellers.add(cancel);
+                return () => pendingReflectionCancellers.delete(cancel);
             };
-            const cancelSubmitApprovals = () => {
-                for (const cancel of [...submitApprovalCancellers]) cancel();
+            const cancelReflectionRequests = () => {
+                for (const cancel of [...pendingReflectionCancellers]) cancel();
             };
 
             // How long to wait for EP to move on to the next question after a submission.
@@ -1812,19 +1812,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         timeout: ADVANCE_TIMEOUT,
                         shouldStop: () => !TOGGLE,
                         log: msg => console.log(msg),
-                        ...(again.kind === 'dropdown' ? {
+                        ...((again.kind === 'dropdown' || again.kind === 'dropdown-numberbox') ? {
                             inputMode: dropdownInputMode,
-                            requireSubmitApproval: ENTER,
-                            approveSubmit: async request => typeof dropdownSubmitApprover === 'function' ? await dropdownSubmitApprover(request, onSubmitApprovalCancel) : false,
-                        } : again.kind === 'dropdown-numberbox' ? {
-                            inputMode: dropdownInputMode,
-                            requireSubmitApproval: ENTER,
-                            approveSubmit: async request => typeof dropdownNumberBoxSubmitApprover === 'function' ? await dropdownNumberBoxSubmitApprover(request, onSubmitApprovalCancel) : false,
-                        } : again.kind === 'numberbox' ? {
-                            requireSubmitApproval: ENTER,
-                            approveSubmit: async request => typeof numberBoxSubmitApprover === 'function' ? await numberBoxSubmitApprover(request, onSubmitApprovalCancel) : false,
                         } : again.kind === 'reflection' ? {
-                            requestText: async request => typeof reflectionTextProvider === 'function' ? await reflectionTextProvider(request, onSubmitApprovalCancel) : false,
+                            requestText: async request => typeof reflectionTextProvider === 'function' ? await reflectionTextProvider(request, onReflectionRequestCancel) : false,
                         } : {}),
                     });
                     if (result.status === 'reflection-filled') {
@@ -2457,7 +2448,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             const validationOnly = gapsFillOnly || choiceSelectOnly || gapsSubmitOnce || textboxFillOnly || dropdownSubmitOnce || multiSelectOnly;
             const controls = createRunControls({
                 run: multiSelectOnly ? runMultiSelectOnly : dropdownSubmitOnce ? runDropdownSubmitOnce : textboxFillOnly ? runTextboxFillOnly : choiceSelectOnly ? runSelectOnly : (gapsFillOnly || gapsSubmitOnce) ? runFillOnly : startLoop,
-                requestStop: () => { TOGGLE = false; cancelSubmitApprovals(); },
+                requestStop: () => { TOGGLE = false; cancelReflectionRequests(); },
                 setMode: value => { ENTER = value === 'auto'; },
                 refresh: refreshWords,
                 inspect: () => collectSelfMarkDiagnostics(page),

@@ -108,7 +108,7 @@ async function cliCase(){
             const button=document.querySelector('#sa-navigation-controls button'),replacement=button.cloneNode(true);button.replaceWith(replacement);
             replacement.addEventListener('click',()=>{f.submits++;document.body.append(f.modal,f.backdrop);});
         });
-        session.child.stdin.write('start\n');await session.wait(()=>session.output.includes('Dropdown Submit approval required'));session.child.stdin.write('yes\n');
+        session.child.stdin.write('start\n');
         await session.wait(()=>session.output.includes('Verified the next section and a new question.'));
         session.child.stdin.write('stop\n');await session.wait(()=>session.output.includes('answerLoop Exited.'));
         assert.deepEqual(await session.page.evaluate(()=>[dropdownFixture.sectionClicks,dropdownFixture.submits,dropdownFixture.trustedNext]),[1,1,[true]]);

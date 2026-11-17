@@ -32,16 +32,12 @@ async function assertMultiDropdownSuccess(count, extraEnv = {}, variant = '') {
         await wait(() => session.output.includes('"mode":"auto"'));
         const offset = session.output.length;
         child.stdin.write('start\n');
-        await wait(() => session.output.slice(offset).includes('Dropdown Submit approval required for dropdown:'));
-        const promptOutput = session.output.slice(offset);
-        assert.equal(promptOutput.split('Dropdown Submit approval required for dropdown:').length - 1, 1, count);
-        assert.equal(promptOutput.includes('(' + count + ' dropdown).'), true, count);
+        await wait(() => session.output.slice(offset).includes('Lesson completed.'));
+        const runOutput = session.output.slice(offset);
+        assert.equal(runOutput.includes('approval'), false, count);
         assert.deepEqual(await page.evaluate(() => dropdownFixture.keys), expectedPopupKeys(count), count);
         assert.deepEqual(await page.evaluate(() => dropdownFixture.changes), expectedPopupChanges(count), count);
-        assert.deepEqual(await page.evaluate(() => [dropdownFixture.submits, dropdownFixture.nexts]), [0, 0], count);
-        child.stdin.write('yes\n');
-        await wait(() => session.output.slice(offset).includes('Lesson completed.'));
-        assert.equal(session.output.slice(offset).split('Selected exact lesson dropdown answers.').length - 1, 1, count);
+        assert.equal(runOutput.split('Selected exact lesson dropdown answers.').length - 1, 1, count);
         assert.deepEqual(await page.evaluate(() => [dropdownFixture.submits, dropdownFixture.nexts]), [1, 0], count);
         child.stdin.write('quit\n');
         await wait(() => child.exitCode !== null);
@@ -124,5 +120,5 @@ async function assertMixedEditableRefusal() {
     await assertDetectionRefusal();
     await assertVariableTemplateRefusal();
     await assertMixedEditableRefusal();
-    console.log('Dropdown normal CLI PASS: F4 popup handles two, three and five dropdowns in order plus a variable-template slide, ignores EP_DROPDOWN_INPUT=legacy, asks once before one Submit, stops a mid-sequence failure without Submit, and prints the sanitized mid-sequence, detection, injector and mixed-editable refusal diagnostics. Synthetic Linux only.');
+    console.log('Dropdown normal CLI PASS: F4 popup handles two, three and five dropdowns in order plus a variable-template slide, ignores EP_DROPDOWN_INPUT=legacy, submits once with no typed approval, stops a mid-sequence failure without Submit, and prints the sanitized mid-sequence, detection, injector and mixed-editable refusal diagnostics. Synthetic Linux only.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -8,8 +8,10 @@ async function bootMixedCli(path = '/lesson-dropdown-number-box') {
     return session;
 }
 
-async function run(approval, succeed, options = {}) {
-    const { prepare, path, prompt = '(4 dropdowns and 6 number boxes).' } = options;
+// Auto mode fills and submits with no typed approval: the run drives the
+// whole question end to end after one `start`.
+async function run(options = {}) {
+    const { prepare, path, textBox = false } = options;
     let session;
     try {
         const { child, page, wait } = (session = await bootMixedCli(path));
@@ -18,23 +20,15 @@ async function run(approval, succeed, options = {}) {
         await wait(() => session.output.includes('"mode":"auto"'));
         const offset = session.output.length;
         child.stdin.write('start\n');
-        await wait(() => session.output.slice(offset).includes('Dropdown+number-box Submit approval required for dropdown:'));
-        const promptOutput = session.output.slice(offset);
-        assert.equal(promptOutput.split('Dropdown+number-box Submit approval required for dropdown:').length - 1, 1);
-        assert.equal(promptOutput.includes(prompt), true);
-        assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.keys.map(e => e.key), dropdownNumberBoxFixture.keys.every(e => e.trusted), dropdownNumberBoxFixture.changes.map(e => e.index), dropdownNumberBoxFixture.inputs.length, dropdownNumberBoxFixture.inputs.every(e => e.trusted), dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [['F4', 'F4', 'F4', 'F4'], true, [2, 2, 2, 2], 17, true, 0, 0]);
-        assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('input.number-box-component')].map(input => input.value)), ['30', '94.20', '7', '3.5', '12', '0.25']);
-        child.stdin.write(approval + '\n');
-        if (succeed) {
-            await wait(() => session.output.slice(offset).includes('Lesson completed.'));
-            assert.equal(session.output.slice(offset).split('Selected exact lesson dropdown answers.').length - 1, 1);
-            assert.equal(session.output.slice(offset).split('Filled exact lesson number-box answers.').length - 1, 1);
-            assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [1, 0]);
-        } else {
-            await wait(() => session.output.slice(offset).includes('Dropdown+number-box Submit not approved; stopping without Submit.'));
-            await wait(() => session.output.slice(offset).includes('Lesson dropdowns with number boxes stopped: changed or unsupported state; no retry.'));
-            assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [0, 0]);
-        }
+        await wait(() => session.output.slice(offset).includes('Lesson completed.'));
+        const runOutput = session.output.slice(offset);
+        assert.equal(runOutput.includes('approval'), false);
+        assert.equal(runOutput.split('Selected exact lesson dropdown answers.').length - 1, 1);
+        assert.equal(runOutput.split('Filled exact lesson number-box answers.').length - 1, 1);
+        assert.equal(runOutput.split('Filled exact lesson textbox answers.').length - 1, textBox ? 1 : 0);
+        assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.keys.map(e => e.key), dropdownNumberBoxFixture.keys.every(e => e.trusted), dropdownNumberBoxFixture.changes.map(e => e.index), dropdownNumberBoxFixture.inputs.length, dropdownNumberBoxFixture.inputs.every(e => e.trusted), dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [['F4', 'F4', 'F4', 'F4'], true, [2, 2, 2, 2], textBox ? 30 : 17, true, 1, 0]);
+        assert.deepEqual(await page.evaluate(() => dropdownNumberBoxFixture.submittedBoxValues), [['30', '30'], ['94.20', '94.20'], ['7', '7'], ['3.5', '3.5'], ['12', '12'], ['0.25', '0.25']]);
+        if (textBox) assert.deepEqual(await page.evaluate(() => dropdownNumberBoxFixture.submittedTextBoxValues), [['circumference', 'circumference']]);
         child.stdin.write('quit\n');
         await wait(() => child.exitCode !== null);
         assert.equal(child.exitCode, 0);
@@ -55,6 +49,7 @@ async function expectRefusal(prepare, guard, options = {}) {
         await wait(() => session.output.slice(offset).includes('Unsupported question diagnostic '));
         const output = String(session.output.slice(offset));
         assert.equal(output.includes(`"guard":"${guard}"`), true);
+        assert.equal(output.includes('approval'), false);
         assert.equal(forbidden.some(text => output.includes(text)), false);
         assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.keys.length, dropdownNumberBoxFixture.inputs.length, dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [0, 0, 0, 0]);
         child.stdin.write('quit\n');
@@ -66,31 +61,13 @@ async function expectRefusal(prepare, guard, options = {}) {
 }
 
 (async () => {
-    await run('yes', true);
-    await run('no', false);
-    await run('yes', true, { path: '/lesson-dropdown-number-box?variant=unmarked' });
-    let session;
-    try {
-        session = await bootMixedCli();
-        const { child, page, wait } = session;
-        child.stdin.write('mode auto\n');
-        await wait(() => session.output.includes('"mode":"auto"'));
-        const offset = session.output.length;
-        child.stdin.write('start\n');
-        await wait(() => session.output.slice(offset).includes('Dropdown+number-box Submit approval required for dropdown:'));
-        const stopped = await page.evaluate(() => window.epTestStop());
-        assert.equal(stopped.state, 'stopped');
-        await wait(() => session.output.slice(offset).includes('Dropdown+number-box Submit approval cancelled; stopping without Submit.'));
-        assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [0, 0]);
-        child.stdin.write('quit\n');
-        await wait(() => child.exitCode !== null);
-        assert.equal(child.exitCode, 0);
-    } finally {
-        await session?.cleanup();
-    }
+    await run();
+    await run({ path: '/lesson-dropdown-number-box?variant=unmarked' });
+    await run({ path: '/lesson-dropdown-number-box?variant=textbox', textBox: true });
+    await run({ path: '/lesson-dropdown-number-box?variant=textbox-unmarked', textBox: true });
     await expectRefusal(() => { dropdownNumberBoxFixture.self.sectionData.activityGroup.isAutoMarked = false; }, 'not-explicit-auto-marked');
     await expectRefusal(() => { dropdownNumberBoxFixture.group.append(document.createElement('input')); }, 'mixed-editable-inputs');
     await expectRefusal(() => { dropdownNumberBoxFixture.q.questionDef.Components.push({ ComponentTypeCode: 'TEXT_BOX_COMPONENT', ComponentID: 'invented-text', Marked: 1 }); }, 'definitions-select-count');
     await expectRefusal(() => { dropdownNumberBoxFixture.q.questionDef.Components.find(d => d.ComponentID === 'box-0').Marked = 0; }, 'mixed-definition-marking');
-    console.log('Dropdown+number-box normal CLI PASS: four dropdowns (four trusted F4, four committed changes) and six number boxes (17 trusted characters), typed-yes approval before one trusted Submit, non-yes denial and browser stop cancel without Submit, authored-unmarked slide completes, auto-mark/extra-control/definition-mix/mixed-marking refusal diagnostics content-free, proven completion, no Next, clean quit. Synthetic only.');
+    console.log('Dropdown+number-box normal CLI PASS: auto mode fills four dropdowns (four trusted F4, four committed changes) and six number boxes (17 trusted characters) then submits once with no typed approval; authored-unmarked slide completes; three-surface slides (one text box, 13 more trusted characters) complete marked and unmarked; auto-mark/extra-control/definition-mix/mixed-marking refusal diagnostics content-free with no approval prompt, proven completion, no Next, clean quit. Synthetic only.');
 })().catch(e => { console.error(e); process.exitCode = 1; });

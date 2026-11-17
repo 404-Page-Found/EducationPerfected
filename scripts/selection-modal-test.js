@@ -45,8 +45,7 @@ async function cliCase(mutation){
 
             });
         });
-        session.child.stdin.write('start\n');await session.wait(()=>session.output.includes('Dropdown Submit approval required'));
-        session.child.stdin.write('yes\n');
+        session.child.stdin.write('start\n');
         await session.wait(()=>session.output.includes('answerLoop Exited.'));
         assert.match(session.output,/Selection modal diagnostic/);
         assert.equal(await session.page.evaluate(()=>dropdownFixture.modal.isConnected),true,'cleanup leaves dialog for checking');
