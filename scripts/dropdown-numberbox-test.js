@@ -164,6 +164,17 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
         });
         assert.equal((await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 50 })).status, 'stopped');
         assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [0, 0]);
+        // Shared assertions for the surface-mix completion cases below.
+        const sixSubmittedBoxes = [['30', '30'], ['94.20', '94.20'], ['7', '7'], ['3.5', '3.5'], ['12', '12'], ['0.25', '0.25']];
+        const submittedBoxValues = () => page.evaluate(() => dropdownNumberBoxFixture.submittedBoxValues);
+        const submittedOnceNoNext = async () => assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [1, 0]);
+        const unmarkedCompletes = async variant => {
+            await setup(variant); d = await detectQuestion(page);
+            assert.equal(d.kind, 'dropdown-numberbox', JSON.stringify(d));
+            assert.equal(d.marked, false);
+            assert.equal((await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 300 })).status, 'advanced');
+            await submittedOnceNoNext();
+        };
         // Three surfaces (Page's live shape): dropdowns + number boxes + one
         // text box answer together under one Submit.
         await setup('textbox');
@@ -175,16 +186,12 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
             const result = await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 300 });
             assert.equal(result.status, 'advanced', JSON.stringify(result));
             assert.deepEqual(await page.evaluate(() => dropdownNumberBoxFixture.submittedSelections), [['Tenth', 'Tenth'], ['Hundredth', 'Hundredth'], ['Tenth', 'Tenth'], ['Unit', 'Unit']]);
-            assert.deepEqual(await page.evaluate(() => dropdownNumberBoxFixture.submittedBoxValues), [['30', '30'], ['94.20', '94.20'], ['7', '7'], ['3.5', '3.5'], ['12', '12'], ['0.25', '0.25']]);
+            assert.deepEqual(await submittedBoxValues(), sixSubmittedBoxes);
             assert.deepEqual(await page.evaluate(() => dropdownNumberBoxFixture.submittedTextBoxValues), [['circumference', 'circumference']]);
-            assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [1, 0]);
+            await submittedOnceNoNext();
         }
         // Three surfaces, every definition authored unmarked: completes.
-        await setup('textbox-unmarked'); d = await detectQuestion(page);
-        assert.equal(d.kind, 'dropdown-numberbox', JSON.stringify(d));
-        assert.equal(d.marked, false);
-        assert.equal((await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 300 })).status, 'advanced');
-        assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [1, 0]);
+        await unmarkedCompletes('textbox-unmarked');
         // Three surfaces: a prefilled text box stops the round with no input.
         await setup('textbox');
         await page.evaluate(() => { const c = dropdownNumberBoxFixture.base['text-0'][0]; c.textBox.value = 'x'; c.componentState.userAnswer = 'x'; c.componentState.isUserAnswerSet = true; });
@@ -239,16 +246,12 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
             const result = await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 300 });
             assert.equal(result.status, 'advanced', JSON.stringify(result));
             assert.deepEqual(await page.evaluate(() => dropdownNumberBoxFixture.submittedSelections), []);
-            assert.deepEqual(await page.evaluate(() => dropdownNumberBoxFixture.submittedBoxValues), [['30', '30'], ['94.20', '94.20'], ['7', '7'], ['3.5', '3.5'], ['12', '12'], ['0.25', '0.25']]);
+            assert.deepEqual(await submittedBoxValues(), sixSubmittedBoxes);
             assert.deepEqual(await page.evaluate(() => dropdownNumberBoxFixture.submittedTextBoxValues), [['circumference', 'circumference']]);
-            assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [1, 0]);
+            await submittedOnceNoNext();
         }
         // Number boxes + text box, every definition authored unmarked: completes.
-        await setup('boxes-textbox-unmarked'); d = await detectQuestion(page);
-        assert.equal(d.kind, 'dropdown-numberbox', JSON.stringify(d));
-        assert.equal(d.marked, false);
-        assert.equal((await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 300 })).status, 'advanced');
-        assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [1, 0]);
+        await unmarkedCompletes('boxes-textbox-unmarked');
         // Number boxes + text box with a stray select: routed to dropdown
         // verification, which refuses the unverified select; no input.
         await setup('boxes-textbox');
