@@ -18,7 +18,7 @@ const { createSelectMultiOnce } = require('./lib/multi-select-once');
 const { playMultiChoiceSelection } = require('./lib/multi-choice-handler');
 const { playHighlightRound } = require('./lib/highlight-handler');
 const { createSelectChoiceOnce } = require('./lib/choice-select-once');
-const { detectQuestionInPage } = require('./lib/detect-question');
+const { readChoiceInPage } = require('./lib/choice-state');
 const { diagnostic } = require('./lib/diagnostics');
 const { collectSelfMarkDiagnostics } = require('./lib/self-mark-diagnostics');
 const { guardClassicEnter } = require('./lib/classic-enter');
@@ -2409,7 +2409,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     return result;
                 } finally { TOGGLE = false; }
             };
-            const selectOnce = createSelectChoiceOnce({ detectQuestion, detectQuestionInPage });
+            const selectOnce = createSelectChoiceOnce({ detectQuestion, detectQuestionInPage: readChoiceInPage });
             const runSelectOnly = async () => {
                 TOGGLE = true;
                 try {

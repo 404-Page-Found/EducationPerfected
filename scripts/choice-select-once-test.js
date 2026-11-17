@@ -1,6 +1,7 @@
 const assert=require('node:assert/strict'),puppeteer=require('puppeteer');
 const {createServer}=require('./mock-ep'),{setup}=require('./choice-renderer-fixture');
-const {detectQuestion,detectQuestionInPage}=require('../lib/detect-question');
+const {detectQuestion}=require('../lib/detect-question');
+const {readChoiceInPage:detectQuestionInPage}=require('../lib/choice-state');
 const {createSelectChoiceOnce}=require('../lib/choice-select-once');
 const {installOnceFixture}=require('./choice-select-once-fixture');
 (async()=>{const server=createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
