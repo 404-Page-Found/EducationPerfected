@@ -229,6 +229,45 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
         });
         assert.equal((await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 50 })).status, 'stopped');
         assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [0, 0]);
-        console.log('Dropdown+number-box mixed-slide fixtures PASS: four dropdowns and six number boxes filled (12 trusted keys / 8 trusted changes / 17 trusted characters), one Submit with no typed approval; fill-only without Submit; authored-unmarked slide completes; single-surface slides pass through; 19 refusals plus assessment and prefill stops with no input; mid-run tampers stop before Submit; semi mode fills then watches the user Submit; three-surface slides (dropdowns + number boxes + text box) detect, fill and submit once, marked and unmarked, with prefill, mixed-marking, contract-failure and mid-run tamper stops. Synthetic Linux only.');
+        // Number boxes + one text box, no dropdowns (Page's live refusal
+        // shape): fills and submits once, no dropdown round.
+        await setup('boxes-textbox');
+        d = await detectQuestion(page);
+        assert.equal(d.kind, 'dropdown-numberbox', JSON.stringify(d));
+        assert.equal(d.dropdownCount, 0); assert.equal(d.boxes.length, 6); assert.equal(d.textBoxCount, 1);
+        {
+            const result = await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 300 });
+            assert.equal(result.status, 'advanced', JSON.stringify(result));
+            assert.deepEqual(await page.evaluate(() => dropdownNumberBoxFixture.submittedSelections), []);
+            assert.deepEqual(await page.evaluate(() => dropdownNumberBoxFixture.submittedBoxValues), [['30', '30'], ['94.20', '94.20'], ['7', '7'], ['3.5', '3.5'], ['12', '12'], ['0.25', '0.25']]);
+            assert.deepEqual(await page.evaluate(() => dropdownNumberBoxFixture.submittedTextBoxValues), [['circumference', 'circumference']]);
+            assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [1, 0]);
+        }
+        // Number boxes + text box, every definition authored unmarked: completes.
+        await setup('boxes-textbox-unmarked'); d = await detectQuestion(page);
+        assert.equal(d.kind, 'dropdown-numberbox', JSON.stringify(d));
+        assert.equal(d.marked, false);
+        assert.equal((await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 300 })).status, 'advanced');
+        assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [1, 0]);
+        // Number boxes + text box with a stray select: routed to dropdown
+        // verification, which refuses the unverified select; no input.
+        await setup('boxes-textbox');
+        await page.evaluate(() => { dropdownNumberBoxFixture.group.append(document.createElement('select')); });
+        {
+            const bad = await detectQuestion(page);
+            assert.equal(bad.kind, 'unsupported');
+            assert.equal(bad.diagnostic.kind, 'dropdown-numberbox-refusal');
+            assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.keys.length, dropdownNumberBoxFixture.inputs.length, dropdownNumberBoxFixture.submits]), [0, 0, 0]);
+        }
+        // Number boxes + text box: a text-box accepted-answer swap mid-run
+        // stops before Submit.
+        await setup('boxes-textbox'); d = await detectQuestion(page);
+        await page.evaluate(() => {
+            const f = dropdownNumberBoxFixture, c = f.base['text-0'][0];
+            f.afterInput = () => { c.componentState.answerOptions = ['other']; };
+        });
+        assert.equal((await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 50 })).status, 'stopped');
+        assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [0, 0]);
+        console.log('Dropdown+number-box mixed-slide fixtures PASS: four dropdowns and six number boxes filled (12 trusted keys / 8 trusted changes / 17 trusted characters), one Submit with no typed approval; fill-only without Submit; authored-unmarked slide completes; single-surface slides pass through; 19 refusals plus assessment and prefill stops with no input; mid-run tampers stop before Submit; semi mode fills then watches the user Submit; three-surface slides (dropdowns + number boxes + text box) detect, fill and submit once, marked and unmarked, with prefill, mixed-marking, contract-failure and mid-run tamper stops; number-box + text-box slides without dropdowns detect, fill and submit once, marked and unmarked, with stray-select and mid-run tamper stops. Synthetic Linux only.');
     } finally { if (browser) await browser.close(); await new Promise(r => server.close(r)); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

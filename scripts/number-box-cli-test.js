@@ -85,5 +85,37 @@ async function expectRefusal(prepare, guard, expectedInputs, options = {}) {
     await expectRefusal(() => { numberBoxFixture.base['box-c'][0].marked = 0; }, 'state-shape', 0);
     await expectRefusal(() => { const c = numberBoxFixture.base['box-c'][0]; c.visualElement = c.textBox; }, 'state-shape', 0);
     await expectRefusal(() => { numberBoxFixture.base['box-v'][0].componentState.optionsInjector[0].parts[0].text = 'tampered'; }, 'state-shape', 0, { path: '/lesson-number-box-variables', forbidden: ['42'] });
-    console.log('Number-box normal CLI PASS: DOM-order four boxes, 11 trusted characters, one trusted Submit with no typed approval, detection, Submit, runtime-marked, visual-element and injector refusal diagnostics, authored-unmarked slide completes, variable-template slide completes with one Submit, proven completion, no Next, clean quit. Synthetic only.');
+    // Stop mid-fill: the run aborts before Submit and never clicks Next.
+    {
+        let session;
+        try {
+            session = await bootNumberBoxCli();
+            const { child, page, wait } = session;
+            child.stdin.write('mode auto\n');
+            await wait(() => session.output.includes('"mode":"auto"'));
+            const offset = session.output.length;
+            child.stdin.write('start\n');
+            const until = async (fn, ms = 15000) => {
+                const end = Date.now() + ms;
+                while (Date.now() < end) {
+                    if (await fn()) return;
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+                throw new Error('page checkpoint timeout');
+            };
+            await until(() => page.evaluate(() => numberBoxFixture.inputs.length >= 2));
+            const stopped = await page.evaluate(() => window.epTestStop());
+            assert.equal(stopped.state, 'stopped');
+            await new Promise(resolve => setTimeout(resolve, 500)); // let any in-flight character land
+            assert.deepEqual(await page.evaluate(() => [numberBoxFixture.submits, numberBoxFixture.nexts]), [0, 0]);
+            const runOutput = session.output.slice(offset);
+            assert.equal(runOutput.includes('Lesson completed.'), false);
+            child.stdin.write('quit\n');
+            await wait(() => child.exitCode !== null);
+            assert.equal(child.exitCode, 0);
+        } finally {
+            await session?.cleanup();
+        }
+    }
+    console.log('Number-box normal CLI PASS: DOM-order four boxes, 11 trusted characters, one trusted Submit with no typed approval, stop mid-fill aborts with zero Submit/Next, detection, Submit, runtime-marked, visual-element and injector refusal diagnostics, authored-unmarked slide completes, variable-template slide completes with one Submit, proven completion, no Next, clean quit. Synthetic only.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

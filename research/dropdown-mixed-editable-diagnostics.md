@@ -96,7 +96,8 @@ verification, composed all-or-nothing), and when marking is uniform across
 all ten definitions - an authored-unmarked component is graded like a marked
 one (EP chunk606), so a slide mixing marking flags has no single answering
 contract and stays refused. Answers still come only from EP's own accepted
-answers: the dropdown `Correct` flags and the number-box `answerOptions`.
+answers: the dropdown `Correct` flags and the number-box and text-box
+`answerOptions`.
 Input runs the F4-popup dropdown flow, then per-character typing of the
 number boxes (and text boxes when present) with a full re-verification
 around every input, then the submit-readiness wait and one Submit. (The
@@ -107,6 +108,8 @@ Any refusal stays content-free and stops with zero key input and zero
 Submits; the single-surface slides keep their own handlers and refusals
 unchanged.
 
-Live-unverified as ever: coverage is synthetic fixtures reproducing the
-pasted layout (marked and authored-unmarked variants), not a run against
-Page's actual slide. The first live mixed slide is the real proof.
+Live proof landed 17 November 2026: Page's two-dropdown, six-number-box,
+one-text-box slide completed a live run on the merged handler. The
+number-box + text-box composition without dropdowns (seven number boxes,
+one text box, all authored-unmarked) is covered by synthetic fixtures
+reproducing the pasted layout, not yet by a live run.

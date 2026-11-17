@@ -427,12 +427,18 @@ function createServer() {
         if (url.pathname === '/lesson-number-box') return send(lessonPage(false).replace('</body></html>', `<script>(${installInputBoxFixture.toString()})(${JSON.stringify(inputBoxFixtures.numberbox)});</script></body></html>`));
         if (url.pathname === '/lesson-dropdown-number-box') {
             const raw = url.searchParams.get('variant') || '';
-            const variant = ['unmarked', 'textbox', 'textbox-unmarked'].includes(raw) ? raw : '';
+            const variant = ['unmarked', 'textbox', 'textbox-unmarked', 'boxes-textbox', 'boxes-textbox-unmarked'].includes(raw) ? raw : '';
             // 'textbox' adds one lesson text box as a third answer surface
-            // (Page's live slide: two dropdowns, six number boxes, one text
-            // box); '-unmarked' authors every definition Marked 0.
-            const textBoxItem = variant.startsWith('textbox') ? { id: 'text-0', answer: 'circumference' } : null;
-            return send(lessonPage(false).replace('</body></html>', `<script>(${installDropdownNumberBoxFixture.toString()})(${JSON.stringify(variant.endsWith('unmarked') ? 'unmarked' : '')},${JSON.stringify(numberBoxDefinition)},${JSON.stringify(textBoxItem)});</script></body></html>`));
+            // (the three-surface composition of Page's live refusal:
+            // dropdowns, number boxes and a text box sharing one slide; this
+            // fixture still builds four dropdowns, so it models the surface
+            // mix, not the live two-dropdown counts); 'boxes-textbox' drops
+            // the dropdowns entirely (Page's seven number boxes + one text
+            // box live refusal shape, still with this fixture's six boxes);
+            // '-unmarked' authors every definition Marked 0.
+            const textBoxItem = variant.includes('textbox') ? { id: 'text-0', answer: 'circumference' } : null;
+            const dropdownAnswers = variant.startsWith('boxes-') ? [] : null;
+            return send(lessonPage(false).replace('</body></html>', `<script>(${installDropdownNumberBoxFixture.toString()})(${JSON.stringify(variant.endsWith('unmarked') ? 'unmarked' : '')},${JSON.stringify(numberBoxDefinition)},${JSON.stringify(textBoxItem)},${JSON.stringify(dropdownAnswers)});</script></body></html>`));
         }
         if (url.pathname === '/lesson-reflection') {
             const variant = url.searchParams.get('variant') === 'unmarked' ? 'unmarked' : '';

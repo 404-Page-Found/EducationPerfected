@@ -2,8 +2,10 @@
 // four dropdowns and six number boxes, merging the dropdown and input-box
 // fixture shapes (EP chunk606). variant 'unmarked' authors every definition
 // Marked 0, matching Page's live slide (all ten components authored unmarked,
-// runtime marked 1).
-function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxItem) {
+// runtime marked 1). dropdownAnswers overrides the dropdown answer list; an
+// empty array builds a number-box (+ optional text-box) slide with no
+// dropdowns, matching Page's live seven-box/one-text-box composition shape.
+function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxItem, dropdownAnswers) {
     const injectorFrom = template => ({ parts: template.split(/({[^}]+})/g).map(part => /^\{[^}]+\}$/.test(part) ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
     const old = document.querySelector('.multi-choice-component');
     const self = window.angular.element(old).scope().self, q = self.model._currentQuestion, base = {}, group = document.createElement('div');
@@ -21,7 +23,7 @@ function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxIt
         const button = e.target.closest('#sa-navigation-controls button');
         if (button && button.textContent.trim() !== 'Submit') f.nexts++;
     }, true);
-    for (const [i, answer] of ['Tenth', 'Hundredth', 'Tenth', 'Unit'].entries()) {
+    for (const [i, answer] of (dropdownAnswers || ['Tenth', 'Hundredth', 'Tenth', 'Unit']).entries()) {
         const id = 'dropdown-' + i;
         const options = [{ Description: 'wrong', Correct: 'false', Validity: 'true', SortOrder: 0 }, { Description: answer, Correct: 'true', Validity: 'true', SortOrder: 1 }];
         const def = { ComponentTypeCode: 'DROPDOWN_COMPONENT', ComponentID: id, Marked: marked, Options: JSON.parse(JSON.stringify(options)), DefaultSelection: { Description: '', Correct: 'false', Validity: 'true', SortOrder: 0 } };
