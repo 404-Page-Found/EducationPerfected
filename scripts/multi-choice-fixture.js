@@ -1,15 +1,29 @@
 // Invented source-derived EP multi-select fixture. Never real account/question data.
-function installMultiChoiceFixture() {
+function installMultiChoiceFixture(sibling) {
 
-        const group = document.querySelector('.multi-choice-component');
+        let group = document.querySelector('.multi-choice-component');
         const prompt = document.querySelector('#question-container-group');
         if (prompt) prompt.textContent = 'Synthetic multi-select: choose alpha and gamma.';
         const self = window.angular.element(group).scope().self;
         const q = self.model._currentQuestion;
         self.model.gameMode = 3;
+        let comp;
+        if (sibling) {
+            // Sibling mode: the base page's single-choice group keeps its
+            // definition (authored marked like the multi surface) and this
+            // fixture adds a second, multi-select group beside it.
+            q.questionDef.Components[0].Marked = 1;
+            const single = group;
+            group = document.createElement('div');
+            group.className = 'multi-choice-component';
+            single.after(group);
+            comp = { ComponentTypeCode: 'MULTICHOICE_COMPONENT', ComponentID: 'invented-multi', AllowMultiSelect: true, Marked: 1 };
+            q.questionDef.Components.push(comp);
+        } else {
+            comp = q.questionDef.Components[0];
+            comp.ComponentID = 'invented-multi'; comp.AllowMultiSelect = true;
+        }
         group.classList.add('multi-select'); group.setAttribute('role', 'group');
-        const comp = q.questionDef.Components[0];
-        comp.ComponentID = 'invented-multi'; comp.AllowMultiSelect = true;
         comp.Options = [
             { TextTemplate: 'Invented alpha', Correct: 'true' },
             { TextTemplate: 'Invented beta', Correct: 'false' },

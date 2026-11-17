@@ -50,6 +50,22 @@ const { playSlideSurfacesRound } = require('../lib/slide-surfaces-handler');
         assert.equal(d.kind, 'unsupported');
         assert.equal(d.diagnostic?.guard, 'mixed-definition-marking');
         assert.deepEqual(await page.evaluate(() => [gapsFixture.inputs.length, highlightFixture.clicks.length, multiFixture.clicks.length]), [0, 0, 0]);
-        console.log('Slide-surfaces gaps+highlight: one pass, one Submit, fill-only semi mode, prefilled and mixed-marking refusals PASS');
+        // Tamper between fill and Submit: clearing a filled gap during the
+        // last multi click trips the click-time re-verification; the round
+        // stops without the Submit click.
+        await setup();
+        d = await detectQuestion(page);
+        await page.evaluate(() => {
+            multiFixture.mutateOnClick = () => {
+                if (multiFixture.clicks.length !== 2) return;
+                const zone = gapsFixture.renderer.dropZones.find(z => z.droppedDragID !== null);
+                zone.span.textContent = ''; zone.droppedDragID = null;
+            };
+        });
+        const tampered = await playSlideSurfacesRound(page, d, { enter: true, timeout: 300 });
+        assert.equal(tampered.status, 'stopped');
+        assert.equal(tampered.diagnostic?.guard, 'changed-before-submit');
+        assert.deepEqual(await page.evaluate(() => [multiFixture.submits, multiFixture.q.questionIndex]), [0, 0]);
+        console.log('Slide-surfaces gaps+highlight: one pass, one Submit, fill-only semi mode, prefilled/mixed-marking refusals, submit-time tamper stop PASS');
     } finally { try { if (browser) await browser.close(); } finally { await new Promise(r => server.close(r)); } }
 })().catch(e => { console.error(e); process.exitCode = 1; });

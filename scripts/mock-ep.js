@@ -471,6 +471,10 @@ function createServer() {
             // the composed slide authors it marked like the other surfaces.
             return send(lessonPage(false).replace('</body></html>', `<script>(${installMultiChoiceFixture.toString()})();multiFixture.comp.Marked=1;(${installGapsFixture.toString()})({keepExisting:true});(${installHighlightFixture.toString()})({keepExisting:true});</script></body></html>`));
         }
+        // A single-choice group sharing one slide with a multi-select sibling.
+        if (url.pathname === '/lesson-multi-single-choice') {
+            return send(lessonPage(false).replace('</body></html>', `<script>(${installMultiChoiceFixture.toString()})(true);</script></body></html>`));
+        }
         if (url.pathname === '/lesson-async') return send(lessonAsyncPage);
         if (url.pathname === '/audio') return send(audioPage(2));
         if (url.pathname === '/dictation') return send(audioPage(3));
