@@ -6,8 +6,12 @@ function installGapsFixture(config = {}) {
     const old = document.querySelector('.multi-choice-component');
     const self = window.angular.element(old).scope().self, q = self.model._currentQuestion;
     self.model.gameMode = 3;
-    const group = document.createElement('div'); group.className = 'fitg-component fitg-drag-drop'; old.replaceWith(group);
-    const comp = { ComponentTypeCode: 'FILL_IN_GAPS_COMPONENT', ComponentID: 'synthetic-gaps', InputType: 2,
+    const group = document.createElement('div'); group.className = 'fitg-component fitg-drag-drop';
+    // keepExisting: another surface fixture already owns the page - merge this
+    // surface into the shared question instead of replacing it, and leave the
+    // Submit button to the surface that owns it.
+    if (config.keepExisting) { old.after(group); } else { old.replaceWith(group); }
+    const comp = { ComponentTypeCode: 'FILL_IN_GAPS_COMPONENT', ComponentID: 'synthetic-gaps', Marked: 1, InputType: 2,
         Gaps: [{ ID: 41, CorrectOptions: ['alpha'], IncorrectOptions: ['wrong'] }, { ID: 7, CorrectOptions: ['beta'], IncorrectOptions: ['wrong'] }, { ID: 88, CorrectOptions: ['unshown'], IncorrectOptions: [] }], TextTemplate: 'Gap [7:beta] then [41:alpha] and hidden [88:unshown]' };
     if (config.repeated) {
         comp.Gaps = [
@@ -19,7 +23,7 @@ function installGapsFixture(config = {}) {
         comp.TextTemplate = 'Step 1 [7:Circumference] Step 2 [41:Diameter] Step 3 [88:Circumference] = pi x [52:Diameter]';
     }
     const metadata = JSON.parse(JSON.stringify(comp));
-    q.questionDef.Components = [comp];
+    if (config.keepExisting) { q.questionDef.Components.push(comp); } else { q.questionDef.Components = [comp]; }
     const state = { metadataInstance: metadata, gapIDtoIndex: { 41: 0, 7: 1, 88: 2 }, gapIndexesShown: [0,1], hintsShown: config.hints||['wrong','alpha','beta'],
         usersAnswers: {}, checkOptions: [], identifiedComponents: { baseComponents: {} } };
     if (config.repeated) Object.assign(state, {gapIDtoIndex:{41:0,7:1,88:2,52:3},gapIndexesShown:[0,1,2,3],hintsShown:['Circumference','π','Radius','Circumference','Diameter','Diameter']});
@@ -55,7 +59,9 @@ function installGapsFixture(config = {}) {
         const zone = {id:String(id),span,containerSpan:wrap,droppedDragID:null};
         renderer.dropZones.unshift(zone);state.identifiedComponents.baseComponents[String(id)]=[zone];
     }
-    q.cachedRenderers={1:{identifiedComponents:{baseComponents:{[comp.ComponentID]:[component]}}}};
+    if (config.keepExisting) { q.cachedRenderers[1].identifiedComponents.baseComponents[comp.ComponentID] = [component]; }
+    else { q.cachedRenderers={1:{identifiedComponents:{baseComponents:{[comp.ComponentID]:[component]}}}}; }
+    if (config.keepExisting) return;
     const oldSubmit=[...document.querySelectorAll('#sa-navigation-controls button')].find(b=>b.textContent.trim()==='Submit');
     const submit=oldSubmit.cloneNode(true);oldSubmit.replaceWith(submit);
     submit.addEventListener('click',e=>{

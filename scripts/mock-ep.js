@@ -13,6 +13,7 @@
 const http = require('node:http');
 const { installMultiChoiceFixture } = require('./multi-choice-fixture');
 const { installGapsFixture } = require('./gaps-fixture');
+const { installHighlightFixture } = require('./highlight-fixture');
 const { installDropdownFixture } = require('./dropdown-fixture');
 const { installInputBoxFixture, inputBoxFixtures, numberBoxDefinition } = require('./textbox-fixture');
 const { installDropdownNumberBoxFixture } = require('./dropdown-numberbox-fixture');
@@ -462,6 +463,13 @@ function createServer() {
         if (url.pathname === '/lesson-multi-number-box') {
             const items = [{ id: 'box-0', answer: '30' }, { id: 'box-1', answer: '7' }];
             return send(lessonPage(false).replace('</body></html>', `<script>(${installMultiChoiceFixture.toString()})();(${installDropdownNumberBoxFixture.toString()})(${JSON.stringify('')},${JSON.stringify(numberBoxDefinition)},${JSON.stringify(null)},${JSON.stringify([])},${JSON.stringify(items)},true);</script></body></html>`));
+        }
+        // Multi-select surface sharing one slide with gaps and highlight
+        // surfaces: the multi fixture owns the Submit button.
+        if (url.pathname === '/lesson-multi-gaps-highlight') {
+            // The base lesson page's multi definition carries no Marked flag;
+            // the composed slide authors it marked like the other surfaces.
+            return send(lessonPage(false).replace('</body></html>', `<script>(${installMultiChoiceFixture.toString()})();multiFixture.comp.Marked=1;(${installGapsFixture.toString()})({keepExisting:true});(${installHighlightFixture.toString()})({keepExisting:true});</script></body></html>`));
         }
         if (url.pathname === '/lesson-async') return send(lessonAsyncPage);
         if (url.pathname === '/audio') return send(audioPage(2));

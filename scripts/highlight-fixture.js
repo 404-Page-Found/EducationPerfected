@@ -13,7 +13,10 @@ function installHighlightFixture(config = {}) {
     const element = document.createElement('div');
     element.className = 'highlight-input';
     element.id = 'highlight-input-' + uniqueID;
-    old.replaceWith(element);
+    // keepExisting: another surface fixture already owns the page - merge this
+    // surface into the shared question instead of replacing it, and leave the
+    // Submit button to the surface that owns it.
+    if (config.keepExisting) { old.after(element); } else { old.replaceWith(element); }
     const prompt = document.createElement('p');
     prompt.style.fontWeight = '700';
     prompt.textContent = 'Highlight the words that are verbs.';
@@ -34,7 +37,7 @@ function installHighlightFixture(config = {}) {
         componentState: state, marked: 1, renderingParameters: { mode: 1 } };
     const f = window.highlightFixture = { self, q, comp, state, questionElement, component, element,
         tokens: [], clicks: [], submits: 0 };
-    q.questionDef.Components = [comp];
+    if (config.keepExisting) { q.questionDef.Components.push(comp); } else { q.questionDef.Components = [comp]; }
     words.forEach((word, index) => {
         const token = document.createElement('span');
         token.className = 'highlight-token';
@@ -57,10 +60,12 @@ function installHighlightFixture(config = {}) {
         paragraph.append(token, document.createTextNode(' '));
         f.tokens.push(token);
     });
-    q.cachedRenderers = { 1: { identifiedComponents: { baseComponents: { [comp.ComponentID]: [component] } } } };
+    if (config.keepExisting) { q.cachedRenderers[1].identifiedComponents.baseComponents[comp.ComponentID] = [component]; }
+    else { q.cachedRenderers = { 1: { identifiedComponents: { baseComponents: { [comp.ComponentID]: [component] } } } }; }
     // Angular scope is recovered from an ancestor, as in a lesson slide.
     const angular = window.angular;
     window.angular = { ...angular, element: el => el === element ? { scope: () => ({ self }) } : angular.element(el) };
+    if (config.keepExisting) return;
     const oldSubmit = [...document.querySelectorAll('#sa-navigation-controls button')].find(b => b.textContent.trim() === 'Submit');
     const submit = oldSubmit.cloneNode(true);
     oldSubmit.replaceWith(submit);
