@@ -78,3 +78,32 @@ a slide with a `range` input, a read-only textarea and a text-box-classed
 input. This is not proof of the makeup of Page's actual slide; the next live
 paste of the diagnostic is what identifies it. The slide continues to refuse
 with zero key input and zero Submits.
+
+## Identified: four dropdowns plus six number boxes (17 November 2026)
+
+Page's next live paste of the pinned diagnostic answered the open question.
+The slide carries four `select` controls and six text inputs, every input
+bearing EP's `number-box` answer-box class, and the definition summary
+reports exactly four dropdown definitions and six number-box definitions -
+ten answer components, no companion or unlisted definitions, and every one
+authored-unmarked (`Marked 0` uniformly).
+
+That makes the slide answerable without guessing, and the handler now
+answers it. A dropdown+number-box reader engages only when both surfaces are
+present together and each meets its established contract in full (the
+dropdown source/DOM checks and the number-box rounding/error-margin
+verification, composed all-or-nothing), and when marking is uniform across
+all ten definitions - an authored-unmarked component is graded like a marked
+one (EP chunk606), so a slide mixing marking flags has no single answering
+contract and stays refused. Answers still come only from EP's own accepted
+answers: the dropdown `Correct` flags and the number-box `answerOptions`.
+Input runs the F4-popup dropdown flow, then per-character number-box typing
+with a full re-verification around every input, then the submit-readiness
+wait, the typed approval (dropdown and box counts shown), and one Submit.
+Any refusal stays content-free and stops with zero key input and zero
+Submits; the single-surface slides keep their own handlers and refusals
+unchanged.
+
+Live-unverified as ever: coverage is synthetic fixtures reproducing the
+pasted layout (marked and authored-unmarked variants), not a run against
+Page's actual slide. The first live mixed slide is the real proof.

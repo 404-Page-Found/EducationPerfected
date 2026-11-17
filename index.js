@@ -6,6 +6,7 @@ const { audioAllowed, audioPolicyUnchanged } = require('./lib/audio-policy');
 const { playChoiceRound } = require('./lib/choice-handler');
 const { playGapsRound } = require('./lib/gaps-handler');
 const { playDropdownRound } = require('./lib/dropdown-handler');
+const { playDropdownNumberBoxRound } = require('./lib/dropdown-numberbox-handler');
 const { playTextboxRound, playNumberBoxRound } = require('./lib/textbox-handler');
 const { createRunControls } = require('./lib/run-controls');
 const { createFillGapsOnce } = require('./lib/gaps-fill-once');
@@ -377,7 +378,7 @@ async function resolveCredentials(watchForSession) {
 
 // ===== Program ===== //
 
-async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected = () => {}, legacySignals = false, gapsFillOnly = false, choiceSelectOnly = false, gapsSubmitOnce = false, textboxFillOnly = false, dropdownSubmitOnce = false, multiSelectOnly = false, dropdownSubmitApprover, numberBoxSubmitApprover } = {}) {
+async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected = () => {}, legacySignals = false, gapsFillOnly = false, choiceSelectOnly = false, gapsSubmitOnce = false, textboxFillOnly = false, dropdownSubmitOnce = false, multiSelectOnly = false, dropdownSubmitApprover, numberBoxSubmitApprover, dropdownNumberBoxSubmitApprover } = {}) {
     // F4 popup is the only normal-run dropdown input path. The older
     // Home/ArrowDown mechanism remains only in explicit synthetic regression
     // fixtures and the local EP-free diagnostic; there is no env rollback.
@@ -1754,6 +1755,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 { type: 'textbox', play: playSelectionDescriptorRound },
                 { type: 'numberbox', play: playSelectionDescriptorRound },
                 { type: 'dropdown', play: playSelectionDescriptorRound },
+                { type: 'dropdown-numberbox', play: playSelectionDescriptorRound },
                 { type: 'highlight', play: playSelectionDescriptorRound },
                 { type: 'audio', play: handleTypedRound },
                 { type: 'typed', play: handleTypedRound },
@@ -1797,7 +1799,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         console.log('Selection slide changed during detection; re-reading it in a fresh pass.');
                         return true;
                     }
-                    const play = descriptor.kind === 'dropdown' ? playDropdownRound : descriptor.kind === 'numberbox' ? playNumberBoxRound : descriptor.kind === 'textbox' ? playTextboxRound : descriptor.kind === 'gaps' ? playGapsRound : descriptor.kind === 'highlight' ? playHighlightRound : playChoiceRound;
+                    const play = descriptor.kind === 'dropdown' ? playDropdownRound : descriptor.kind === 'dropdown-numberbox' ? playDropdownNumberBoxRound : descriptor.kind === 'numberbox' ? playNumberBoxRound : descriptor.kind === 'textbox' ? playTextboxRound : descriptor.kind === 'gaps' ? playGapsRound : descriptor.kind === 'highlight' ? playHighlightRound : playChoiceRound;
                     // Preserve even if Stop/errors arrive after Submit but before
                     // the handler's next modal poll. No selection cleanup deletes dialogs.
                     preserveSelectionModal=true;
@@ -1812,6 +1814,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                             inputMode: dropdownInputMode,
                             requireSubmitApproval: ENTER,
                             approveSubmit: async request => typeof dropdownSubmitApprover === 'function' ? await dropdownSubmitApprover(request, onSubmitApprovalCancel) : false,
+                        } : again.kind === 'dropdown-numberbox' ? {
+                            inputMode: dropdownInputMode,
+                            requireSubmitApproval: ENTER,
+                            approveSubmit: async request => typeof dropdownNumberBoxSubmitApprover === 'function' ? await dropdownNumberBoxSubmitApprover(request, onSubmitApprovalCancel) : false,
                         } : again.kind === 'numberbox' ? {
                             requireSubmitApproval: ENTER,
                             approveSubmit: async request => typeof numberBoxSubmitApprover === 'function' ? await numberBoxSubmitApprover(request, onSubmitApprovalCancel) : false,
@@ -1851,17 +1857,17 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                                 return false;
                             }
                         }
-                        const roundLabel = descriptor.kind === 'textbox' ? 'textbox' : descriptor.kind === 'numberbox' ? 'number-box' : 'selection';
+                        const roundLabel = descriptor.kind === 'textbox' ? 'textbox' : descriptor.kind === 'numberbox' ? 'number-box' : descriptor.kind === 'dropdown-numberbox' ? 'dropdown+number-box' : 'selection';
                         console.error(`A modal appeared during the ${roundLabel} round; stopping so it can be checked. The submission may or may not have been accepted. The dialog is left open.`);
                         await alert(`A modal interrupted the ${roundLabel} round; stopping the run.`);
                         return false;
                     }
                     // 'stopped'
-                    if (again.kind === 'dropdown' && result.selectionDiagnostic) {
-                        const { phase, dropdownIndex, keyDispatchesReturned, guard, submitState } = result.selectionDiagnostic;
-                        console.error('Dropdown refusal diagnostic ' + JSON.stringify({ phase, dropdownIndex, keyDispatchesReturned, guard, dropdownCount: again.dropdowns.length, ...(submitState ? {submitState} : {}) }));
+                    if ((again.kind === 'dropdown' || again.kind === 'dropdown-numberbox') && result.selectionDiagnostic) {
+                        const { phase, dropdownIndex, boxIndex, keyDispatchesReturned, guard, submitState } = result.selectionDiagnostic;
+                        console.error('Dropdown refusal diagnostic ' + JSON.stringify({ phase, dropdownIndex, ...(boxIndex !== undefined && boxIndex !== null ? { boxIndex } : {}), keyDispatchesReturned, guard, dropdownCount: again.dropdowns.length, ...(again.kind === 'dropdown-numberbox' ? { boxCount: again.boxes.length } : {}), ...(submitState ? {submitState} : {}) }));
                     }
-                    if ((again.kind === 'textbox' || again.kind === 'numberbox') && result.diagnostic) console.error('Unsupported question diagnostic ' + JSON.stringify(result.diagnostic));
+                    if ((again.kind === 'textbox' || again.kind === 'numberbox' || again.kind === 'dropdown-numberbox') && result.diagnostic) console.error('Unsupported question diagnostic ' + JSON.stringify(result.diagnostic));
                     console.error(result.message);
                     await alert(result.message);
                     return false;
