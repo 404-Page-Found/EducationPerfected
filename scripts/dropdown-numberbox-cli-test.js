@@ -1,19 +1,10 @@
 const assert = require('node:assert/strict');
-const { bootFixtureCli } = require('./fixture-cli-session');
+const { bootFixtureCli, installSubmitExitTeardown } = require('./fixture-cli-session');
 
 async function bootMixedCli(path = '/lesson-dropdown-number-box') {
     const session = await bootFixtureCli('cli.js', 'Commands: start');
     await session.page.goto(session.origin + path);
-    await session.page.evaluate(() => {
-        document.querySelector('#sa-navigation-controls button').addEventListener('click', () => {
-            dropdownNumberBoxFixture.group.remove();
-            document.querySelector('#question-container-group').remove();
-            dropdownNumberBoxFixture.self.model._currentQuestion = null;
-            const exit = document.querySelector('button.exit-button');
-            exit.hidden = false;
-            exit.style.display = '';
-        });
-    });
+    await installSubmitExitTeardown(session, 'dropdownNumberBoxFixture');
     return session;
 }
 
@@ -28,9 +19,9 @@ async function run(approval, succeed, options = {}) {
         await wait(() => session.output.includes('"mode":"auto"'));
         const offset = session.output.length;
         child.stdin.write('start\n');
-        await wait(() => session.output.slice(offset).includes('Dropdown+number-box Submit approval required for dropdown-numberbox:'));
+        await wait(() => session.output.slice(offset).includes('Dropdown+number-box Submit approval required for dropdown:'));
         const promptOutput = session.output.slice(offset);
-        assert.equal(promptOutput.split('Dropdown+number-box Submit approval required for dropdown-numberbox:').length - 1, 1);
+        assert.equal(promptOutput.split('Dropdown+number-box Submit approval required for dropdown:').length - 1, 1);
         assert.equal(promptOutput.includes(prompt), true);
         assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.keys.map(e => e.key), dropdownNumberBoxFixture.keys.every(e => e.trusted), dropdownNumberBoxFixture.changes.map(e => e.index), dropdownNumberBoxFixture.inputs.length, dropdownNumberBoxFixture.inputs.every(e => e.trusted), dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [['F4', 'F4', 'F4', 'F4'], true, [2, 2, 2, 2], 17, true, 0, 0]);
         assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('input.number-box-component')].map(input => input.value)), ['30', '94.20', '7', '3.5', '12', '0.25']);
@@ -87,7 +78,7 @@ async function expectRefusal(prepare, guard, options = {}) {
         await wait(() => session.output.includes('"mode":"auto"'));
         const offset = session.output.length;
         child.stdin.write('start\n');
-        await wait(() => session.output.slice(offset).includes('Dropdown+number-box Submit approval required for dropdown-numberbox:'));
+        await wait(() => session.output.slice(offset).includes('Dropdown+number-box Submit approval required for dropdown:'));
         const stopped = await page.evaluate(() => window.epTestStop());
         assert.equal(stopped.state, 'stopped');
         await wait(() => session.output.slice(offset).includes('Dropdown+number-box Submit approval cancelled; stopping without Submit.'));
@@ -100,7 +91,7 @@ async function expectRefusal(prepare, guard, options = {}) {
     }
     await expectRefusal(() => { dropdownNumberBoxFixture.self.sectionData.activityGroup.isAutoMarked = false; }, 'not-explicit-auto-marked');
     await expectRefusal(() => { dropdownNumberBoxFixture.group.append(document.createElement('input')); }, 'mixed-editable-inputs');
-    await expectRefusal(() => { dropdownNumberBoxFixture.q.questionDef.Components.push({ ComponentTypeCode: 'TEXT_BOX_COMPONENT', ComponentID: 'invented-text', Marked: 1 }); }, 'definitions-component-count');
+    await expectRefusal(() => { dropdownNumberBoxFixture.q.questionDef.Components.push({ ComponentTypeCode: 'TEXT_BOX_COMPONENT', ComponentID: 'invented-text', Marked: 1 }); }, 'definitions-select-count');
     await expectRefusal(() => { dropdownNumberBoxFixture.q.questionDef.Components.find(d => d.ComponentID === 'box-0').Marked = 0; }, 'mixed-definition-marking');
     console.log('Dropdown+number-box normal CLI PASS: four dropdowns (four trusted F4, four committed changes) and six number boxes (17 trusted characters), typed-yes approval before one trusted Submit, non-yes denial and browser stop cancel without Submit, authored-unmarked slide completes, auto-mark/extra-control/definition-mix/mixed-marking refusal diagnostics content-free, proven completion, no Next, clean quit. Synthetic only.');
 })().catch(e => { console.error(e); process.exitCode = 1; });

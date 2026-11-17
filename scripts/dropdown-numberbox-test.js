@@ -50,7 +50,7 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
         // Refusals: exact guard, content-free diagnostic, no input, no Submit.
         const simpleGuards = {
             manual: 'not-explicit-auto-marked',
-            extraDef: 'definitions-component-count',
+            extraDef: 'definitions-select-count',
             mixedMarking: 'mixed-definition-marking',
             duplicate: 'shuffled-description-duplicate',
             twoCorrect: 'correct-option',
@@ -65,7 +65,7 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
             boxUnmarked: 'state-shape',
             badRounding: 'numeric-metadata',
             tamperedInjector: 'state-shape',
-            extraNumberBox: 'definitions-component-count',
+            extraNumberBox: 'component-count',
             unassociated: 'component-association',
         };
         for (const mutation of Object.keys(simpleGuards)) {
@@ -74,7 +74,10 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
                 const f = dropdownNumberBoxFixture, dc = f.base['dropdown-0'][0], ds = dc.componentState, bc = f.base['box-0'][0], bs = bc.componentState;
                 if (m === 'manual') f.self.sectionData.activityGroup.isAutoMarked = false;
                 if (m === 'extraDef') f.q.questionDef.Components.push({ ComponentTypeCode: 'TEXT_BOX_COMPONENT', ComponentID: 'invented-text', Marked: 1 });
-                if (m === 'mixedMarking') f.q.questionDef.Components.find(d => d.ComponentID === 'box-0').Marked = 0;
+                // Each surface uniform but the union mixed: dropdowns Marked 1,
+                // every number box authored Marked 0 (definition and metadata,
+                // like the unmarked variant) - only the orchestrator refuses.
+                if (m === 'mixedMarking') f.q.questionDef.Components.filter(d => d.ComponentTypeCode === 'NUMBER_BOX_COMPONENT').forEach(d => { d.Marked = 0; f.base[d.ComponentID][0].componentState.metadataInstance.Marked = 0; });
                 if (m === 'duplicate') ds._shuffledOptions[1].Description = ds._shuffledOptions[2].Description;
                 if (m === 'twoCorrect') ds.originalDropDownOptions[0].Correct = 'true';
                 if (m === 'noneCorrect') ds._shuffledOptions[2].Correct = 'false';

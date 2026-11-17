@@ -3,7 +3,7 @@
 // fixture shapes (EP chunk606). variant 'unmarked' authors every definition
 // Marked 0, matching Page's live slide (all ten components authored unmarked,
 // runtime marked 1).
-function installDropdownNumberBoxFixture(variant) {
+function installDropdownNumberBoxFixture(variant, numberBoxDefinition) {
     const injectorFrom = template => ({ parts: template.split(/({[^}]+})/g).map(part => part.startsWith('{') && part.endsWith('}') ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
     const old = document.querySelector('.multi-choice-component');
     const self = window.angular.element(old).scope().self, q = self.model._currentQuestion;
@@ -43,17 +43,6 @@ function installDropdownNumberBoxFixture(variant) {
         select.addEventListener('keydown', e => { f.keys.push({ id, key: e.key, trusted: e.isTrusted }); f.beforeKey?.(e); });
         select.addEventListener('change', e => { const text = select.options[select.selectedIndex].text; state._selectedOption = original.find(o => o.Description.trim() === text.trim()) || null; f.changes.push({ id, index: select.selectedIndex, trusted: e.isTrusted }); f.afterChange?.(); });
     }
-    const numberBoxDefinition = {
-        RoundingTypeCode: 'NONE',
-        RoundingAmount: 0,
-        AcceptableErrorTypeCode: 'ABS',
-        AcceptableErrorValue: 0,
-        Height: 0,
-        Width: 0,
-        ScriptPosition: 'normal',
-        TextAlignment: 'left',
-        Score: 1,
-    };
     const items = [
         { id: 'box-0', answer: '30' },
         { id: 'box-1', answer: '94.2', definition: { RoundingTypeCode: 'DP', RoundingAmount: 2 } },
