@@ -428,7 +428,7 @@ function createServer() {
         if (url.pathname === '/lesson-number-box') return send(lessonPage(false).replace('</body></html>', `<script>(${installInputBoxFixture.toString()})(${JSON.stringify(inputBoxFixtures.numberbox)});</script></body></html>`));
         if (url.pathname === '/lesson-dropdown-number-box') {
             const raw = url.searchParams.get('variant') || '';
-            const variant = ['unmarked', 'textbox', 'textbox-unmarked', 'boxes-textbox', 'boxes-textbox-unmarked'].includes(raw) ? raw : '';
+            const variant = ['unmarked', 'textbox', 'textbox-unmarked', 'boxes-textbox', 'boxes-textbox-unmarked', 'boxes-textbox-delayed'].includes(raw) ? raw : '';
             // 'textbox' adds one lesson text box as a third answer surface
             // (the three-surface composition of Page's live refusal:
             // dropdowns, number boxes and a text box sharing one slide; this
@@ -448,7 +448,7 @@ function createServer() {
                 { id: 'box-5', answer: '0.25', definition: { RoundingTypeCode: 'DP', RoundingAmount: 2 } },
                 { id: 'box-6', answer: '88' },
             ] : null;
-            return send(lessonPage(false).replace('</body></html>', `<script>(${installDropdownNumberBoxFixture.toString()})(${JSON.stringify(variant.endsWith('unmarked') ? 'unmarked' : '')},${JSON.stringify(numberBoxDefinition)},${JSON.stringify(textBoxItem)},${JSON.stringify(dropdownAnswers)},${JSON.stringify(numberBoxItems)});</script></body></html>`));
+            return send(lessonPage(false).replace('</body></html>', `<script>(${installDropdownNumberBoxFixture.toString()})(${JSON.stringify(variant.endsWith('unmarked') ? 'unmarked' : variant.endsWith('delayed') ? 'delayed' : '')},${JSON.stringify(numberBoxDefinition)},${JSON.stringify(textBoxItem)},${JSON.stringify(dropdownAnswers)},${JSON.stringify(numberBoxItems)});</script></body></html>`));
         }
         if (url.pathname === '/lesson-reflection') {
             const variant = url.searchParams.get('variant') === 'unmarked' ? 'unmarked' : '';

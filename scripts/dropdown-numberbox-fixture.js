@@ -104,6 +104,17 @@ function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxIt
     const oldSubmit = [...document.querySelectorAll('#sa-navigation-controls button')].find(b => b.textContent.trim() === 'Submit');
     const submit = oldSubmit.cloneNode(true);
     oldSubmit.replaceWith(submit);
+    // 'delayed' variant: EP enables Submit asynchronously after its own
+    // validation accepts the filled inputs - model it as a debounce: every
+    // input event re-disables the button, which re-enables shortly after.
+    if (variant === 'delayed') {
+        submit.disabled = true;
+        document.addEventListener('input', () => {
+            submit.disabled = true;
+            clearTimeout(f.enableTimer);
+            f.enableTimer = setTimeout(() => { if (!f.neverEnable) submit.disabled = false; }, 120);
+        }, true);
+    }
     submit.addEventListener('click', () => {
         f.submittedSelections = [...group.querySelectorAll('select')].map(el => [el.options[el.selectedIndex].textContent, base[el.id][0].componentState._selectedOption?.Description]);
         f.submittedBoxValues = [...group.querySelectorAll('input.number-box-component')].map(el => { const entry = Object.values(base).flat().find(c => c.textBox === el); return [el.value, entry?.componentState.userAnswer]; });
