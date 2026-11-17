@@ -18,11 +18,12 @@ const { probeAllSurfacesInPage } = require('../lib/slide-surfaces-state');
         // The probe counts every recognised surface on the mixed fixture.
         const probe=await page.evaluate(probeAllSurfacesInPage);
         assert.deepEqual(probe,{selects:4,numberBoxes:6,textBoxes:0,gaps:0,choices:0,multiSelects:0,highlights:0});
-        // Race regression: if the all-surface probe ever gates delegation
-        // again, hiding every box-family control during its snapshot makes
-        // detection refuse a slide the established reader answers. With the
-        // unconditional delegation the probe is never called on this path,
-        // the interception never fires, and detection is unaffected.
+        // Race regression: the all-surface probe's snapshot can beat an
+        // asynchronously rendering surface. Hiding every box-family control
+        // during the probe makes it report a no-box slide; the box-family
+        // path must still delegate to the established mixed reader
+        // unconditionally (its own mid-swap re-probe is the established
+        // answer), so detection answers the slide exactly as before.
         const original=page.evaluate.bind(page);let raced=false;
         page.evaluate=async function(fn,...args){
             if(fn.name==='probeAllSurfacesInPage'){
@@ -35,7 +36,7 @@ const { probeAllSurfacesInPage } = require('../lib/slide-surfaces-state');
         };
         const detected=await detectQuestion(page);
         const direct=await readDropdownNumberBox(page,'descriptor');
-        assert.equal(raced,false); // the probe is observational groundwork, never called on the detection path
+        assert.equal(raced,true); // the raced probe ran; delegation is unconditional anyway
         assert.equal(detected?.kind,'dropdown-numberbox');
         assert.equal(direct?.descriptor?.kind,'dropdown-numberbox');
         assert.equal(detected?.key,direct.descriptor.key);
