@@ -2,6 +2,7 @@ const assert = require('node:assert/strict'), puppeteer = require('puppeteer');
 const { createServer } = require('./mock-ep');
 const { detectQuestion } = require('../lib/detect-question');
 const { playSlideSurfacesRound } = require('../lib/slide-surfaces-handler');
+const { playTamperedRound } = require('./slide-surfaces-test-helpers');
 // The composed slide: one multi-select surface sharing a slide with one
 // drag-and-drop gaps surface and one highlight surface. One pass fills every
 // surface, one guarded Submit (the multi fixture owns the button), one
@@ -53,16 +54,11 @@ const { playSlideSurfacesRound } = require('../lib/slide-surfaces-handler');
         // Tamper between fill and Submit: clearing a filled gap during the
         // last multi click trips the click-time re-verification; the round
         // stops without the Submit click.
-        await setup();
-        d = await detectQuestion(page);
-        await page.evaluate(() => {
-            multiFixture.mutateOnClick = () => {
-                if (multiFixture.clicks.length !== 2) return;
+        const tampered = await playTamperedRound(page, setup, () => detectQuestion(page),
+            d => playSlideSurfacesRound(page, d, { enter: true, timeout: 300 }), 2, () => {
                 const zone = gapsFixture.renderer.dropZones.find(z => z.droppedDragID !== null);
                 zone.span.textContent = ''; zone.droppedDragID = null;
-            };
-        });
-        const tampered = await playSlideSurfacesRound(page, d, { enter: true, timeout: 300 });
+            });
         assert.equal(tampered.status, 'stopped');
         assert.equal(tampered.diagnostic?.guard, 'changed-before-submit');
         assert.deepEqual(await page.evaluate(() => [multiFixture.submits, multiFixture.q.questionIndex]), [0, 0]);
