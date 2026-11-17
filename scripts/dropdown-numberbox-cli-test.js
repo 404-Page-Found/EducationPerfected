@@ -12,8 +12,7 @@ async function run(approval, succeed, options = {}) {
     const { prepare, path, prompt = '(4 dropdowns and 6 number boxes).' } = options;
     let session;
     try {
-        session = await bootMixedCli(path);
-        const { child, page, wait } = session;
+        const { child, page, wait } = (session = await bootMixedCli(path));
         if (prepare) await page.evaluate(prepare);
         child.stdin.write('mode auto\n');
         await wait(() => session.output.includes('"mode":"auto"'));

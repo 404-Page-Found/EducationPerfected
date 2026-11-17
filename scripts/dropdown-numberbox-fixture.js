@@ -4,16 +4,14 @@
 // Marked 0, matching Page's live slide (all ten components authored unmarked,
 // runtime marked 1).
 function installDropdownNumberBoxFixture(variant, numberBoxDefinition) {
-    const injectorFrom = template => ({ parts: template.split(/({[^}]+})/g).map(part => part.startsWith('{') && part.endsWith('}') ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
+    const injectorFrom = template => ({ parts: template.split(/({[^}]+})/g).map(part => /^\{[^}]+\}$/.test(part) ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
     const old = document.querySelector('.multi-choice-component');
-    const self = window.angular.element(old).scope().self, q = self.model._currentQuestion;
+    const self = window.angular.element(old).scope().self, q = self.model._currentQuestion, base = {}, group = document.createElement('div');
     self.model.gameMode = 3;
-    const group = document.createElement('div');
+    q.questionDef.Components = [];
+    q.cachedRenderers = { 1: { identifiedComponents: { baseComponents: base } } };
     group.className = 'synthetic-dropdown-numberbox-container';
     old.replaceWith(group);
-    q.questionDef.Components = [];
-    const base = {};
-    q.cachedRenderers = { 1: { identifiedComponents: { baseComponents: base } } };
     const marked = variant === 'unmarked' ? 0 : 1;
     const f = window.dropdownNumberBoxFixture = { self, q, group, base, keys: [], changes: [], inputs: [], submits: 0, nexts: 0 };
     const angular = window.angular;
@@ -52,15 +50,7 @@ function installDropdownNumberBoxFixture(variant, numberBoxDefinition) {
         { id: 'box-5', answer: '0.25', definition: { RoundingTypeCode: 'DP', RoundingAmount: 2 } },
     ];
     for (const item of items) {
-        const def = {
-            ComponentTypeCode: 'NUMBER_BOX_COMPONENT',
-            ComponentID: item.id,
-            Marked: marked,
-            InitialText: '',
-            Options: [item.raw || item.answer],
-            ...numberBoxDefinition,
-            ...(item.definition || {}),
-        };
+        const def = Object.assign({ ComponentTypeCode: 'NUMBER_BOX_COMPONENT', ComponentID: item.id, Marked: marked, InitialText: '', Options: [item.raw || item.answer] }, numberBoxDefinition, item.definition);
         q.questionDef.Components.unshift(def); // Metadata order deliberately differs from DOM.
         const input = document.createElement('input');
         input.className = 'number-box-component';
