@@ -75,16 +75,20 @@ function installWorkingFormulaFixture(variant, steps) {
         const button = e.target.closest('#sa-navigation-controls button');
         if (button && button.textContent.trim() !== 'Submit') f.nexts++;
     }, true);
-    const oldSubmit = [...document.querySelectorAll('#sa-navigation-controls button')].find(b => b.textContent.trim() === 'Submit');
-    const submit = oldSubmit.cloneNode(true);
-    oldSubmit.replaceWith(submit);
-    if (variant === 'delayed') {
+    // A fresh Submit button without the lesson page's own listeners; the
+    // 'delayed' variant models EP's asynchronous enablement as a debounce.
+    const previous = [...document.querySelectorAll('#sa-navigation-controls button')].find(b => b.textContent.trim() === 'Submit');
+    const submit = document.createElement('button');
+    submit.textContent = 'Submit';
+    previous.replaceWith(submit);
+    const hold = () => {
         submit.disabled = true;
-        document.addEventListener('input', () => {
-            submit.disabled = true;
-            clearTimeout(f.enableTimer);
-            f.enableTimer = setTimeout(() => { if (!f.neverEnable) submit.disabled = false; }, 120);
-        }, true);
+        clearTimeout(f.enableTimer);
+        f.enableTimer = setTimeout(() => { if (!f.neverEnable) submit.disabled = false; }, 120);
+    };
+    if (variant === 'delayed') {
+        hold();
+        document.addEventListener('input', hold, true);
     }
     submit.addEventListener('click', () => {
         f.submits++;
