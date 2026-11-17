@@ -41,6 +41,22 @@ const { playSlideSurfacesRound } = require('../lib/slide-surfaces-handler');
         assert.equal(d.kind, 'unsupported');
         assert.equal(d.diagnostic?.guard, 'mixed-definition-marking');
         assert.deepEqual(await page.evaluate(() => multiFixture.clicks.length), 0);
-        console.log('Slide-surfaces single-choice+multi: one pass, one Submit, fill-only semi mode, mixed-marking refusal PASS');
+        // Tamper between fill and Submit: unchecking the selected radio
+        // during the last multi click trips the click-time re-verification;
+        // the round stops without the Submit click.
+        await setup();
+        d = await detectQuestion(page);
+        await page.evaluate(() => {
+            multiFixture.mutateOnClick = () => {
+                if (multiFixture.clicks.length !== 2) return;
+                const radio = [...document.querySelectorAll('div.multi-choice-component[role=radiogroup] .mcq-preview-option input')].find(i => i.checked);
+                if (radio) radio.checked = false;
+            };
+        });
+        const tampered = await playSlideSurfacesRound(page, d, { enter: true, timeout: 300 });
+        assert.equal(tampered.status, 'stopped');
+        assert.equal(tampered.diagnostic?.guard, 'changed-before-submit');
+        assert.deepEqual(await page.evaluate(() => [multiFixture.submits, multiFixture.q.questionIndex]), [0, 0]);
+        console.log('Slide-surfaces single-choice+multi: one pass, one Submit, fill-only semi mode, mixed-marking refusal, choice-tamper stop PASS');
     } finally { try { if (browser) await browser.close(); } finally { await new Promise(r => server.close(r)); } }
 })().catch(e => { console.error(e); process.exitCode = 1; });
