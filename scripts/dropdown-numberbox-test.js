@@ -145,6 +145,41 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
         });
         assert.equal((await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 50 })).status, 'stopped');
         assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [0, 0]);
+        // Approval-window tamper: a box's accepted answer swapped while the
+        // approval is open is caught by the baseline-bound click-time re-read.
+        await setup(); d = await detectQuestion(page);
+        {
+            const r = await playDropdownNumberBoxRound(page, d, {
+                enter: true, timeout: 300, requireSubmitApproval: true,
+                approveSubmit: async () => { await page.evaluate(() => { dropdownNumberBoxFixture.base['box-0'][0].componentState.answerOptions = ['31']; }); return true; },
+            });
+            assert.equal(r.status, 'stopped');
+            assert.equal(r.diagnostic.guard, 'changed-before-submit');
+            assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [0, 0]);
+        }
+        // Approval-window tamper: a box's typed value replaced while the
+        // approval is open stops the same way (value vs re-read answer).
+        await setup(); d = await detectQuestion(page);
+        {
+            const r = await playDropdownNumberBoxRound(page, d, {
+                enter: true, timeout: 300, requireSubmitApproval: true,
+                approveSubmit: async () => { await page.evaluate(() => { const c = dropdownNumberBoxFixture.base['box-0'][0]; c.textBox.value = '31'; c.componentState.userAnswer = '31'; }); return true; },
+            });
+            assert.equal(r.status, 'stopped');
+            assert.equal(r.diagnostic.guard, 'changed-before-submit');
+            assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [0, 0]);
+        }
+        // Semi mode (enter:false): fills, then watches while the user submits.
+        await setup(); d = await detectQuestion(page);
+        {
+            const round = playDropdownNumberBoxRound(page, d, { enter: false, timeout: 300 });
+            const filled = async () => await page.evaluate(() => dropdownNumberBoxFixture.changes.length === 8 && dropdownNumberBoxFixture.inputs.length === 17);
+            for (let i = 0; i < 100 && !await filled(); i++) await new Promise(r => setTimeout(r, 50));
+            assert.equal(await filled(), true);
+            await page.evaluate(() => { [...document.querySelectorAll('#sa-navigation-controls button')].find(b => b.textContent.trim() === 'Submit').click(); });
+            assert.equal((await round).status, 'advanced');
+            assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [1, 0]);
+        }
         // Mid-run tamper during box typing: a changed accepted answer stops before Submit.
         await setup(); d = await detectQuestion(page);
         await page.evaluate(() => {
@@ -153,6 +188,6 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
         });
         assert.equal((await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 50 })).status, 'stopped');
         assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [0, 0]);
-        console.log('Dropdown+number-box mixed-slide fixtures PASS: four dropdowns and six number boxes filled (12 trusted keys / 8 trusted changes / 17 trusted characters), one Submit; fill-only without Submit; authored-unmarked slide completes; single-surface slides pass through; 19 refusals plus assessment and prefill stops with no input; mid-run tampers stop before Submit. Synthetic Linux only.');
+        console.log('Dropdown+number-box mixed-slide fixtures PASS: four dropdowns and six number boxes filled (12 trusted keys / 8 trusted changes / 17 trusted characters), one Submit; fill-only without Submit; authored-unmarked slide completes; single-surface slides pass through; 19 refusals plus assessment and prefill stops with no input; mid-run and approval-window tampers stop before Submit; semi mode fills then watches the user Submit. Synthetic Linux only.');
     } finally { if (browser) await browser.close(); await new Promise(r => server.close(r)); }
 })().catch(e => { console.error(e); process.exitCode = 1; });
