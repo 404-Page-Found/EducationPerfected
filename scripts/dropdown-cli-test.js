@@ -107,6 +107,13 @@ async function assertVariableTemplateRefusal() {
     await assertCliRefusal(1, 'variables', () => { dropdownFixture.base['dropdown-0'][0].componentState.descInjectors[0].parts[0].text = 'tampered'; }, 'Unsupported question diagnostic {"kind":"dropdown-refusal","guard":"raw-original-options","domSelectCount":1}', '42 right');
 }
 
+async function assertMixedEditableRefusal() {
+    await assertCliRefusal(2, '', () => {
+        const slider = document.createElement('input'); slider.type = 'range'; dropdownFixture.group.append(slider);
+        const working = document.createElement('textarea'); working.readOnly = true; dropdownFixture.group.append(working);
+    }, 'Unsupported question diagnostic {"kind":"dropdown-refusal","guard":"mixed-editable-inputs","domSelectCount":2,"extraCount":2,"extras":[{"tag":"input","type":"range"},{"tag":"textarea","readOnly":true}]}', 'Radius');
+}
+
 (async () => {
     await assertMultiDropdownSuccess(2);
     await assertMultiDropdownSuccess(3);
@@ -115,5 +122,6 @@ async function assertVariableTemplateRefusal() {
     await assertMidSequenceFailure();
     await assertDetectionRefusal();
     await assertVariableTemplateRefusal();
-    console.log('Dropdown normal CLI PASS: F4 popup handles two, three and five dropdowns in order plus a variable-template slide, ignores EP_DROPDOWN_INPUT=legacy, asks once before one Submit, stops a mid-sequence failure without Submit, and prints the sanitized mid-sequence, detection and injector refusal diagnostics. Synthetic Linux only.');
+    await assertMixedEditableRefusal();
+    console.log('Dropdown normal CLI PASS: F4 popup handles two, three and five dropdowns in order plus a variable-template slide, ignores EP_DROPDOWN_INPUT=legacy, asks once before one Submit, stops a mid-sequence failure without Submit, and prints the sanitized mid-sequence, detection, injector and mixed-editable refusal diagnostics. Synthetic Linux only.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

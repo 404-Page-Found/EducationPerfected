@@ -7,6 +7,12 @@ const countFields=mutation=>{
  const extra=Number(mutation==='mixed');
  return{definitionCount:5+extra,dropdownDefinitionCount:5,companionDefinitionCount:0,unsupportedDefinitionCount:extra};
 };
+const extraFields=mutation=>{
+ if(mutation==='extraInput')return{extraCount:1,extras:[{tag:'input',type:'text'}]};
+ if(mutation==='extraEditable')return{extraCount:1,extras:[{tag:'div',contentEditable:true}]};
+ if(mutation==='extraMany')return{extraCount:9,extras:Array.from({length:8},()=>({tag:'input',type:'text'})),extrasTruncated:true};
+ return{};
+};
 (async()=>{const server=createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
 try{browser=await puppeteer.launch({headless:true,executablePath:process.env.HANDLER_EXECUTABLE_PATH||undefined});const page=await browser.newPage(),origin='http://127.0.0.1:'+server.address().port;
 const setup=async()=>{await page.goto(origin+'/lesson');await page.evaluate(installDropdownFixture);
@@ -23,8 +29,8 @@ assert.equal((await playDropdownRound(page,d,{enter:false,timeout:0,log:()=>{fil
 assert.deepEqual(await page.evaluate(()=>[...dropdownFixture.group.querySelectorAll('select')].map(el=>[el.options[el.selectedIndex].textContent,dropdownFixture.base[el.id][0].componentState._selectedOption.Description])),[['Radius','Radius'],['Circumference','Circumference'],['Circumference','Circumference'],['2','2'],['Radius','Radius']]);
 assert.deepEqual(await page.evaluate(()=>[dropdownFixture.submits,dropdownFixture.nexts,dropdownFixture.q.questionIndex]),[0,0,0]);
 if(process.env.EP_DROPDOWN_SCREENSHOT)await page.screenshot({path:process.env.EP_DROPDOWN_SCREENSHOT});
-const expectedDropdownGuards={manual:'not-explicit-auto-marked',mixed:'definitions-select-count',unmarked:'component-marked',missing:'raw-original-options',duplicate:'shuffled-description-duplicate',padded:'dom-option-contract',unsafe:'source-option-text-or-flags',twoCorrect:'correct-option',noneCorrect:'correct-option',invalid:'source-option-text-or-flags',default:'raw-default',selectedMismatch:'cached-blank-identity',foreign:'visual-element',disabled:'select-control-or-model',multiple:'select-control-or-model',size:'select-control-or-model',optgroup:'dom-option-contract',extraInput:'mixed-editable-inputs',extraEditable:'mixed-editable-inputs',rawMismatch:'raw-original-options',lazyGetter:'shuffled-array',extraSelect:'definitions-select-count',optionElement:'dom-option-contract',missingDefault:'default-none-contract',nullDefault:'default-none-contract',indexGetter:'missing-renderer-map',parserGetter:'missing-renderer-map'};
-for(const mutation of ['manual','assessment','mixed','unmarked','missing','duplicate','padded','unsafe','twoCorrect','noneCorrect','invalid','default','selectedMismatch','foreign','disabled','multiple','size','optgroup','extraInput','extraEditable','rawMismatch','lazyGetter','extraSelect','optionElement','missingDefault','nullDefault','indexGetter','parserGetter']){
+const expectedDropdownGuards={manual:'not-explicit-auto-marked',mixed:'definitions-select-count',unmarked:'component-marked',missing:'raw-original-options',duplicate:'shuffled-description-duplicate',padded:'dom-option-contract',unsafe:'source-option-text-or-flags',twoCorrect:'correct-option',noneCorrect:'correct-option',invalid:'source-option-text-or-flags',default:'raw-default',selectedMismatch:'cached-blank-identity',foreign:'visual-element',disabled:'select-control-or-model',multiple:'select-control-or-model',size:'select-control-or-model',optgroup:'dom-option-contract',extraInput:'mixed-editable-inputs',extraEditable:'mixed-editable-inputs',extraMany:'mixed-editable-inputs',rawMismatch:'raw-original-options',lazyGetter:'shuffled-array',extraSelect:'definitions-select-count',optionElement:'dom-option-contract',missingDefault:'default-none-contract',nullDefault:'default-none-contract',indexGetter:'missing-renderer-map',parserGetter:'missing-renderer-map'};
+for(const mutation of ['manual','assessment','mixed','unmarked','missing','duplicate','padded','unsafe','twoCorrect','noneCorrect','invalid','default','selectedMismatch','foreign','disabled','multiple','size','optgroup','extraInput','extraEditable','extraMany','rawMismatch','lazyGetter','extraSelect','optionElement','missingDefault','nullDefault','indexGetter','parserGetter']){
  await setup();await page.evaluate(m=>{const f=dropdownFixture,c=f.base['dropdown-0'][0],s=c.componentState,o=s.originalDropDownOptions[0];
  if(m==='manual')f.self.sectionData.activityGroup.isAutoMarked=false;
  if(m==='assessment')f.self.model.gameMode=2;
@@ -46,6 +52,7 @@ for(const mutation of ['manual','assessment','mixed','unmarked','missing','dupli
  if(m==='optgroup'){const g=document.createElement('optgroup');g.append(c.dropDownList.options[1]);c.dropDownList.append(g);}
  if(m==='extraInput')f.group.append(document.createElement('input'));
  if(m==='extraEditable'){const el=document.createElement('div');el.contentEditable='true';el.textContent='edit';f.group.append(el);}
+ if(m==='extraMany'){for(let i=0;i<9;i++)f.group.append(document.createElement('input'));}
  if(m==='rawMismatch')f.q.questionDef.Components[0].Options=[];
  if(m==='lazyGetter'){delete s._shuffledOptions;Object.defineProperty(s,'shuffledOptions',{get(){throw new Error('must not invoke');}});}
  if(m==='extraSelect')f.group.append(c.dropDownList.cloneNode(true));
@@ -58,7 +65,7 @@ for(const mutation of ['manual','assessment','mixed','unmarked','missing','dupli
  assert.equal(await page.evaluate(()=>dropdownFixture.getterCalls||0),0);
  const bad=await detectQuestion(page);assert.equal(bad.kind,'unsupported',mutation);
  if(mutation==='assessment')assert.equal(bad.diagnostic,undefined,mutation);
- else assert.deepEqual(bad.diagnostic,{kind:'dropdown-refusal',guard:expectedDropdownGuards[mutation],domSelectCount:mutation==='extraSelect'?6:5,...countFields(mutation)},mutation);
+ else assert.deepEqual(bad.diagnostic,{kind:'dropdown-refusal',guard:expectedDropdownGuards[mutation],domSelectCount:mutation==='extraSelect'?6:5,...countFields(mutation),...extraFields(mutation)},mutation);
  assert.equal(await page.evaluate(()=>dropdownFixture.getterCalls||0),0);
  assert.equal((await playDropdownRound(page,bad,{enter:true,timeout:50})).status,'stopped',mutation);
  assert.deepEqual(await page.evaluate(()=>[dropdownFixture.keys.length,dropdownFixture.submits,dropdownFixture.nexts]),[0,0,0],mutation);
