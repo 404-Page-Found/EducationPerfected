@@ -126,10 +126,19 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 
 - `start` - start auto-answering; `stop` - stop it
 - `mode auto` - answer and submit automatically (default); `mode semi` - fill answers but leave submitting to you
+- `accuracy` - show accuracy config, per-run target and first-try stats; `accuracy <n|min-max|off|on>` - set accuracy when stopped (e.g. `accuracy 82`, `accuracy 70-90`, `accuracy off`)
 - `refresh` - learn the answers from a task starter page's word lists (once per new task)
-- `status` - show current status
+- `status` - show current status (including accuracy target)
 - `inspect-self-mark` - read-only capture of a self-mark (Reflection) page
 - `quit` - close the CLI
+
+Random accuracy is ON by default to simulate a real student: each `start` picks a first-try target in 70-90% and occasionally submits a small human-like mistake (typo for text/audio, neighboring distractor for single-choice) before the normal wrong-answer-modal / retry / Next flow completes the run. Other lesson surfaces stay perfect to preserve their fail-closed proofs. Startup flags and env override the band:
+
+    educationperfected --accuracy 82
+    educationperfected --accuracy-range 70-90
+    educationperfected --perfect  # or --no-mistakes (100%)
+
+Env: `EP_ACCURACY=82`, `EP_ACCURACY_RANGE=70-90`, `EP_PERFECT=1`. `status` shows the active target and first-try stats; the run log reports `Accuracy target X%` at start and a summary at exit.
 
 The legacy hotkey-only program is still there if you want it: run `node index.js`, or double-click [start.cmd](start.cmd) (Windows) or [start.sh](start.sh) (Linux/Mac).
 
@@ -162,6 +171,14 @@ wrong when the program doesn't know the answers. (It will learn all of them even
 features, but it is a lot slower.)
 Note that the learned dictionary lives only in the running program's memory - restart the program and you'll need
 to press Refresh Words again for the task's word list.
+
+**Random Accuracy (70%-90% by default)**: A real student does not get everything right on the first try. Each run randomizes
+a first-try target in 70-90% and, with probability `1 - target`, submits a plausible-but-wrong answer first: a small typo
+for text/audio/lesson short-answer, or a neighboring distractor for single-choice. The mistake flows through the normal
+wrong-answer-modal / retry / Next path, so the run still completes with lower first-try accuracy. Semi-auto fills the
+correct answer (no intentional mistakes) and other lesson surfaces (gaps, multi-select, textboxes, dropdowns, highlight,
+etc.) stay perfect to preserve their fail-closed completion proofs. Tune with `--accuracy <n>`, `--accuracy-range <min-max>`,
+`--perfect`/`--no-mistakes`, env `EP_ACCURACY`/`EP_ACCURACY_RANGE`/`EP_PERFECT`, or the interactive `accuracy` command when stopped.
 
 All three functions (**Start Answering**, **Toggle Mode**, and **Refresh Words**) are triggered by the CLI commands above
 (`start`/`stop`, `mode auto`/`mode semi`, `refresh`) or by the keyboard shortcuts outlined below.
