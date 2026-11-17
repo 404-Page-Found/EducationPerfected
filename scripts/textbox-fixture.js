@@ -158,4 +158,4 @@ const inputBoxFixtures = {
     },
 };
 
-module.exports = { installInputBoxFixture, inputBoxFixtures };
+module.exports = { installInputBoxFixture, inputBoxFixtures, numberBoxDefinition };

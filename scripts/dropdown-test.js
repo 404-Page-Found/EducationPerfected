@@ -74,6 +74,7 @@ for(const mutation of ['manual','assessment','mixed','unmarked','missing','dupli
  assert.equal(await page.evaluate(()=>dropdownFixture.getterCalls||0),0);
  const bad=await detectQuestion(page);assert.equal(bad.kind,'unsupported',mutation);
  if(mutation==='assessment')assert.equal(bad.diagnostic,undefined,mutation);
+ else if(mutation==='extraNumberBoxes')assert.deepEqual(bad.diagnostic,{kind:'dropdown-numberbox-refusal',guard:'renderer-definition-count',domSelectCount:5,domBoxCount:2},mutation);
  else assert.deepEqual(bad.diagnostic,{kind:'dropdown-refusal',guard:expectedDropdownGuards[mutation],domSelectCount:mutation==='extraSelect'?6:5,...countFields(mutation),...extraFields(mutation)},mutation);
  assert.equal(await page.evaluate(()=>dropdownFixture.getterCalls||0),0);
  assert.equal((await playDropdownRound(page,bad,{enter:true,timeout:50})).status,'stopped',mutation);

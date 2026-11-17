@@ -42,4 +42,19 @@ async function bootFixtureCli(entry, prompt, extraEnv = {}) {
         return { child, page, origin, wait, cleanup, get output() { return output; } };
     } catch (error) { await cleanup(); throw error; }
 }
-module.exports = { bootFixtureCli };
+// A completion-proof teardown shared by the box and mixed CLI fixtures: the
+// first Submit click removes the slide and reveals the exit button.
+async function installSubmitExitTeardown(session, fixtureGlobal) {
+    await session.page.evaluate(name => {
+        document.querySelector('#sa-navigation-controls button').addEventListener('click', () => {
+            window[name].group.remove();
+            document.querySelector('#question-container-group').remove();
+            window[name].self.model._currentQuestion = null;
+            const exit = document.querySelector('button.exit-button');
+            exit.hidden = false;
+            exit.style.display = '';
+        });
+    }, fixtureGlobal);
+}
+
+module.exports = { bootFixtureCli, installSubmitExitTeardown };

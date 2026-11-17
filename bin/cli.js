@@ -39,7 +39,8 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
     });
     const requestDropdownSubmitApproval = (approval, onCancel) => requestSubmitApproval(approval, 'Dropdown Submit', `${approval.dropdownCount} dropdown`, onCancel);
     const requestNumberBoxSubmitApproval = (approval, onCancel) => requestSubmitApproval(approval, 'Number-box Submit', `${approval.boxCount} boxes`, onCancel);
-    controls = await launch({ onBrowserClosed, onBrowserDisconnected: browserGone, dropdownSubmitApprover: requestDropdownSubmitApproval, numberBoxSubmitApprover: requestNumberBoxSubmitApproval });
+    const requestDropdownNumberBoxSubmitApproval = (approval, onCancel) => requestSubmitApproval(approval, 'Dropdown+number-box Submit', `${approval.dropdownCount} dropdowns and ${approval.boxCount} number boxes`, onCancel);
+    controls = await launch({ onBrowserClosed, onBrowserDisconnected: browserGone, dropdownSubmitApprover: requestDropdownSubmitApproval, numberBoxSubmitApprover: requestNumberBoxSubmitApproval, dropdownNumberBoxSubmitApprover: requestDropdownNumberBoxSubmitApproval });
     terminal = readline.createInterface({ input, output, terminal: Boolean(input.isTTY && output.isTTY) });
     output.write('Commands: start, stop, status, mode auto, mode semi, refresh, inspect-self-mark, quit\n');
     const print = () => output.write(JSON.stringify(controls.status()) + '\n');

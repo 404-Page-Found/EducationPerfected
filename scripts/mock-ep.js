@@ -14,7 +14,8 @@ const http = require('node:http');
 const { installMultiChoiceFixture } = require('./multi-choice-fixture');
 const { installGapsFixture } = require('./gaps-fixture');
 const { installDropdownFixture } = require('./dropdown-fixture');
-const { installInputBoxFixture, inputBoxFixtures } = require('./textbox-fixture');
+const { installInputBoxFixture, inputBoxFixtures, numberBoxDefinition } = require('./textbox-fixture');
+const { installDropdownNumberBoxFixture } = require('./dropdown-numberbox-fixture');
 
 const WORDS = [
     ['one', 'eins'],
@@ -423,6 +424,10 @@ function createServer() {
         }
         if (url.pathname === '/lesson-textbox') return send(lessonPage(false).replace('</body></html>', `<script>(${installInputBoxFixture.toString()})(${JSON.stringify(inputBoxFixtures.textbox)});</script></body></html>`));
         if (url.pathname === '/lesson-number-box') return send(lessonPage(false).replace('</body></html>', `<script>(${installInputBoxFixture.toString()})(${JSON.stringify(inputBoxFixtures.numberbox)});</script></body></html>`));
+        if (url.pathname === '/lesson-dropdown-number-box') {
+            const variant = url.searchParams.get('variant') === 'unmarked' ? 'unmarked' : '';
+            return send(lessonPage(false).replace('</body></html>', `<script>(${installDropdownNumberBoxFixture.toString()})(${JSON.stringify(variant)},${JSON.stringify(numberBoxDefinition)});</script></body></html>`));
+        }
         if (url.pathname === '/lesson-textbox-variables') return send(lessonPage(false).replace('</body></html>', `<script>(${installInputBoxFixture.toString()})(${JSON.stringify(inputBoxFixtures['textbox-variables'])});</script></body></html>`));
         if (url.pathname === '/lesson-number-box-variables') return send(lessonPage(false).replace('</body></html>', `<script>(${installInputBoxFixture.toString()})(${JSON.stringify(inputBoxFixtures['numberbox-variables'])});</script></body></html>`));
         if (url.pathname === '/lesson-textbox-mixed') return send(lessonPage(false).replace('</body></html>', `<script>(${installInputBoxFixture.toString()})(${JSON.stringify(inputBoxFixtures['textbox-mixed'])});</script></body></html>`));
