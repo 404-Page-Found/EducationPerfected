@@ -87,3 +87,41 @@ head, cubic + SonarCloud (duplication <= 3%) green, signed fast-forward.
   click-time verification.
 - Detection order vs the classic text/audio kinds: unchanged; the
   orchestrator only sees Smart Lesson component slides.
+
+## PR A implementation notes (from code reading, 17 Nov 2026)
+
+Template files: lib/dropdown-numberbox-state.js (probe + compose + retagged
+refusals) and lib/dropdown-numberbox-handler.js (fill order, submit target
+ownership, verifyBoxes click-time pattern, shared transition watch). The
+general orchestrator extracts their structure.
+
+Foreign-component refusal points per reader (PR A adds an allowMix param to
+each, default = today's behavior):
+
+- lib/textbox-state.js: readInputBoxesInPage(baseline, action, config,
+  allowMix=false) already implements the pattern: foreignTypes +
+  foreignControl(el) matcher; emits markings when mixed.
+- lib/dropdown-state.js: readDropdownsInPage(baseline, action,
+  reportGuard=false, allowMix=false) already mixed-aware.
+- lib/gaps-state.js L39-43: refuses defs containing any non-
+  FILL_IN_GAPS_COMPONENT outside PRESENTATION_COMPONENTS (ANNOTATED_TEXT).
+- lib/multi-choice-state.js L43-44: answerBearingCodes check; L51-53:
+  foreign-editable DOM scan outside the group.
+- lib/detect-question.js choice branch L489-498: same two checks inline
+  (answerBearingCodes list + foreign-editable scan). Choice reading lives
+  inside detectQuestionInPage; extracting it to lib/choice-state.js with an
+  allowMix param is part of PR A/B.
+- lib/highlight-state.js L34: expects exactly one HIGHLIGHT_COMPONENT.
+
+PR A shape:
+1. lib/slide-surfaces-state.js: probeAllSurfacesInPage() counts every
+   recognised surface; composeSlideSurfaces(page, action) routes box-family
+   combos through the moved dropdown-numberbox logic and returns the same
+   'dropdown-numberbox' descriptor shape (bit-for-bit); other multi-surface
+   combos return null so today's per-reader refusals are unchanged.
+2. detectQuestion calls the new module in place of readDropdownNumberBox.
+3. allowMix params land on gaps/multi/highlight readers + extracted choice
+   reader, with unit tests; orchestrator does not call them yet (PRs B/C).
+4. Existing suites must pass unchanged; new unit tests for the probe and
+   the new allowMix params. SonarCloud: move, don't copy - shared helpers
+   for the mixed descriptor assembly.
