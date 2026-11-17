@@ -1864,6 +1864,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         return false;
                     }
                     // 'stopped'
+                    if (again.kind === 'slide-surfaces' && result.selectionDiagnostic) {
+                        const { phase, dropdownIndex, boxIndex, keyDispatchesReturned, guard, submitState } = result.selectionDiagnostic;
+                        console.error('Slide-surfaces refusal diagnostic ' + JSON.stringify({ phase, dropdownIndex, ...(boxIndex !== undefined && boxIndex !== null ? { boxIndex } : {}), keyDispatchesReturned, guard, dropdownCount: again.dropdownCount, boxCount: again.boxCount, textBoxCount: again.textBoxCount, multiOptionCount: again.multiOptionCount, ...(submitState ? {submitState} : {}) }));
+                    }
                     if ((again.kind === 'dropdown' || again.kind === 'dropdown-numberbox') && result.selectionDiagnostic) {
                         const { phase, dropdownIndex, boxIndex, keyDispatchesReturned, guard, submitState } = result.selectionDiagnostic;
                         console.error('Dropdown refusal diagnostic ' + JSON.stringify({ phase, dropdownIndex, ...(boxIndex !== undefined && boxIndex !== null ? { boxIndex } : {}), keyDispatchesReturned, guard, dropdownCount: again.dropdowns.length, ...(again.kind === 'dropdown-numberbox' ? { boxCount: again.boxes.length } : {}), ...(submitState ? {submitState} : {}) }));

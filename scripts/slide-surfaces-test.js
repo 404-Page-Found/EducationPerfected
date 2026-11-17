@@ -27,12 +27,12 @@ const { playSlideSurfacesRound } = require('../lib/slide-surfaces-handler');
         // the exact multi set selected, exactly one trusted Submit, advance.
         assert.deepEqual(await page.evaluate(() => dropdownNumberBoxFixture.submittedBoxValues), [['30', '30'], ['7', '7']]);
         assert.deepEqual(await page.evaluate(() => multiFixture.clicks), [2, 0]);
-        assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.inputs.length, dropdownNumberBoxFixture.inputs.every(e => e.trusted), dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts, dropdownNumberBoxFixture.q.questionIndex, JSON.stringify([...(multiFixture.state.selectedOptions||[])].sort())]), [3, true, 1, 0, 1, '[0,2]']);
+        assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.inputs.length, dropdownNumberBoxFixture.inputs.every(e => e.trusted), dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts, dropdownNumberBoxFixture.q.questionIndex, JSON.stringify([...(multiFixture.state.selectedOptions||[])].sort((a, b) => a - b))]), [3, true, 1, 0, 1, '[0,2]']);
         // Fill-only (semi mode): every surface filled, never submitted.
         await setup(); d = await detectQuestion(page); let filled = 0;
         assert.equal((await playSlideSurfacesRound(page, d, { enter: false, timeout: 0, log: () => { filled++; }, shouldStop: () => filled >= 2 })).status, 'aborted');
         assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('input.number-box-component')].map(el => el.value)), ['30', '7']);
-        assert.deepEqual(await page.evaluate(() => JSON.stringify([...(multiFixture.state.selectedOptions||[])].sort())), '[0,2]');
+        assert.deepEqual(await page.evaluate(() => JSON.stringify([...(multiFixture.state.selectedOptions||[])].sort((a, b) => a - b))), '[0,2]');
         assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.q.questionIndex]), [0, 0]);
         // A refusal keeps every surface untouched: hide the multi surface's
         // correct answer by mutating its metadata before detection.
@@ -41,6 +41,15 @@ const { playSlideSurfacesRound } = require('../lib/slide-surfaces-handler');
         d = await detectQuestion(page);
         assert.equal(d.kind, 'unsupported');
         assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.inputs.length, multiFixture.clicks.length, dropdownNumberBoxFixture.submits]), [0, 0, 0]);
-        console.log('Slide-surfaces handler: multi-select + number boxes fill in one pass, one Submit, fill-only semi mode, refusal untouched PASS');
+        // A prefilled box refuses through the orchestrator with the box
+        // reader's stored-value guard, retagged, before any typing.
+        await setup();
+        await page.evaluate(() => { dropdownNumberBoxFixture.base['box-0'][0].componentState.userAnswer = 'x'; });
+        d = await detectQuestion(page);
+        assert.equal(d.kind, 'unsupported');
+        assert.equal(d.diagnostic?.guard, 'stored-value');
+        assert.equal(d.diagnostic?.kind, 'slide-surfaces-refusal');
+        assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.inputs.length, multiFixture.clicks.length, dropdownNumberBoxFixture.submits]), [0, 0, 0]);
+        console.log('Slide-surfaces handler: multi-select + number boxes fill in one pass, one Submit, fill-only semi mode, refusals untouched PASS');
     } finally { try { if (browser) await browser.close(); } finally { await new Promise(r => server.close(r)); } }
 })().catch(e => { console.error(e); process.exitCode = 1; });
