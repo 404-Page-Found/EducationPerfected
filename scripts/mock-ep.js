@@ -458,6 +458,11 @@ function createServer() {
         if (url.pathname === '/lesson-textbox-mixed') return send(lessonPage(false).replace('</body></html>', `<script>(${installInputBoxFixture.toString()})(${JSON.stringify(inputBoxFixtures['textbox-mixed'])});</script></body></html>`));
         if (url.pathname === '/lesson-gaps') return send(lessonPage(false).replace('</body></html>', `<script>(${installGapsFixture.toString()})();</script></body></html>`));
         if (url.pathname === '/lesson-multi') return send(lessonPage(false).replace('</body></html>', `<script>(${installMultiChoiceFixture.toString()})();</script></body></html>`));
+        // Multi-select surface sharing one slide with two number boxes.
+        if (url.pathname === '/lesson-multi-number-box') {
+            const items = [{ id: 'box-0', answer: '30' }, { id: 'box-1', answer: '7' }];
+            return send(lessonPage(false).replace('</body></html>', `<script>(${installMultiChoiceFixture.toString()})();(${installDropdownNumberBoxFixture.toString()})(${JSON.stringify('')},${JSON.stringify(numberBoxDefinition)},${JSON.stringify(null)},${JSON.stringify([])},${JSON.stringify(items)},true);</script></body></html>`));
+        }
         if (url.pathname === '/lesson-async') return send(lessonAsyncPage);
         if (url.pathname === '/audio') return send(audioPage(2));
         if (url.pathname === '/dictation') return send(audioPage(3));

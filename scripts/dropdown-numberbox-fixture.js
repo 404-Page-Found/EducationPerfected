@@ -6,15 +6,25 @@
 // empty array builds a number-box (+ optional text-box) slide with no
 // dropdowns; numberBoxItems overrides the six-box list (Page's live
 // seven-box/one-text-box composition passes seven).
-function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxItem, dropdownAnswers, numberBoxItems) {
+function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxItem, dropdownAnswers, numberBoxItems, keepMulti) {
     const injectorFrom = template => ({ parts: template.split(/({[^}]+})/g).map(part => /^\{[^}]+\}$/.test(part) ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
     const old = document.querySelector('.multi-choice-component');
     const self = window.angular.element(old).scope().self, q = self.model._currentQuestion, base = {}, group = document.createElement('div');
     self.model.gameMode = 3;
-    q.questionDef.Components = [];
-    q.cachedRenderers = { 1: { identifiedComponents: { baseComponents: base } } };
+    // keepMulti: a multi-select fixture already owns the page - keep its
+    // definition, renderer cache and component group, and take over its
+    // definition marking, so the slide carries both surfaces.
+    if (keepMulti) {
+        Object.assign(base, q.cachedRenderers?.[1]?.identifiedComponents?.baseComponents || {});
+        q.cachedRenderers = { 1: { identifiedComponents: { baseComponents: base } } };
+        const multiDef = (q.questionDef.Components || []).find(c => c && c.ComponentTypeCode === 'MULTICHOICE_COMPONENT');
+        if (multiDef) multiDef.Marked = variant === 'unmarked' ? 0 : 1;
+    } else {
+        q.questionDef.Components = [];
+        q.cachedRenderers = { 1: { identifiedComponents: { baseComponents: base } } };
+    }
     group.className = 'synthetic-dropdown-numberbox-container';
-    old.replaceWith(group);
+    if (keepMulti) { old.after(group); } else { old.replaceWith(group); }
     const marked = variant === 'unmarked' ? 0 : 1;
     const f = window.dropdownNumberBoxFixture = { self, q, group, base, keys: [], changes: [], inputs: [], submits: 0, nexts: 0 };
     const angular = window.angular;

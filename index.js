@@ -7,6 +7,7 @@ const { playChoiceRound } = require('./lib/choice-handler');
 const { playGapsRound } = require('./lib/gaps-handler');
 const { playDropdownRound } = require('./lib/dropdown-handler');
 const { playDropdownNumberBoxRound } = require('./lib/dropdown-numberbox-handler');
+const { playSlideSurfacesRound } = require('./lib/slide-surfaces-handler');
 const { playReflectionRound } = require('./lib/reflection-handler');
 const { playTextboxRound, playNumberBoxRound } = require('./lib/textbox-handler');
 const { createRunControls } = require('./lib/run-controls');
@@ -1757,6 +1758,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 { type: 'numberbox', play: playSelectionDescriptorRound },
                 { type: 'dropdown', play: playSelectionDescriptorRound },
                 { type: 'dropdown-numberbox', play: playSelectionDescriptorRound },
+                { type: 'slide-surfaces', play: playSelectionDescriptorRound },
                 { type: 'reflection', play: playSelectionDescriptorRound },
                 { type: 'highlight', play: playSelectionDescriptorRound },
                 { type: 'audio', play: handleTypedRound },
@@ -1801,7 +1803,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         console.log('Selection slide changed during detection; re-reading it in a fresh pass.');
                         return true;
                     }
-                    const play = descriptor.kind === 'dropdown' ? playDropdownRound : descriptor.kind === 'dropdown-numberbox' ? playDropdownNumberBoxRound : descriptor.kind === 'reflection' ? playReflectionRound : descriptor.kind === 'numberbox' ? playNumberBoxRound : descriptor.kind === 'textbox' ? playTextboxRound : descriptor.kind === 'gaps' ? playGapsRound : descriptor.kind === 'highlight' ? playHighlightRound : playChoiceRound;
+                    const play = descriptor.kind === 'dropdown' ? playDropdownRound : descriptor.kind === 'dropdown-numberbox' ? playDropdownNumberBoxRound : descriptor.kind === 'slide-surfaces' ? playSlideSurfacesRound : descriptor.kind === 'reflection' ? playReflectionRound : descriptor.kind === 'numberbox' ? playNumberBoxRound : descriptor.kind === 'textbox' ? playTextboxRound : descriptor.kind === 'gaps' ? playGapsRound : descriptor.kind === 'highlight' ? playHighlightRound : playChoiceRound;
                     // Preserve even if Stop/errors arrive after Submit but before
                     // the handler's next modal poll. No selection cleanup deletes dialogs.
                     preserveSelectionModal=true;
@@ -1866,7 +1868,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         const { phase, dropdownIndex, boxIndex, keyDispatchesReturned, guard, submitState } = result.selectionDiagnostic;
                         console.error('Dropdown refusal diagnostic ' + JSON.stringify({ phase, dropdownIndex, ...(boxIndex !== undefined && boxIndex !== null ? { boxIndex } : {}), keyDispatchesReturned, guard, dropdownCount: again.dropdowns.length, ...(again.kind === 'dropdown-numberbox' ? { boxCount: again.boxes.length } : {}), ...(submitState ? {submitState} : {}) }));
                     }
-                    if ((again.kind === 'textbox' || again.kind === 'numberbox' || again.kind === 'dropdown-numberbox' || again.kind === 'reflection') && result.diagnostic) console.error('Unsupported question diagnostic ' + JSON.stringify(result.diagnostic));
+                    if ((again.kind === 'textbox' || again.kind === 'numberbox' || again.kind === 'dropdown-numberbox' || again.kind === 'slide-surfaces' || again.kind === 'reflection') && result.diagnostic) console.error('Unsupported question diagnostic ' + JSON.stringify(result.diagnostic));
                     console.error(result.message);
                     await alert(result.message);
                     return false;
