@@ -111,7 +111,8 @@ async function assertMixedEditableRefusal() {
     await assertCliRefusal(2, '', () => {
         const slider = document.createElement('input'); slider.type = 'range'; dropdownFixture.group.append(slider);
         const working = document.createElement('textarea'); working.readOnly = true; dropdownFixture.group.append(working);
-    }, 'Unsupported question diagnostic {"kind":"dropdown-refusal","guard":"mixed-editable-inputs","domSelectCount":2,"extraCount":2,"extras":[{"tag":"input","type":"range"},{"tag":"textarea","readOnly":true}]}', 'Radius');
+        const textBox = document.createElement('input'); textBox.className = 'text-box-component'; dropdownFixture.group.append(textBox);
+    }, 'Unsupported question diagnostic {"kind":"dropdown-refusal","guard":"mixed-editable-inputs","domSelectCount":2,"extraCount":3,"extras":[{"tag":"input","type":"range"},{"tag":"textarea","readOnly":true},{"tag":"input","type":"text","answerBox":"text-box"}],"definitions":{"total":2,"byType":{"dropdown":2},"marked":2,"unmarked":0,"invalidMarked":0}}', 'Radius');
 }
 
 (async () => {

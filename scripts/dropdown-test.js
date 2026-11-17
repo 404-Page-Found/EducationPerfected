@@ -7,10 +7,15 @@ const countFields=mutation=>{
  const extra=Number(mutation==='mixed');
  return{definitionCount:5+extra,dropdownDefinitionCount:5,companionDefinitionCount:0,unsupportedDefinitionCount:extra};
 };
+const baseDefinitions={total:5,byType:{dropdown:5},marked:5,unmarked:0,invalidMarked:0};
 const extraFields=mutation=>{
- if(mutation==='extraInput')return{extraCount:1,extras:[{tag:'input',type:'text'}]};
- if(mutation==='extraEditable')return{extraCount:1,extras:[{tag:'div',contentEditable:true}]};
- if(mutation==='extraMany')return{extraCount:9,extras:Array.from({length:8},()=>({tag:'input',type:'text'})),extrasTruncated:true};
+ if(mutation==='extraInput')return{extraCount:1,extras:[{tag:'input',type:'text'}],definitions:baseDefinitions};
+ if(mutation==='extraEditable')return{extraCount:1,extras:[{tag:'div',contentEditable:true}],definitions:baseDefinitions};
+ if(mutation==='extraMany')return{extraCount:9,extras:Array.from({length:8},()=>({tag:'input',type:'text'})),extrasTruncated:true,definitions:baseDefinitions};
+ if(mutation==='extraTextBoxes')return{extraCount:6,extras:Array.from({length:6},()=>({tag:'input',type:'text',answerBox:'text-box'})),definitions:{total:11,byType:{dropdown:5,textBox:6},marked:11,unmarked:0,invalidMarked:0}};
+ if(mutation==='extraNumberBoxes')return{extraCount:2,extras:Array.from({length:2},()=>({tag:'input',type:'text',answerBox:'number-box'})),definitions:{total:7,byType:{dropdown:5,numberBox:2},marked:7,unmarked:0,invalidMarked:0}};
+ if(mutation==='extraInGaps')return{extraCount:1,extras:[{tag:'input',type:'text',inGapsComponent:true}],definitions:baseDefinitions};
+ if(mutation==='extraSelectsInGaps')return{extraCount:1,extras:[{tag:'input',type:'text'}],selectsInGaps:'all',definitions:baseDefinitions};
  return{};
 };
 (async()=>{const server=createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
@@ -29,8 +34,8 @@ assert.equal((await playDropdownRound(page,d,{enter:false,timeout:0,log:()=>{fil
 assert.deepEqual(await page.evaluate(()=>[...dropdownFixture.group.querySelectorAll('select')].map(el=>[el.options[el.selectedIndex].textContent,dropdownFixture.base[el.id][0].componentState._selectedOption.Description])),[['Radius','Radius'],['Circumference','Circumference'],['Circumference','Circumference'],['2','2'],['Radius','Radius']]);
 assert.deepEqual(await page.evaluate(()=>[dropdownFixture.submits,dropdownFixture.nexts,dropdownFixture.q.questionIndex]),[0,0,0]);
 if(process.env.EP_DROPDOWN_SCREENSHOT)await page.screenshot({path:process.env.EP_DROPDOWN_SCREENSHOT});
-const expectedDropdownGuards={manual:'not-explicit-auto-marked',mixed:'definitions-select-count',unmarked:'component-marked',missing:'raw-original-options',duplicate:'shuffled-description-duplicate',padded:'dom-option-contract',unsafe:'source-option-text-or-flags',twoCorrect:'correct-option',noneCorrect:'correct-option',invalid:'source-option-text-or-flags',default:'raw-default',selectedMismatch:'cached-blank-identity',foreign:'visual-element',disabled:'select-control-or-model',multiple:'select-control-or-model',size:'select-control-or-model',optgroup:'dom-option-contract',extraInput:'mixed-editable-inputs',extraEditable:'mixed-editable-inputs',extraMany:'mixed-editable-inputs',rawMismatch:'raw-original-options',lazyGetter:'shuffled-array',extraSelect:'definitions-select-count',optionElement:'dom-option-contract',missingDefault:'default-none-contract',nullDefault:'default-none-contract',indexGetter:'missing-renderer-map',parserGetter:'missing-renderer-map'};
-for(const mutation of ['manual','assessment','mixed','unmarked','missing','duplicate','padded','unsafe','twoCorrect','noneCorrect','invalid','default','selectedMismatch','foreign','disabled','multiple','size','optgroup','extraInput','extraEditable','extraMany','rawMismatch','lazyGetter','extraSelect','optionElement','missingDefault','nullDefault','indexGetter','parserGetter']){
+const expectedDropdownGuards={manual:'not-explicit-auto-marked',mixed:'definitions-select-count',unmarked:'component-marked',missing:'raw-original-options',duplicate:'shuffled-description-duplicate',padded:'dom-option-contract',unsafe:'source-option-text-or-flags',twoCorrect:'correct-option',noneCorrect:'correct-option',invalid:'source-option-text-or-flags',default:'raw-default',selectedMismatch:'cached-blank-identity',foreign:'visual-element',disabled:'select-control-or-model',multiple:'select-control-or-model',size:'select-control-or-model',optgroup:'dom-option-contract',extraInput:'mixed-editable-inputs',extraEditable:'mixed-editable-inputs',extraMany:'mixed-editable-inputs',extraTextBoxes:'mixed-editable-inputs',extraNumberBoxes:'mixed-editable-inputs',extraInGaps:'mixed-editable-inputs',extraSelectsInGaps:'mixed-editable-inputs',rawMismatch:'raw-original-options',lazyGetter:'shuffled-array',extraSelect:'definitions-select-count',optionElement:'dom-option-contract',missingDefault:'default-none-contract',nullDefault:'default-none-contract',indexGetter:'missing-renderer-map',parserGetter:'missing-renderer-map'};
+for(const mutation of ['manual','assessment','mixed','unmarked','missing','duplicate','padded','unsafe','twoCorrect','noneCorrect','invalid','default','selectedMismatch','foreign','disabled','multiple','size','optgroup','extraInput','extraEditable','extraMany','extraTextBoxes','extraNumberBoxes','extraInGaps','extraSelectsInGaps','rawMismatch','lazyGetter','extraSelect','optionElement','missingDefault','nullDefault','indexGetter','parserGetter']){
  await setup();await page.evaluate(m=>{const f=dropdownFixture,c=f.base['dropdown-0'][0],s=c.componentState,o=s.originalDropDownOptions[0];
  if(m==='manual')f.self.sectionData.activityGroup.isAutoMarked=false;
  if(m==='assessment')f.self.model.gameMode=2;
@@ -53,6 +58,10 @@ for(const mutation of ['manual','assessment','mixed','unmarked','missing','dupli
  if(m==='extraInput')f.group.append(document.createElement('input'));
  if(m==='extraEditable'){const el=document.createElement('div');el.contentEditable='true';el.textContent='edit';f.group.append(el);}
  if(m==='extraMany'){for(let i=0;i<9;i++)f.group.append(document.createElement('input'));}
+ if(m==='extraTextBoxes'){for(let i=0;i<6;i++){const el=document.createElement('input');el.className='text-box-component';f.group.append(el);f.q.questionDef.Components.push({ComponentTypeCode:'TEXT_BOX_COMPONENT',ComponentID:'text-box-'+i,Marked:1});}}
+ if(m==='extraNumberBoxes'){for(let i=0;i<2;i++){const el=document.createElement('input');el.className='number-box-component';f.group.append(el);f.q.questionDef.Components.push({ComponentTypeCode:'NUMBER_BOX_COMPONENT',ComponentID:'number-box-'+i,Marked:1});}}
+ if(m==='extraInGaps'){const wrap=document.createElement('div');wrap.className='fitg-component';const el=document.createElement('input');wrap.append(el);f.group.append(wrap);}
+ if(m==='extraSelectsInGaps'){const wrap=document.createElement('div');wrap.className='fitg-component';f.group.append(wrap);for(const select of [...f.group.querySelectorAll('select')])wrap.append(select);f.group.append(document.createElement('input'));}
  if(m==='rawMismatch')f.q.questionDef.Components[0].Options=[];
  if(m==='lazyGetter'){delete s._shuffledOptions;Object.defineProperty(s,'shuffledOptions',{get(){throw new Error('must not invoke');}});}
  if(m==='extraSelect')f.group.append(c.dropDownList.cloneNode(true));
@@ -133,5 +142,5 @@ await page.evaluate(()=>{const c=dropdownFixture.base['dropdown-0'][0],s=c.compo
 {const rd=await detectQuestion(page);assert.equal(rd.kind,'dropdown');assert.equal(rd.dropdowns[0].answer,'42 right');
 assert.equal((await playDropdownRound(page,rd,{enter:true,timeout:300})).status,'advanced');
 assert.deepEqual(await page.evaluate(()=>[dropdownFixture.submittedSelections,dropdownFixture.submits]),[[['42 right','42 right']],1]);}
-console.log('Dropdown source-derived browser fixtures PASS: five DOM-ordered controls, 15 trusted keys / 10 trusted changes / one Submit; exact fill-only0Submit; 29 initial refusals,10 post-key stops, event-driven cancellation; variable-template slide fills+submits, fourteen injector/ref raw refusals0input, reordered variable metadata submits. Synthetic Linux only; intermediate selections occur.');
+console.log('Dropdown source-derived browser fixtures PASS: five DOM-ordered controls, 15 trusted keys / 10 trusted changes / one Submit; exact fill-only0Submit; 33 initial refusals,10 post-key stops, event-driven cancellation; variable-template slide fills+submits, fourteen injector/ref raw refusals0input, reordered variable metadata submits. Synthetic Linux only; intermediate selections occur.');
 }finally{if(browser)await browser.close();await new Promise(r=>server.close(r));}})().catch(e=>{console.error(e);process.exitCode=1;});
