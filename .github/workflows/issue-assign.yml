@@ -14,7 +14,7 @@ name: issue-assign
 #     the open event and the queued run is preserved rather than silently
 #     becoming a second co-assignee.
 #   - Bot-created issues are skipped on the automatic path, for the same
-#     reason as issue-milestone: bots do not triage, so an assignee would
+#     reason as the other triage workflows: bots do not triage, so an assignee would
 #     never act on the issue and would only churn the queue. A manual
 #     dispatch carries no issue author in its payload, so that skip cannot
 #     fire there and a maintainer can still backfill an issue a bot filed.
@@ -27,7 +27,7 @@ name: issue-assign
 # cannot assign, and this must fail loudly instead of claiming success.
 #
 # Nothing is posted to the issue on either path. The run log is the record,
-# matching issue-label, issue-milestone, and issue-triage: posting a message
+# matching issue-label and issue-triage: posting a message
 # on every new issue would be noise nobody asked for. The failure report
 # below only comments for workflow_dispatch runs, which the requester did
 # explicitly ask for; a broken automatic assignment stays visible as a
@@ -64,8 +64,7 @@ env:
 # trusting each read: group per issue number, never cancel
 # (cancel-in-progress: false), and queue: max keeps up to 100 runs pending
 # instead of letting a newer event replace the only pending one, so each run
-# decides on the state the previous one left behind (same pattern as
-# issue-milestone). A burst past 100 queued runs for one issue is not
+# decides on the state the previous one left behind. A burst past 100 queued runs for one issue is not
 # realistic for issue opening, and a lost run can be replayed with
 # workflow_dispatch.
 concurrency:
@@ -158,8 +157,7 @@ jobs:
           # stale read must never decide the write.
           guard() {
             local state assignees
-            # Bot-created issues are skipped for the same reason as
-            # issue-milestone: bots do not triage, so an assignee would
+            # Bot-created issues are skipped because bots do not triage, so an assignee would
             # never act on the issue and would only churn the queue. Only
             # the automatic path carries the author type, so a manual
             # dispatch never skips here.
