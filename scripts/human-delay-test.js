@@ -3,7 +3,7 @@
 // override and its parser, and the env defaults (on normally, off under
 // EP_HUMAN_DELAY=off or the EP_TEST_BOOT harness). No browser involved.
 const assert = require('node:assert');
-const { createHumanDelay, parseDelayOverride, DEFAULT_RANGES } = require('../lib/human-delay');
+const { createHumanDelay, parseDelayOverride, summarizeRanges, DEFAULT_RANGES } = require('../lib/human-delay');
 
 (async () => {
 
@@ -58,6 +58,10 @@ assert.ok(DEFAULT_RANGES.text[1] <= DEFAULT_RANGES.typed[1], 'word rounds stay s
 assert.equal(createHumanDelay({ env: {} }).isEnabled(), true);
 assert.equal(createHumanDelay({ env: { EP_HUMAN_DELAY: 'off' } }).isEnabled(), false);
 assert.equal(createHumanDelay({ env: { EP_TEST_BOOT: '1' } }).isEnabled(), false);
+
+// The delay report's range summary: one line, honest grouping, every
+// documented kind covered (drift here means docs would lie about a range).
+assert.equal(summarizeRanges(), 'text 2-6s, choice/dropdown/highlight 3-8s, typed/gaps/boxes 4-10s, slide-surfaces 5-12s, working-formula 6-15s, audio 8-15s');
 
 // The interactive override parser: seconds with optional decimal, bounded,
 // ordered; anything else is rejected so a typo never disables pacing.

@@ -3,55 +3,32 @@ if (process.platform === 'win32' && process.argv.includes('--signal')) {
     process.exit(0);
 }
 const assert = require('node:assert/strict');
-const { spawn } = require('node:child_process');
-const path = require('node:path');
-const puppeteer = require('puppeteer');
 const { createServer } = require('./mock-ep');
 const { cleanupTestProcess } = require('./test-process-cleanup');
+const { bootCli, fixtureLogin } = require('./cli-test-harness');
 
 (async () => {
     const server = createServer();
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const origin = `http://127.0.0.1:${server.address().port}`;
-    const env = { ...process.env, EP_TEST_BOOT: '1', EP_LOGIN_URL: origin + '/app/login', EP_LOGIN_HOST: '127.0.0.1' };
-    delete env.EP_EMAIL; delete env.EP_PASSWORD;
-    const child = spawn(process.execPath, [path.join(__dirname, '../bin/cli.js')], { env, stdio: ['pipe', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
-    let output = '', browser;
-    child.stdout.on('data', d => { output += d; });
-    child.stderr.on('data', d => { output += d; });
-    const wait = async predicate => {
-        const limit = Date.now() + 15000;
-        while (!predicate()) {
-            if (child.exitCode !== null || Date.now() >= limit) throw new Error('CLI checkpoint failed: ' + output);
-            await new Promise(resolve => setTimeout(resolve, 20));
-        }
-    };
-    const command = async (text, expected) => {
-        const offset = output.length;
-        child.stdin.write(text + '\n');
-        await wait(() => output.slice(offset).includes(expected));
-    };
+    const { child, wait, command, output } = bootCli(origin);
+    let browser;
     try {
-        await wait(() => /EP_WS_ENDPOINT=(\S+)/.test(output));
-        browser = await puppeteer.connect({ browserWSEndpoint: output.match(/EP_WS_ENDPOINT=(\S+)/)[1] });
-        await browser.waitForTarget(target => target.type() === 'page');
-        const page = (await browser.pages())[0];
-        await page.waitForSelector('#loginId');
-        await page.type('#loginId', 'fixture-user');
-        await page.type('#password', 'fixture-only');
-        await page.click('form button');
-        await wait(() => output.includes('Commands: start'));
+        const login = await fixtureLogin(wait, output);
+        browser = login.browser;
+        const page = login.page;
+        await wait(() => output().includes('Commands: start'));
         await page.goto(origin + '/lesson');
         await command('mode semi', '"mode":"semi"');
         await command('start', '"state":"running"');
         await page.waitForFunction(() => [...document.querySelectorAll('.mcq-preview-option input')].some(e => e.checked));
-        const refreshMark = output.length;
+        const refreshMark = output().length;
         await page.evaluate(() => window.refresh());
-        await wait(() => output.slice(refreshMark).includes('Word refresh failed or a run is still active'));
+        await wait(() => output().slice(refreshMark).includes('Word refresh failed or a run is still active'));
         const keyBefore = await page.evaluate(() => window.angular.element(document.querySelector('.multi-choice-component')).scope().self.model._currentQuestion.questionIndex);
-        const stoppingMark = output.length;
+        const stoppingMark = output().length;
         await page.evaluate(() => Promise.all([window.startAnswer(), window.startAnswer()]));
-        await wait(() => output.slice(stoppingMark).includes('Answer control is stopping'));
+        await wait(() => output().slice(stoppingMark).includes('Answer control is stopping'));
         await command('stop', '"state":"stopped"');
         assert.equal(await page.evaluate(() => window.angular.element(document.querySelector('.multi-choice-component')).scope().self.model._currentQuestion.questionIndex), keyBefore);
         await command('stop', '"state":"stopped"');
@@ -102,8 +79,8 @@ const { cleanupTestProcess } = require('./test-process-cleanup');
             await browser.close();
             const exitDeadline = Date.now() + 15000;
             while (child.exitCode === null && Date.now() < exitDeadline) await new Promise(resolve => setTimeout(resolve, 30));
-            assert.equal(child.exitCode, 0, 'CLI must exit on its own after the browser is closed: ' + output);
-            assert.ok(output.includes('Browser closed; exiting.'), 'External close must be announced: ' + output);
+            assert.equal(child.exitCode, 0, 'CLI must exit on its own after the browser is closed: ' + output());
+            assert.ok(output.includes('Browser closed; exiting.'), 'External close must be announced: ' + output());
         } else if (process.argv.includes('--signal')) child.kill('SIGINT');
         else await command('quit', '"state":"closed"');
         if (child.exitCode === null) await new Promise(resolve => child.once('exit', resolve));

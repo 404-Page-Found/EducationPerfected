@@ -19,7 +19,7 @@ const { createSelectMultiOnce } = require('./lib/multi-select-once');
 const { playMultiChoiceSelection } = require('./lib/multi-choice-handler');
 const { playHighlightRound } = require('./lib/highlight-handler');
 const { playWorkingFormulaRound } = require('./lib/working-formula-handler');
-const { createHumanDelay, parseDelayOverride } = require('./lib/human-delay');
+const { createHumanDelay, parseDelayOverride, summarizeRanges } = require('./lib/human-delay');
 const { createSelectChoiceOnce } = require('./lib/choice-select-once');
 const { readChoiceInPage } = require('./lib/choice-state');
 const { diagnostic } = require('./lib/diagnostics');
@@ -1528,11 +1528,14 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
  * @returns {Promise<'advanced'|'modal'|'timeout'|'aborted'>}
  */
             const enterClassic = async (question, answer, enter) => {
+                // The paced wait (issue #221) lands before guardClassicEnter's
+                // own question/value re-reads, and ENTER is re-read after the
+                // wait so a switch to semi mid-wait cancels the press.
                 if (enter) await humanDelay.beforeSubmit('text');
                 return guardClassicEnter({
                     readQuestion: () => detectQuestion(page), readValue: answerBoxValue,
                     pressEnter: () => page.keyboard.press('Enter'), shouldStop: () => !TOGGLE,
-                    question, answer, enter,
+                    question, answer, enter: enter && ENTER,
                 });
             };
 
@@ -1674,13 +1677,16 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     return false;
                 }
 
+                // The paced wait (issue #221) runs BEFORE the final rechecks so
+                // the context and box-value guards still hold at Enter time.
+                if (ENTER) await humanDelay.beforeSubmit(descriptor.kind);
                 // Recheck the actual value after scope detection, immediately
                 // before Enter. No submission slot is consumed by a lost box.
                 if (!await contextUnchanged()) return false;
                 if (await answerBoxValue() !== answer || !TOGGLE) return true;
+                // Re-reading ENTER after the wait cancels the press when the
+                // user switched to semi mid-wait.
                 if (ENTER) {
-                    await humanDelay.beforeSubmit(descriptor.kind);
-                    if (!TOGGLE) return false;
                     typedSubmissionsByKey.set(key, submissions + 1);
                     await page.keyboard.press('Enter');
                 }
@@ -2486,7 +2492,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     humanDelay.setOverride(range[0], range[1]);
                 }
                 const state = humanDelay.describe();
-                return { delay: state.enabled ? (state.override ? `${state.override[0] / 1000}-${state.override[1] / 1000}s (custom)` : 'per-question-type ranges') : 'off (super speed)' };
+                return { delay: state.enabled ? (state.override ? `${state.override[0] / 1000}-${state.override[1] / 1000}s (custom)` : 'per-question-type ranges: ' + summarizeRanges()) : 'off (super speed)' };
             };
             browser.on('disconnected', () => { controls.browserClosed(); onBrowserDisconnected(); });
 
