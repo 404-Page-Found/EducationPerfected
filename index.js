@@ -18,6 +18,7 @@ const { createSubmitDropdownOnce } = require('./lib/dropdown-once');
 const { createSelectMultiOnce } = require('./lib/multi-select-once');
 const { playMultiChoiceSelection } = require('./lib/multi-choice-handler');
 const { playHighlightRound } = require('./lib/highlight-handler');
+const { playWorkingFormulaRound } = require('./lib/working-formula-handler');
 const { createSelectChoiceOnce } = require('./lib/choice-select-once');
 const { readChoiceInPage } = require('./lib/choice-state');
 const { diagnostic } = require('./lib/diagnostics');
@@ -1832,6 +1833,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 { type: 'slide-surfaces', play: playSelectionDescriptorRound },
                 { type: 'reflection', play: playSelectionDescriptorRound },
                 { type: 'highlight', play: playSelectionDescriptorRound },
+                { type: 'workingformula', play: playSelectionDescriptorRound },
                 { type: 'audio', play: handleTypedRound },
                 { type: 'typed', play: handleTypedRound },
             ];
@@ -1874,7 +1876,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         console.log('Selection slide changed during detection; re-reading it in a fresh pass.');
                         return true;
                     }
-                    const play = descriptor.kind === 'dropdown' ? playDropdownRound : descriptor.kind === 'dropdown-numberbox' ? playDropdownNumberBoxRound : descriptor.kind === 'slide-surfaces' ? playSlideSurfacesRound : descriptor.kind === 'reflection' ? playReflectionRound : descriptor.kind === 'numberbox' ? playNumberBoxRound : descriptor.kind === 'textbox' ? playTextboxRound : descriptor.kind === 'gaps' ? playGapsRound : descriptor.kind === 'highlight' ? playHighlightRound : playChoiceRound;
+                    const play = descriptor.kind === 'dropdown' ? playDropdownRound : descriptor.kind === 'dropdown-numberbox' ? playDropdownNumberBoxRound : descriptor.kind === 'slide-surfaces' ? playSlideSurfacesRound : descriptor.kind === 'workingformula' ? playWorkingFormulaRound : descriptor.kind === 'reflection' ? playReflectionRound : descriptor.kind === 'numberbox' ? playNumberBoxRound : descriptor.kind === 'textbox' ? playTextboxRound : descriptor.kind === 'gaps' ? playGapsRound : descriptor.kind === 'highlight' ? playHighlightRound : playChoiceRound;
                     // Issue #222: single-choice mistakes only (neighboring distractor).
                     // Other surfaces stay perfect to preserve their fail-closed proofs;
                     // a wrong single-choice still advances via the normal Next flow.
@@ -1971,7 +1973,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         const { phase, dropdownIndex, boxIndex, keyDispatchesReturned, guard, submitState } = result.selectionDiagnostic;
                         console.error('Dropdown refusal diagnostic ' + JSON.stringify({ phase, dropdownIndex, ...(boxIndex !== undefined && boxIndex !== null ? { boxIndex } : {}), keyDispatchesReturned, guard, dropdownCount: again.dropdowns.length, ...(again.kind === 'dropdown-numberbox' ? { boxCount: again.boxes.length } : {}), ...(submitState ? {submitState} : {}) }));
                     }
-                    if ((again.kind === 'textbox' || again.kind === 'numberbox' || again.kind === 'dropdown-numberbox' || again.kind === 'slide-surfaces' || again.kind === 'reflection') && result.diagnostic) console.error('Unsupported question diagnostic ' + JSON.stringify(result.diagnostic));
+                    if ((again.kind === 'textbox' || again.kind === 'numberbox' || again.kind === 'dropdown-numberbox' || again.kind === 'slide-surfaces' || again.kind === 'reflection' || again.kind === 'workingformula') && result.diagnostic) console.error('Unsupported question diagnostic ' + JSON.stringify(result.diagnostic));
                     console.error(result.message);
                     await alert(result.message);
                     return false;
