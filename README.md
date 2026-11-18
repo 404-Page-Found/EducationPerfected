@@ -127,6 +127,7 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 - `start` - start auto-answering; `stop` - stop it
 - `mode auto` - answer and submit automatically (default); `mode semi` - fill answers but leave submitting to you
 - `accuracy` - show accuracy config, per-run target and first-try stats; `accuracy <n|min-max|off|on>` - set accuracy when stopped (e.g. `accuracy 82`, `accuracy 70-90`, `accuracy off`)
+- `delay` - show the human-paced wait before each submission; `delay off` - restore super speed; `delay on` - re-enable; `delay MIN-MAX` - override the wait range in seconds (e.g. `delay 2-6`); `delay reset` - restore the per-question-type ranges
 - `refresh` - learn the answers from a task starter page's word lists (once per new task)
 - `status` - show current status (including accuracy target)
 - `inspect-self-mark` - read-only capture of a self-mark (Reflection) page
@@ -155,7 +156,7 @@ The interactive CLI groundwork has a separate local regression command: `npm run
 
 ### Features
 **Start Answering**: There's one main function - automatically answer questions when you're doing a task.  
-It reads each question, finds the answer from the pre-learned dictionary, and submits it... all at **super** speeds.
+It reads each question, finds the answer from the pre-learned dictionary, and submits it. To read as a student working rather than a bot, each answer lands only after a short randomized wait sampled uniformly from a per-question-type range: 2-6s for word rounds, 3-8s for choice/dropdown/highlight, 4-10s for typed answers, gaps and input boxes, 5-12s for mixed slides, 6-15s for working formula, and 8-15s for audio (a listening floor; the page contract exposes no audio length). Pacing is on by default; `delay off` (or starting with `EP_HUMAN_DELAY=off`) restores the old **super** speeds, and `delay MIN-MAX` tunes the range.
 There are also bonus features like deleting popup modals when an answer is wrong to keep the speed up and learn
 from mistakes.
 

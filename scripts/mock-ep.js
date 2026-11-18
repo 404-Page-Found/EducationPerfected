@@ -457,7 +457,7 @@ function createServer() {
         }
         if (url.pathname === '/lesson-working-formula') {
             const raw = url.searchParams.get('variant') || '';
-            const variant = ['unmarked', 'delayed', 'prefilled', 'twosets', 'hints', 'freeform'].includes(raw) ? raw : '';
+            const variant = ['unmarked', 'delayed', 'prefilled', 'twosets', 'hints', 'freeform', 'misbound'].includes(raw) ? raw : '';
             return send(lessonPage(false).replace('</body></html>', `<script>(${installWorkingFormulaFixture.toString()})(${JSON.stringify(variant)});</script></body></html>`));
         }
         if (url.pathname === '/lesson-textbox-variables') return send(lessonPage(false).replace('</body></html>', `<script>(${installInputBoxFixture.toString()})(${JSON.stringify(inputBoxFixtures['textbox-variables'])});</script></body></html>`));

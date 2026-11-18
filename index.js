@@ -19,6 +19,7 @@ const { createSelectMultiOnce } = require('./lib/multi-select-once');
 const { playMultiChoiceSelection } = require('./lib/multi-choice-handler');
 const { playHighlightRound } = require('./lib/highlight-handler');
 const { playWorkingFormulaRound } = require('./lib/working-formula-handler');
+const { createHumanDelay, parseDelayOverride, summarizeRanges } = require('./lib/human-delay');
 const { createSelectChoiceOnce } = require('./lib/choice-select-once');
 const { readChoiceInPage } = require('./lib/choice-state');
 const { diagnostic } = require('./lib/diagnostics');
@@ -833,6 +834,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 console.log(`Accuracy target ${accuracyRun.target}% for this run (band ${accuracyConfig.min}-${accuracyConfig.max}%, ${accuracyConfig.source}).`);
                 return accuracyRun;
             };
+            // Human pacing (issue #221): one randomized wait per answered
+            // question before its guarded submission, on by default.
+            const humanDelay = createHumanDelay();
             const pendingReflectionCancellers = new Set();
             const onReflectionRequestCancel = cancel => {
                 pendingReflectionCancellers.add(cancel);
@@ -1559,11 +1563,17 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
  * @param {string} submitted - The answer that was submitted
  * @returns {Promise<'advanced'|'modal'|'timeout'|'aborted'>}
  */
-            const enterClassic = (question, answer, enter) => guardClassicEnter({
-                readQuestion: () => detectQuestion(page), readValue: answerBoxValue,
-                pressEnter: () => page.keyboard.press('Enter'), shouldStop: () => !TOGGLE,
-                question, answer, enter,
-            });
+            const enterClassic = async (question, answer, enter) => {
+                // The paced wait (issue #221) lands before guardClassicEnter's
+                // own question/value re-reads, and ENTER is re-read after the
+                // wait so a switch to semi mid-wait cancels the press.
+                if (enter) await humanDelay.beforeSubmit('text');
+                return guardClassicEnter({
+                    readQuestion: () => detectQuestion(page), readValue: answerBoxValue,
+                    pressEnter: () => page.keyboard.press('Enter'), shouldStop: () => !TOGGLE,
+                    question, answer, enter: enter && ENTER,
+                });
+            };
 
             async function waitContextLost(current, key, allowed) {
                 if (current?.kind === 'unsupported') return true;
@@ -1732,10 +1742,15 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     return false;
                 }
 
+                // The paced wait (issue #221) runs BEFORE the final rechecks so
+                // the context and box-value guards still hold at Enter time.
+                if (ENTER) await humanDelay.beforeSubmit(descriptor.kind);
                 // Recheck the actual value after scope detection, immediately
                 // before Enter. No submission slot is consumed by a lost box.
                 if (!await contextUnchanged()) return false;
                 if (await answerBoxValue() !== submitAnswer || !TOGGLE) return true;
+                // Re-reading ENTER after the wait cancels the press when the
+                // user switched to semi mid-wait.
                 if (ENTER) {
                     typedSubmissionsByKey.set(key, submissions + 1);
                     await page.keyboard.press('Enter');
@@ -1907,6 +1922,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         timeout: ADVANCE_TIMEOUT,
                         shouldStop: () => !TOGGLE,
                         log: msg => console.log(msg),
+                        beforeSubmit: () => humanDelay.beforeSubmit(again.kind),
                         ...((again.kind === 'choice' && again.multi !== true && choiceMistakeIntent && choiceMistakeResult) ? { intentionalMistake: true, mistakeResult: choiceMistakeResult } : {}),
                         ...((again.kind === 'dropdown' || again.kind === 'dropdown-numberbox') ? {
                             inputMode: dropdownInputMode,
@@ -2682,6 +2698,21 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 throw new Error('Usage: accuracy [n|min-max|off|on] (e.g. accuracy 82, accuracy 70-90, accuracy off).');
             };
             if (dropdownSubmitOnce) controls.inspectDropdowns = () => require('./lib/dropdown-diagnostics').collectDropdownDiagnostics(page,{definitionsOnly:true});
+            // Human pacing control (issue #221): no action reports state, on/off
+            // toggle the wait, MIN-MAX (seconds) overrides every per-type range,
+            // reset restores the per-type ranges.
+            controls.delay = action => {
+                if (action === 'on') humanDelay.setEnabled(true);
+                else if (action === 'off') humanDelay.setEnabled(false);
+                else if (action === 'reset') humanDelay.clearOverride();
+                else if (action) {
+                    const range = parseDelayOverride(action);
+                    if (!range) return { error: 'Use delay, delay on, delay off, delay MIN-MAX or delay reset (seconds).' };
+                    humanDelay.setOverride(range[0], range[1]);
+                }
+                const state = humanDelay.describe();
+                return { delay: state.enabled ? (state.override ? `${state.override[0] / 1000}-${state.override[1] / 1000}s (custom)` : 'per-question-type ranges: ' + summarizeRanges()) : 'off (super speed)' };
+            };
             browser.on('disconnected', () => { controls.browserClosed(); onBrowserDisconnected(); });
 
             // Expose API functions to the page (for hotkey event listeners to call).
