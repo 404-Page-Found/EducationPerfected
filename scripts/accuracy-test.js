@@ -29,7 +29,12 @@ assert.deepEqual(parseAccuracyCliArgs(['--accuracy=82']), { options: { fixedTarg
 assert.deepEqual(parseAccuracyCliArgs(['--accuracy-range', '70-90']), { options: { min: 70, max: 90 }, error: null });
 assert.deepEqual(parseAccuracyCliArgs(['--perfect']), { options: { perfect: true }, error: null });
 assert.deepEqual(parseAccuracyCliArgs(['--no-mistakes']), { options: { perfect: true }, error: null });
-assert.ok(parseAccuracyCliArgs(['--accuracy']).error);
+assert.deepEqual(parseAccuracyCliArgs(['-a', '82']), { options: { fixedTarget: 82 }, error: null });
+assert.deepEqual(parseAccuracyCliArgs(['-a=82']), { options: { fixedTarget: 82 }, error: null });
+assert.deepEqual(parseAccuracyCliArgs(['-r', '70-90']), { options: { min: 70, max: 90 }, error: null });
+assert.deepEqual(parseAccuracyCliArgs(['-p']), { options: { perfect: true }, error: null });
+assert.ok(parseAccuracyCliArgs(['-p=1']).error);
+assert.ok(parseAccuracyCliArgs(['-a']).error);
 assert.ok(parseAccuracyCliArgs(['--bogus']).error);
 
 // Config resolution: defaults enabled 70-90 outside TEST_BOOT.

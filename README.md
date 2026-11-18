@@ -135,9 +135,9 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 
 Random accuracy is ON by default to simulate a real student: each `start` picks a first-try target in 70-90% and occasionally submits a small human-like mistake (typo for text/audio, neighboring distractor for single-choice) before the normal wrong-answer-modal / retry / Next flow completes the run. Other lesson surfaces stay perfect to preserve their fail-closed proofs. Startup flags and env override the band (installer command shown; for a source checkout pass the same option to `npm run cli`, e.g. `npm run cli -- --accuracy 82`):
 
-    educationperfected --accuracy 82
-    educationperfected --accuracy-range 70-90
-    educationperfected --perfect
+    educationperfected --accuracy 82      # or -a 82
+    educationperfected --accuracy-range 70-90   # or -r 70-90
+    educationperfected --perfect          # or -p
 
 `--no-mistakes` is an alias for `--perfect` (100%). Env: `EP_ACCURACY=82`, `EP_ACCURACY_RANGE=70-90`, `EP_PERFECT=1`. `status` shows the active target and first-try stats; the run log reports `Accuracy target X%` at start and a summary at exit.
 
