@@ -1810,6 +1810,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     }
                     typedSubmissionsByKey.set(key, retryCount + 1);
                     await page.keyboard.press('Enter');
+                    // The retry dispatched the correct answer: a modal from here on
+                    // rejects THAT value, so the rejection bookkeeping below must
+                    // blame it rather than the first-try typo.
+                    submitAnswer = correct;
                     outcome = await waitForAdvanceKey(key, ADVANCE_TIMEOUT, correct, contextUnchanged);
                     if (outcome === 'timeout') {
                         console.error(`Question ${key} did not advance after submitting its answer. Stopping.`);
@@ -2457,6 +2461,13 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         await page.click(DIR.answer_box_css).catch(() => { });
                         if (!TOGGLE) break;
                         // Retry always uses the correct answer so a first-try typo is not resubmitted.
+                        // A swallowed first Enter leaves the typo in the box, and enterClassic's
+                        // guard refuses to press Enter over a mismatched box, so restore the
+                        // correct answer first (enterAnswer clears, retypes and verifies).
+                        if (await answerBoxValue() !== accuracyClassicCorrect) {
+                            console.log('Restoring the correct answer in the box before the retry.');
+                            if (!await enterAnswer(accuracyClassicCorrect)) break;
+                        }
                         if (!await enterClassic(question, accuracyClassicCorrect, true)) break;
                         const retry = await waitForAdvance(question, ADVANCE_TIMEOUT, accuracyClassicCorrect);
                         if (retry === 'timeout') {
@@ -2654,10 +2665,12 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             controls.status = () => ({ ...baseStatus(), accuracy: accuracyStatus() });
             controls.setAccuracy = async raw => {
                 if (validationOnly) throw new Error('Validation session is fixed to one-shot only.');
+                const text = String(raw ?? '').trim().toLowerCase();
+                // A bare `accuracy` is a read-only query and stays allowed during a run;
+                // only changes require the stopped state (checked below).
+                if (text === '' || text === 'show' || text === 'status') return controls.status();
                 const state = baseStatus().state;
                 if (!['stopped', 'completed', 'error'].includes(state)) throw new Error('Stop the run before changing accuracy.');
-                const text = String(raw ?? '').trim().toLowerCase();
-                if (text === '' || text === 'show' || text === 'status') return baseStatus();
                 if (['off', 'perfect', 'no-mistakes', 'no-mistake', '100'].includes(text)) {
                     accuracyConfig = { ...accuracyConfig, enabled: false, fixedTarget: 100, source: 'interactive:off' };
                     accuracyRun = null;

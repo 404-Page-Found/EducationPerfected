@@ -77,7 +77,12 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
                 else if (command === 'mode auto' || command === 'mode semi') await controls.mode(command.slice(5));
                 else if (command === 'accuracy' || command.startsWith('accuracy ')) {
                     const arg = command === 'accuracy' ? '' : command.slice('accuracy '.length);
-                    if (typeof controls.setAccuracy === 'function') await controls.setAccuracy(arg);
+                    if (typeof controls.setAccuracy === 'function') {
+                        // Show setAccuracy's own validation message (e.g. "Accuracy must be
+                        // 0-100.") rather than the generic command-failure fallback.
+                        try { await controls.setAccuracy(arg); }
+                        catch (e) { output.write(String(e && e.message ? e.message : e) + '\n'); continue; }
+                    }
                     else output.write('Accuracy control unavailable in this session.\n');
                 }
                 else if (command === 'delay' || command.startsWith('delay ')) {
