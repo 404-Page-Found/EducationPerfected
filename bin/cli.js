@@ -38,7 +38,7 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
     });
     controls = await launch({ onBrowserClosed, onBrowserDisconnected: browserGone, reflectionTextProvider: requestReflectionText });
     terminal = readline.createInterface({ input, output, terminal: Boolean(input.isTTY && output.isTTY) });
-    output.write('Commands: start, stop, status, mode auto, mode semi, refresh, inspect-self-mark, quit\n');
+    output.write('Commands: start, stop, status, mode auto, mode semi, delay, delay off, delay MIN-MAX, refresh, inspect-self-mark, quit\n');
     const print = () => output.write(JSON.stringify(controls.status()) + '\n');
     const onSignal = () => { quit().catch(error => output.write(diagnostic(error, 'Shutdown') + '\n')); };
     terminal.on('SIGINT', onSignal);
@@ -75,10 +75,14 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
                 else if (command === 'stop') await controls.stop();
                 else if (command === 'status' || command === '') { /* print below */ }
                 else if (command === 'mode auto' || command === 'mode semi') await controls.mode(command.slice(5));
+                else if (command === 'delay' || command.startsWith('delay ')) {
+                    const pacing = controls.delay(command === 'delay' ? undefined : command.slice(6).trim());
+                    output.write((pacing.error ? pacing.error : 'Answer pacing: ' + pacing.delay) + '\n');
+                }
                 else if (command === 'inspect-self-mark') output.write('EP_SELF_MARK_INSPECT ' + JSON.stringify(await controls.inspect()) + '\n');
                 else if (command === 'refresh') await controls.refresh();
                 else if (command === 'quit' || command === 'exit') { await quit(); print(); break; }
-                else { output.write('Unknown command. Use start, stop, status, mode auto, mode semi, refresh, inspect-self-mark or quit.\n'); continue; }
+                else { output.write('Unknown command. Use start, stop, status, mode auto, mode semi, delay, refresh, inspect-self-mark or quit.\n'); continue; }
                 print();
             } catch {
                 output.write(command === 'inspect-self-mark'
