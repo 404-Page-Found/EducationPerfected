@@ -65,7 +65,7 @@ The installer is the same on every platform; pick yours:
 1. Download `educationperfected-windows-x64-setup.exe` and `SHA256SUMS` from the release. Check the download against `SHA256SUMS` before running it.
 2. Run the installer (per-user, no admin). Select **Add EducationPerfected to your PATH**. Builds are unsigned; if SmartScreen shows "Windows protected your PC", choose **More info -> Run anyway**.
 3. Open a new terminal and run `educationperfected setup`. It asks consent for a one-time Chrome download from Google, then offers an optional saved login.
-4. Run `educationperfected`.
+4. Start the app. **Recommended:** open **EducationPerfected** from the Start menu (the installer adds it there). You can also run `educationperfected` in a terminal.
 
 **macOS:**
 1. Download `educationperfected-macos-arm64.pkg` (Apple Silicon) or `educationperfected-macos-x64.pkg` (Intel) and `SHA256SUMS` from the release. Check the download against `SHA256SUMS` before running it.
@@ -118,7 +118,7 @@ on EP's login page._
 ## Usage
 ### Running the script
 
-For an installer-based installation, run `educationperfected` in a terminal. For a source installation, open a terminal in the folder where `index.js` is located, run `npm ci` once, then:
+For a Windows installer-based installation, start **EducationPerfected** from the Start menu (recommended; the installer registers it there). On any installer-based installation you can also run `educationperfected` in a terminal. For a source installation, open a terminal in the folder where `index.js` is located, run `npm ci` once, then:
 
     npm run cli
 
