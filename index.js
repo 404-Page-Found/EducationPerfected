@@ -475,6 +475,14 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
         exit_button_css: 'button.exit-button',
         exit_continue_button_css: 'button.continue-button',
 
+        // Dash (timed sprint, issue #230): believed to reuse every classic task
+        // selector above. Audited 2026-11-19 against the SYNTHETIC fixture in
+        // scripts/mock-ep.js (/dash-task) only - no live Dash capture exists yet,
+        // so this audit pins the assumption, not the live markup. The timer
+        // selector below is fixture-invented and used only to warn when a timed
+        // run starts with an empty word list; it never drives answering.
+        dash_timer_css: '#dash-timer',
+
         continue_button_css: 'button#continue-button',
 
         // non-blocking feedback toast (injected by this script, not part of EP)
@@ -2028,6 +2036,18 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 futileStop = false;  // a manual restart after a futility stop gets a fresh bounded run
                 startAccuracyRun();
                 console.log("answerLoop entered.");
+
+                // Issue #230: a timed (Dash) round with no word list means every
+                // first answer is learned from the wrong-answer modal and each
+                // guess burns the clock. Report it clearly once instead of
+                // silently mistyping through the sprint.
+                if (Object.keys(candidatesDict).length === 0) {
+                    const dashTimer = await page.$(DIR.dash_timer_css).catch(() => null);
+                    if (dashTimer) {
+                        console.warn('Timed task detected (dash timer) with an empty word list: first answers will be learned from the wrong-answer modal and every guess burns the clock. Refresh Words on the task-starter page before starting a timed run.');
+                        await dashTimer.dispose().catch(() => {});
+                    }
+                }
 
                 try {
                     // If the previous run's modal cleanup is still in flight, wait for it

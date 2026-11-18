@@ -7,6 +7,9 @@
 //   GET /task/play   question (#question-text), answer box (input#answer-text),
 //                    wrong-answer modal (uib-modal-window + td#question-field ...),
 //                    completion button (button.exit-button)
+//   GET /dash-task   Dash starter (same word lists, synthetic)
+//   GET /dash-task/play  Dash round: classic markup + invented timer/score
+//                    elements (#dash-timer, #dash-score); synthetic per #230
 //
 // The answers are the German words one..five; a wrong submission shows the
 // correction modal, a right one advances the round.
@@ -165,6 +168,101 @@ const taskPage = (start) => {
     </script>`);
 };
 
+
+// Issue #230 Dash (timed sprint) fixture. SYNTHETIC: Dash is believed to share
+// the classic word-to-word markup (#question-text / input#answer-text /
+// wrong-answer modal / exit-button completion) with a countdown timer and score
+// added; no live Dash capture exists yet, so the timer/score selectors here are
+// invented and the shared selectors are assumed. The behavior below mirrors
+// taskPage so the classic loop drives it unchanged; the timer counts down
+// visually but never interrupts the round (real Dash expiry behavior is one of
+// the open live-capture questions in #230).
+const dashStarterPage = PAGE(`
+    <main>
+        ${WORDS.map(([base]) => `<div class="baseLanguage"><span>${base}</span></div>`).join('')}
+        ${WORDS.map(([, target]) => `<div class="targetLanguage"><span>${target}</span></div>`).join('')}
+        <button id="start-button-main" onclick="location.href='/dash-task/play'">Start Dash</button>
+    </main>`);
+
+const dashTaskPage = (start) => {
+    const clamped = Number.isInteger(start) && start >= 0 && start < WORDS.length ? start : 0;
+    const round = WORDS.slice(clamped).map(([base, target]) => ({ question: base, answer: target }));
+    return PAGE(`
+    <main>
+        <div id="dash-timer" data-seconds="60">01:00</div>
+        <div id="dash-score">0</div>
+        <table><tr>
+            <td id="question-text">${round[0].question}</td>
+            <td><input id="answer-text" autocomplete="off"></td>
+        </tr></table>
+        <button class="exit-button" hidden onclick="location.href='/learning/dashboard'">Exit</button>
+    </main>
+    <script>
+        const rounds = ${JSON.stringify(round)};
+        const classicSelf = { model: { gameMode: 1, _currentQuestion: {} } };
+        window.angular = { element: () => ({ scope: () => ({ self: classicSelf }) }) };
+        let index = 0;
+        let score = 0;
+        let seconds = 60;
+        const question = document.getElementById('question-text');
+        const box = document.getElementById('answer-text');
+        const exit = document.querySelector('.exit-button');
+        const timer = document.getElementById('dash-timer');
+        const scoreEl = document.getElementById('dash-score');
+        const clock = setInterval(() => {
+            seconds = Math.max(0, seconds - 1);
+            timer.textContent = '00:' + String(seconds).padStart(2, '0');
+            if (seconds === 0) clearInterval(clock);
+        }, 1000);
+
+        function render() {
+            if (index >= rounds.length) {
+                clearInterval(clock);
+                question.remove();
+                box.parentElement.innerHTML = '';
+                exit.hidden = false;
+                return;
+            }
+            question.textContent = rounds[index].question;
+            box.value = '';
+            box.focus();
+        }
+
+        function showWrong(input) {
+            const modal = document.createElement('div');
+            modal.setAttribute('uib-modal-window', 'modal-window');
+            modal.innerHTML = \`
+                <table class="modal-body">
+                    <tr><td id="question-field">\${rounds[index].question}</td></tr>
+                    <tr><td id="correct-answer-field">\${rounds[index].answer}</td></tr>
+                    <tr><td id="users-answer-field"><span>\${input}</span></td></tr>
+                </table>
+                <button id="continue-button" disabled onclick="advance()">Continue</button>\`;
+            document.body.appendChild(modal);
+        }
+
+        function advance() {
+            document.querySelectorAll('[uib-modal-window]').forEach(m => m.remove());
+            index += 1;
+            render();
+        }
+
+        box.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            const input = box.value;
+            if (input.trim() === rounds[index].answer) {
+                score += 10;
+                scoreEl.textContent = String(score);
+                index += 1;
+                render();
+            } else {
+                showWrong(input);
+            }
+        });
+        box.focus();
+    </script>`);
+};
 
 // ---------------------------------------------------------------------------
 // Fixtures BUILT FROM the 2026-10-30 live-audit notes (no account data, no
@@ -418,6 +516,11 @@ function createServer() {
         if (url.pathname === '/task/play') {
             const start = Number.parseInt(url.searchParams.get('start') || '0', 10);
             return send(taskPage(start));
+        }
+        if (url.pathname === '/dash-task') return send(dashStarterPage);
+        if (url.pathname === '/dash-task/play') {
+            const start = Number.parseInt(url.searchParams.get('start') || '0', 10);
+            return send(dashTaskPage(start));
         }
         if (url.pathname === '/lesson') return send(lessonPage(false));
         if (url.pathname === '/lesson-dropdown') {
