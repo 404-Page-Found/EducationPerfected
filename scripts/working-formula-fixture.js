@@ -1,15 +1,17 @@
 // Invented source-derived fixture, not captured student DOM: one slide with
 // EP's working-formula maths editor ("Add a line of working", EP chunk606:
 // formula-input template, FormulaInput rows/addFormulaRow/getWorkingSteps,
-// WorkingFormulaComponentState metadata IS the questionDef component, typed
-// rows finalise on blur). The editor fields are plain contenteditable spans
+// BaseComponentState clones the questionDef component into metadataInstance
+// and the state's metadata getter returns that clone, typed rows finalise
+// on blur). The editor fields are plain contenteditable spans
 // standing in for MathQuill fields; the contract under test is the row model
 // and step read-back, not MathQuill internals. variant 'unmarked' authors the
 // definition Marked 0; 'delayed' disables Submit and re-enables it 120ms
 // after each input (EP's asynchronous enablement); 'prefilled' starts with a
 // row already entered; 'twosets' ships two correct sets; 'hints' marks a
 // step ValidHint; 'freeform' uses FREEFORM_WORKING_COMPONENT with no
-// CorrectSets. steps overrides the three-step default.
+// CorrectSets; 'misbound' points the cached record's visualElement at the
+// wrong node. steps overrides the three-step default.
 function installWorkingFormulaFixture(variant, steps) {
     const old = document.querySelector('.multi-choice-component');
     const self = window.angular.element(old).scope().self, q = self.model._currentQuestion;
@@ -24,8 +26,13 @@ function installWorkingFormulaFixture(variant, steps) {
         ...(variant === 'freeform' ? {} : { CorrectSets: variant === 'twosets' ? [{ CorrectWorkingSteps: correctSteps }, { CorrectWorkingSteps: correctSteps }] : [{ CorrectWorkingSteps: correctSteps }] }),
     };
     q.questionDef.Components = [def];
-    // chunk606: the component state's metadata IS the questionDef component.
-    const state = { metadata: def };
+    // chunk606: BaseComponentState clones the questionDef component into
+    // metadataInstance (ObjectHelper.cloneObject); the working-formula
+    // state's metadata getter returns that clone, never the def object
+    // itself. Model both exactly so an identity binding in the reader fails
+    // here the way it does live.
+    const state = { componentID: def.ComponentID, metadataInstance: JSON.parse(JSON.stringify(def)) };
+    Object.defineProperty(state, 'metadata', { get() { return this.metadataInstance; } });
     // chunk606: the builder's visualElement is the FormulaInput template root
     // div.formula-component; div.formula-input is its inner editor container.
     const element = document.createElement('div');
@@ -73,6 +80,7 @@ function installWorkingFormulaFixture(variant, steps) {
     if (variant === 'prefilled') input.rows[0].model.value = 'V = lwh';
     element.querySelector('#add-formula-button').addEventListener('click', () => { input.addFormulaRow('', null, null, true); });
     q.cachedRenderers = { 1: { identifiedComponents: { baseComponents: { 'working-0': [{ type: def.ComponentTypeCode === 'WORKING_FORMULA_COMPONENT' ? 'working-formula' : 'freeform-working', id: 'working-0', visualElement: element, componentState: state, marked: 1, renderingParameters: { mode: 1 } }] } } } };
+    if (variant === 'misbound') q.cachedRenderers[1].identifiedComponents.baseComponents['working-0'][0].visualElement = document.createElement('div');
     document.querySelector('#question-container-group').textContent = 'Synthetic prism slide: find the volume, showing working.';
     document.addEventListener('click', e => {
         const button = e.target.closest('#sa-navigation-controls button');
