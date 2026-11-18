@@ -20,3 +20,14 @@
 
 - App icon: the project owner's E-and-check tile now brands the app. `branding/` keeps the source SVG plus derived PNG, `.ico` and `.icns` sets; the Windows executables embed the icon and a version identity at build time, and the Windows setup exe, its wizard, the Start Menu shortcuts and the Settings uninstall entry all show it. The macOS and Linux CLI packages carry no icon (bare CLI binaries have no standard icon slot); the `.icns` is ready for the desktop app.
 - Unified uninstall: every installer now writes an install record (`educationperfected-install.json`) and `uninstall` removes the program itself on every install method, after the existing per-item data/login/browser prompts (each still defaults to No). Windows setup exe runs its own uninstaller; npm runs `npm uninstall -g`; `.deb`/`.rpm` run the package manager with sudo; `.pkg` removes its files and forgets the receipt; install.sh/install.ps1/raw binaries delete what they wrote, including the install.ps1 PATH entry. Windows program removal finishes in a detached background helper after the CLI exits (a running program cannot delete itself) and writes a log to `%TEMP%\educationperfected-uninstall.log`. Installs without a record are detected from their location and reported as inferred. Per-OS removal paths are code-reviewed and synthetically tested but not yet verified on real machines of every platform.
+
+## v2026.11.16 - 2026-11-15
+
+First V2026 stable release. Full PR list: [v2.2.0...v2026.11.16](https://github.com/404-Page-Found/EducationPerfected/compare/v2.2.0...v2026.11.16).
+
+- Support for multiple-choice questions, Smart Lesson choice and Listening/Dictation handlers, guarded multi-select choices, and guarded drag-and-drop fill-in-the-gaps.
+- Guarded auto-marked textbox, block colour and one-question fill-only validation for Smart Lessons; Assessment and unknown contexts are refused before any input.
+- Windows installer with a Start Menu entry, renamed to `educationperfected-windows-x64-setup.exe`; the command installs as `educationperfected.exe`.
+- Unified uninstall: install records on every installer, with program removal on every install method.
+- Publish workflow builds and attaches the verified bundle to draft releases.
+- Documentation: README install, usage and dependency guidance refreshed; installers presented as the primary install method.
