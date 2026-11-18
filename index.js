@@ -868,6 +868,8 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // keys ("constructor" is a real Spanish vocab item) must never resolve to
             // Object.prototype members and masquerade as arrays or Sets.
             let candidatesDict = Object.create(null);
+            let dashTimedThisRun = false;   // issue #230: current run shows a dash timer
+            let dashUnknownWarned = false;  // one-shot timed-guess warning per run
             // question -> Set of answers EP has graded wrong this session. Without this,
             // a rejected answer was "learned" from its own wrong-answer modal and then
             // resubmitted forever: "io prendo" / "I take" looped incorrect indefinitely
@@ -1319,6 +1321,14 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 }
                 if (hadCandidates) return null;
                 console.log(`No answer found for ${question}`);
+                // Issue #230: on a timed (Dash) round every unknown question costs
+                // clock a sprint cannot recover. Say so once, clearly, instead of
+                // silently guessing through the sprint. Dictionary size alone is
+                // not the signal: entries may belong to a different task.
+                if (dashTimedThisRun && !dashUnknownWarned) {
+                    dashUnknownWarned = true;
+                    console.warn('Timed task detected (dash timer) and the word list does not know this question: answers are learned from the wrong-answer modal and every guess burns the clock. Refresh Words on the task-starter page before starting a timed run.');
+                }
                 return generateRandomString(8, 10);
             }
 
@@ -2037,17 +2047,12 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 startAccuracyRun();
                 console.log("answerLoop entered.");
 
-                // Issue #230: a timed (Dash) round with no word list means every
-                // first answer is learned from the wrong-answer modal and each
-                // guess burns the clock. Report it clearly once instead of
-                // silently mistyping through the sprint.
-                if (Object.keys(candidatesDict).length === 0) {
-                    const dashTimer = await page.$(DIR.dash_timer_css).catch(() => null);
-                    if (dashTimer) {
-                        console.warn('Timed task detected (dash timer) with an empty word list: first answers will be learned from the wrong-answer modal and every guess burns the clock. Refresh Words on the task-starter page before starting a timed run.');
-                        await dashTimer.dispose().catch(() => {});
-                    }
-                }
+                // Issue #230: note whether this run shows a dash timer so the
+                // first unknown question can trigger the timed-guess warning.
+                dashUnknownWarned = false;
+                const dashTimer = await page.$(DIR.dash_timer_css).catch(() => null);
+                dashTimedThisRun = Boolean(dashTimer);
+                if (dashTimer) await dashTimer.dispose().catch(() => {});
 
                 try {
                     // If the previous run's modal cleanup is still in flight, wait for it

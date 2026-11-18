@@ -23,10 +23,11 @@ const { bootCli, fixtureLogin } = require('./cli-test-harness');
         const page = login.page;
         await wait(() => output().includes('Commands: start'));
 
-        // No refresh: the dictionary is empty, so a timed run must say so.
+        // No refresh: the first question is unknown, so the timed run must say
+        // so instead of silently guessing through the sprint.
         await page.goto(origin + '/dash-task/play');
         await command('start', '"state":"running"');
-        await wait(() => output().includes('Timed task detected (dash timer) with an empty word list'));
+        await wait(() => output().includes('Timed task detected (dash timer)'));
         await command('stop', '"state":"stopped"');
 
         // After Refresh Words on the starter page, the same timed run warns no
@@ -41,7 +42,7 @@ const { bootCli, fixtureLogin } = require('./cli-test-harness');
             throw new Error('timed warning printed despite a refreshed word list');
         }
         await command('status', '"state":"completed"');
-        console.log('Dash: empty-list timed start warns; refreshed timed run completes without the warning PASS. Synthetic only.');
+        console.log('Dash: unknown-question timed run warns; refreshed timed run completes without the warning PASS. Synthetic only.');
     } finally {
         if (browser) await browser.close().catch(() => {});
         try { cleanupTestProcess(child); } catch { /* already gone */ }
