@@ -26,10 +26,12 @@ function installWorkingFormulaFixture(variant, steps) {
     q.questionDef.Components = [def];
     // chunk606: the component state's metadata IS the questionDef component.
     const state = { metadata: def };
+    // chunk606: the builder's visualElement is the FormulaInput template root
+    // div.formula-component; div.formula-input is its inner editor container.
     const element = document.createElement('div');
-    element.className = 'formula-input v-group h-align-center';
-    element.innerHTML = '<div class="formula-list-background"><ul id="formula-list" class="formula-list"></ul></div>'
-        + '<div id="add-buttons" class="add-buttons"><button id="add-formula-button" class="add-formula-button add-button fill"><span>Add a line of working</span></button></div>';
+    element.className = 'formula-component';
+    element.innerHTML = '<div class="formula-input v-group h-align-center" style="position:relative"><div class="formula-list-background"><ul id="formula-list" class="formula-list"></ul></div>'
+        + '<div id="add-buttons" class="add-buttons"><button id="add-formula-button" class="add-formula-button add-button fill"><span>Add a line of working</span></button></div></div>';
     old.replaceWith(element);
     const list = element.querySelector('#formula-list');
     const normalize = value => String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
