@@ -144,7 +144,7 @@ if (require.main === module) {
     else if(parsed.command==='help')console.log(helpText());
     else if(parsed.command==='version')console.log(require('../package.json').version);
     else if(parsed.command==='accuracy-status'){
-        try { console.log(require('../lib/cli-command').accuracyStatusText()); }
+        try { console.log(require('../lib/cli-command').accuracyStatusText(process.env)); }
         catch (error) { console.error(String(error && error.message ? error.message : error)); process.exitCode=1; }
     }
     else if(['setup','check-credentials','forget-credentials'].includes(parsed.command)){

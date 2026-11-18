@@ -50,7 +50,7 @@ async function main() {
     if (parsed.command === 'version') { console.log(require('../package.json').version); return; }
     if (parsed.command === 'accuracy-status') {
         // Read-only report: never unpacks the runtime or launches the browser.
-        try { console.log(require('../lib/cli-command').accuracyStatusText()); }
+        try { console.log(require('../lib/cli-command').accuracyStatusText(process.env)); }
         catch (error) { console.error(String(error && error.message ? error.message : error)); process.exitCode = 1; }
         return;
     }
