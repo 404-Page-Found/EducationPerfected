@@ -9,10 +9,10 @@ const puppeteer = require('puppeteer');
 // Spawns bin/cli.js against the mock server. Returns the child plus
 // wait/command helpers over its combined output; output() reads the log so
 // far (assertions that need the raw text use it, never a stale snapshot).
-function bootCli(origin, { extraEnv = {} } = {}) {
+function bootCli(origin, { extraEnv = {}, args = [] } = {}) {
     const env = { ...process.env, EP_TEST_BOOT: '1', EP_LOGIN_URL: origin + '/app/login', EP_LOGIN_HOST: '127.0.0.1', ...extraEnv };
     delete env.EP_EMAIL; delete env.EP_PASSWORD;
-    const child = spawn(process.execPath, [path.join(__dirname, '../bin/cli.js')], { env, stdio: ['pipe', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
+    const child = spawn(process.execPath, [path.join(__dirname, '../bin/cli.js'), ...args], { env, stdio: ['pipe', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
     let output = '';
     child.stdout.on('data', d => { output += d; });
     child.stderr.on('data', d => { output += d; });
