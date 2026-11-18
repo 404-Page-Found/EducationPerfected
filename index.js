@@ -393,8 +393,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
     // real run they are ignored, so a stray environment can never point the
     // program at a lookalike host or disable the host protection below.
     const TEST_BOOT = process.env.EP_TEST_BOOT === '1';
-    // Issue #222 random accuracy: enabled 70-90% by default (perfect under
-    // TEST_BOOT unless explicitly enabled), tunable via CLI flags / env.
+    // Issue #222 random accuracy: OFF by default (perfect answers); enable it
+    // with `accuracy on`, a target/band, CLI flags or env. Also perfect under
+    // TEST_BOOT unless explicitly enabled.
     // Validation one-shot sessions stay perfect: precise fill-only proofs
     // must never inject mistakes.
     const validationFlags = Boolean(gapsFillOnly || choiceSelectOnly || gapsSubmitOnce || textboxFillOnly || dropdownSubmitOnce || multiSelectOnly);

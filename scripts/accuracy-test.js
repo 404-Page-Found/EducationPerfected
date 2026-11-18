@@ -37,9 +37,22 @@ assert.ok(parseAccuracyCliArgs(['-p=1']).error);
 assert.ok(parseAccuracyCliArgs(['-a']).error);
 assert.ok(parseAccuracyCliArgs(['--bogus']).error);
 
-// Config resolution: defaults enabled 70-90 outside TEST_BOOT.
+// Config resolution: defaults to perfect (simulation off) outside TEST_BOOT.
 {
     const config = resolveAccuracyConfig({ cli: {}, env: {} });
+    assert.equal(config.enabled, false);
+    assert.equal(config.target, 100);
+}
+// A target/band via env or CLI enables the simulation.
+{
+    const config = resolveAccuracyConfig({ cli: {}, env: { EP_ACCURACY_RANGE: '70-90' } });
+    assert.equal(config.enabled, true);
+    assert.equal(config.min, 70);
+    assert.equal(config.max, 90);
+}
+// EP_PERFECT=0 explicitly opts out of perfect and enables the default band.
+{
+    const config = resolveAccuracyConfig({ cli: {}, env: { EP_PERFECT: '0' } });
     assert.equal(config.enabled, true);
     assert.equal(config.min, 70);
     assert.equal(config.max, 90);
