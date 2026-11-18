@@ -147,7 +147,7 @@ The same settings exist as a top-level subcommand (applies to this invocation on
     educationperfected accuracy on        # 70-90 band
     educationperfected accuracy status    # show the resolved config without launching
 
-`--no-mistakes` is an alias for `--perfect` (100%). Env: `EP_ACCURACY=82`, `EP_ACCURACY_RANGE=70-90`, `EP_PERFECT=1`. `status` shows the active target and first-try stats; the run log reports `Accuracy target X%` at start and a summary at exit.
+`--no-mistakes` is an alias for `--perfect` (100%). Env: `EP_ACCURACY=82`, `EP_ACCURACY_RANGE=70-90`, `EP_PERFECT=0` (enable the default band), `EP_PERFECT=1` (force perfect). `status` shows the active target and first-try stats; the run log reports `Accuracy target X%` at start and a summary at exit.
 
 The legacy hotkey-only program is still there if you want it: run `node index.js`, or double-click [start.cmd](start.cmd) (Windows) or [start.sh](start.sh) (Linux/Mac).
 

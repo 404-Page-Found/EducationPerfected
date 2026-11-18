@@ -57,6 +57,9 @@ assert.ok(parseAccuracyCliArgs(['--bogus']).error);
     assert.equal(config.min, 70);
     assert.equal(config.max, 90);
 }
+// An unrecognized EP_PERFECT value is rejected, never treated as an opt-out.
+assert.throws(() => resolveAccuracyConfig({ cli: {}, env: { EP_PERFECT: 'tru' } }), /Invalid EP_PERFECT/);
+assert.equal(resolveAccuracyConfig({ cli: {}, env: { EP_PERFECT: 'off' } }).enabled, true);
 // TEST_BOOT defaults to perfect for deterministic fixtures.
 {
     const config = resolveAccuracyConfig({ cli: {}, env: { EP_TEST_BOOT: '1' } });
