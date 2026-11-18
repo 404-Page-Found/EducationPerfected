@@ -48,6 +48,12 @@ async function main() {
     if (parsed.error) { console.error(parsed.error); process.exitCode=1; return; }
     if (parsed.command === 'help') { console.log(require('../lib/cli-command').helpText()); return; }
     if (parsed.command === 'version') { console.log(require('../package.json').version); return; }
+    if (parsed.command === 'accuracy-status') {
+        // Read-only report: never unpacks the runtime or launches the browser.
+        try { console.log(require('../lib/cli-command').accuracyStatusText()); }
+        catch (error) { console.error(String(error && error.message ? error.message : error)); process.exitCode = 1; }
+        return;
+    }
     if (parsed.command === 'update') {
         // Update failures are reported as update failures, never as startup failures.
         try { await require('./update').updateCommand({executable:process.execPath}); }

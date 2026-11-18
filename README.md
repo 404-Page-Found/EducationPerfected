@@ -139,6 +139,14 @@ Random accuracy is ON by default to simulate a real student: each `start` picks 
     educationperfected --accuracy-range 70-90   # or -r 70-90
     educationperfected --perfect          # or -p
 
+The same settings exist as a top-level subcommand (applies to this invocation only; nothing is persisted):
+
+    educationperfected accuracy 82        # fixed target for this run
+    educationperfected accuracy 70-90     # band, randomized per run
+    educationperfected accuracy off       # perfect (100%)
+    educationperfected accuracy on        # default 70-90 band
+    educationperfected accuracy status    # show the resolved config without launching
+
 `--no-mistakes` is an alias for `--perfect` (100%). Env: `EP_ACCURACY=82`, `EP_ACCURACY_RANGE=70-90`, `EP_PERFECT=1`. `status` shows the active target and first-try stats; the run log reports `Accuracy target X%` at start and a summary at exit.
 
 The legacy hotkey-only program is still there if you want it: run `node index.js`, or double-click [start.cmd](start.cmd) (Windows) or [start.sh](start.sh) (Linux/Mac).

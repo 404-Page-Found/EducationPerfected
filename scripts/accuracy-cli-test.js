@@ -68,6 +68,29 @@ const { bootCli, fixtureLogin } = require('./cli-test-harness');
     } finally {
         if (browser) await browser.close().catch(() => {});
         try { cleanupTestProcess(child); } catch { /* already gone */ }
+    }
+
+    // Issue #229: the top-level `accuracy <n>` subcommand launches the run with
+    // that accuracy setting (same meaning as the run flags).
+    const sub = bootCli(origin, { args: ['accuracy', '0'] });
+    let subBrowser;
+    try {
+        const login = await fixtureLogin(sub.wait, sub.output);
+        subBrowser = login.browser;
+        const page = login.page;
+        await sub.wait(() => sub.output().includes('Commands: start'));
+        await page.goto(origin + '/task');
+        await sub.command('refresh', 'Word Lists Refreshed. 5 entries');
+        await page.goto(origin + '/task/play');
+        await sub.command('start', '"state":"running"');
+        await sub.wait(() => sub.output().includes('Accuracy target 0% for this run (band 70-90%, cli:--accuracy).'));
+        await sub.command('accuracy', '"fixedTarget":0');
+        await sub.wait(() => sub.output().includes('answerLoop Exited.'));
+        await sub.command('status', '"state":"completed"');
+        console.log('Accuracy subcommand: top-level accuracy <n> reaches the run PASS. Synthetic only.');
+    } finally {
+        if (subBrowser) await subBrowser.close().catch(() => {});
+        try { cleanupTestProcess(sub.child); } catch { /* already gone */ }
         server.close();
     }
 })().catch(error => { console.error(error); process.exitCode = 1; });
