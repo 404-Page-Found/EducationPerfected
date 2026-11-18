@@ -82,6 +82,6 @@ const { playWorkingFormulaRound } = require('../lib/working-formula-handler');
         assert.equal(tampered.status, 'stopped', JSON.stringify(tampered));
         assert.equal(tampered.diagnostic.guard, 'final-state-mismatch', JSON.stringify(tampered));
         assert.deepEqual(await page.evaluate(() => [workingFormulaFixture.submits, workingFormulaFixture.q.questionIndex]), [0, 0]);
-        console.log('Working-formula editor: typed rows verified, one Submit, fill-only and semi-manual-submit modes, delayed and never-arriving readiness, five refusals, submit-time tamper stop PASS');
+        console.log('Working-formula editor: typed rows verified, one Submit, fill-only and semi-manual-submit modes, delayed and never-arriving readiness, six refusals, submit-time tamper stop PASS');
     } finally { try { if (browser) await browser.close(); } finally { await new Promise(r => server.close(r)); } }
 })().catch(e => { console.error(e); process.exitCode = 1; });
