@@ -815,12 +815,16 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // Null when disabled (perfect). Created fresh in answerLoop so every
             // start() picks a new target in the band.
             let accuracyRun = null;
+            // Classic first-try tracking: suppresses mistake injection on modal-driven
+            // retries for the same question text (P1: --accuracy 0 must not typo forever).
+            let accuracyClassicSeen = new Set();
             const accuracyStatus = () => {
                 if (!accuracyConfig.enabled) return { enabled: false, target: 100 };
                 if (!accuracyRun) return { enabled: true, min: accuracyConfig.min, max: accuracyConfig.max, fixedTarget: accuracyConfig.fixedTarget ?? null, target: null, attempts: 0, mistakes: 0, accuracy: null, source: accuracyConfig.source };
                 return { enabled: true, min: accuracyConfig.min, max: accuracyConfig.max, fixedTarget: accuracyConfig.fixedTarget ?? null, target: accuracyRun.target, attempts: accuracyRun.stats.attempts, mistakes: accuracyRun.stats.mistakes, accuracy: accuracyRun.accuracy(), source: accuracyConfig.source };
             };
             const startAccuracyRun = () => {
+                accuracyClassicSeen = new Set();
                 if (!accuracyConfig.enabled) { accuracyRun = null; return null; }
                 try {
                     accuracyRun = require('./lib/accuracy').createAccuracyRun(accuracyConfig);
@@ -1674,9 +1678,12 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 // (auto mode). The retry for the same key always uses the correct
                 // answer, so an intentional mistake costs one modal then completes.
                 // Policy/context checks below keep using `correct`; only the typed
-                // and submitted value may be the typo.
+                // and submitted value may be the typo. The first-try stat is recorded
+                // only after a confirmed submission so vanished boxes or changed
+                // questions never inflate the displayed rate.
                 let submitAnswer = correct;
                 let intentionalMistake = false;
+                let accuracyPending = null;
                 if (accuracyRun && ENTER && submissions === 0) {
                     try {
                         if (accuracyRun.shouldMistake()) {
@@ -1687,12 +1694,13 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                                 submitAnswer = typo;
                                 intentionalMistake = true;
                             }
-                            accuracyRun.recordFirstTry(intentionalMistake);
+                            accuracyPending = intentionalMistake;
                         } else {
-                            accuracyRun.recordFirstTry(false);
+                            accuracyPending = false;
                         }
                     } catch {
                         submitAnswer = correct;
+                        accuracyPending = null;
                     }
                 }
 
@@ -1730,6 +1738,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 if (ENTER) {
                     typedSubmissionsByKey.set(key, submissions + 1);
                     await page.keyboard.press('Enter');
+                    if (accuracyPending !== null && accuracyRun) {
+                        try { accuracyRun.recordFirstTry(accuracyPending); } catch { /* never break answering on stats */ }
+                    }
+                    accuracyPending = null;
                 }
                 lastSubmitted = { question: key, answer: submitAnswer };
 
@@ -1753,11 +1765,13 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         console.log('Answer box vanished before the retry; re-detecting the question.');
                         return true;
                     }
-                    if (inBox !== submitAnswer) {
+                    // Retry always uses the correct answer: a first-try typo must not be
+                    // resubmitted, otherwise --accuracy 0 would loop typos on timeouts.
+                    if (inBox !== correct) {
                         console.log(inBox === ''
                             ? 'The answer box was cleared after the submission (quiet rejection); retyping the answer for the retry.'
                             : 'The answer box content changed after the submission; retyping the answer for the retry.');
-                        if (!await enterAnswer(submitAnswer, contextUnchanged)) {
+                        if (!await enterAnswer(correct, contextUnchanged)) {
                             console.log('Answer box vanished while retyping; re-detecting the question.');
                             return true;
                         }
@@ -1770,7 +1784,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         return false;
                     }
                     if (!await contextUnchanged()) return false;
-                    if (await answerBoxValue() !== submitAnswer || !TOGGLE) return true;
+                    if (await answerBoxValue() !== correct || !TOGGLE) return true;
                     const retryCount = typedSubmissionsByKey.get(key) || 0;
                     if (retryCount >= 2) {
                         const message = `EP has not accepted ${retryCount} submissions for ${key}; stopping instead of resubmitting.`;
@@ -1780,7 +1794,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     }
                     typedSubmissionsByKey.set(key, retryCount + 1);
                     await page.keyboard.press('Enter');
-                    outcome = await waitForAdvanceKey(key, ADVANCE_TIMEOUT, submitAnswer, contextUnchanged);
+                    outcome = await waitForAdvanceKey(key, ADVANCE_TIMEOUT, correct, contextUnchanged);
                     if (outcome === 'timeout') {
                         console.error(`Question ${key} did not advance after submitting its answer. Stopping.`);
                         await alert(`Answer loop stopped: ${key} did not advance.`);
@@ -1864,17 +1878,22 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     // Issue #222: single-choice mistakes only (neighboring distractor).
                     // Other surfaces stay perfect to preserve their fail-closed proofs;
                     // a wrong single-choice still advances via the normal Next flow.
-                    let choiceMistake = false;
+                    // The stat is recorded only after a confirmed submission, using the
+                    // handler's actual distractor outcome (a lone option falls back to
+                    // the correct answer and must not count as wrong).
+                    let choiceMistakeIntent = false;
+                    let choiceMistakeResult = null;
+                    let choiceAccuracyPending = null;
                     if (again.kind === 'choice' && again.multi !== true && ENTER && accuracyRun && TOGGLE) {
                         try {
                             if (accuracyRun.shouldMistake()) {
-                                choiceMistake = true;
-                                accuracyRun.recordFirstTry(true);
-                                console.log(`Accuracy mistake for ${again.key}: selecting a neighboring distractor (target ${accuracyRun.target}%).`);
+                                choiceMistakeIntent = true;
+                                choiceMistakeResult = { mistake: false };
+                                choiceAccuracyPending = true;
                             } else {
-                                accuracyRun.recordFirstTry(false);
+                                choiceAccuracyPending = false;
                             }
-                        } catch { choiceMistake = false; }
+                        } catch { choiceMistakeIntent = false; choiceAccuracyPending = null; }
                     }
                     // Preserve even if Stop/errors arrive after Submit but before
                     // the handler's next modal poll. No selection cleanup deletes dialogs.
@@ -1886,13 +1905,20 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         timeout: ADVANCE_TIMEOUT,
                         shouldStop: () => !TOGGLE,
                         log: msg => console.log(msg),
-                        ...((again.kind === 'choice' && again.multi !== true && choiceMistake) ? { intentionalMistake: true } : {}),
+                        ...((again.kind === 'choice' && again.multi !== true && choiceMistakeIntent && choiceMistakeResult) ? { intentionalMistake: true, mistakeResult: choiceMistakeResult } : {}),
                         ...((again.kind === 'dropdown' || again.kind === 'dropdown-numberbox') ? {
                             inputMode: dropdownInputMode,
                         } : again.kind === 'reflection' ? {
                             requestText: async request => typeof reflectionTextProvider === 'function' ? await reflectionTextProvider(request, onReflectionRequestCancel) : false,
                         } : {}),
                     });
+                    if (choiceAccuracyPending !== null && accuracyRun && (result.status === 'advanced' || result.status === 'complete' || result.status === 'modal')) {
+                        try {
+                            const mistook = choiceMistakeIntent ? Boolean(choiceMistakeResult && choiceMistakeResult.mistake) : false;
+                            if (mistook) console.log(`Accuracy mistake for ${again.key}: selected a neighboring distractor (target ${accuracyRun.target}%).`);
+                            accuracyRun.recordFirstTry(mistook);
+                        } catch { /* never break answering on stats */ }
+                    }
                     if (result.status === 'reflection-filled') {
                         console.log('Reflection filled with your approved text. Run stopped. Review, submit and self-mark in the browser.');
                         return false;
@@ -2203,8 +2229,12 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     // and are excluded from accuracy stats; semi-auto fills the correct
                     // answer and leaves submission to the user. The typo flows through
                     // the normal wrong-answer-modal -> Continue path, so the run still
-                    // completes with lower accuracy.
-                    if (accuracyRun && ENTER && !randomRound) {
+                    // completes with lower accuracy. Only the first submission per question
+                    // may mistake; modal-driven retries always use the correct answer and
+                    // the stat is recorded only after a confirmed submission.
+                    let accuracyClassicPending = null;
+                    let accuracyClassicCorrect = answer;
+                    if (accuracyRun && ENTER && !randomRound && !accuracyClassicSeen.has(question)) {
                         try {
                             // Unknown probe: no candidates for any key variant, so
                             // findAnswer returned a random string. Never mistake those
@@ -2228,15 +2258,16 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                                 if (typo && typo !== answer) {
                                     console.log(`Accuracy mistake for "${question}": submitting "${typo}" instead of "${answer}" (target ${accuracyRun.target}%).`);
                                     answer = typo;
-                                    accuracyRun.recordFirstTry(true);
+                                    accuracyClassicPending = true;
                                 } else {
-                                    accuracyRun.recordFirstTry(false);
+                                    accuracyClassicPending = false;
                                 }
                             } else {
-                                accuracyRun.recordFirstTry(false);
+                                accuracyClassicPending = false;
                             }
                         } catch {
                             // Never break answering on an accuracy helper failure.
+                            accuracyClassicPending = null;
                         }
                     }
 
@@ -2344,6 +2375,15 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
                     if (!await enterClassic(question, answer, ENTER)) break;
                     lastSubmitted = { question, answer };
+                    // Record the first-try result only after a confirmed submission so
+                    // changed questions, vanished boxes, or refused selections never
+                    // inflate the displayed stats. Mark the question seen so a modal-driven
+                    // retry submits the correct answer without a second mistake.
+                    if (accuracyClassicPending !== null && accuracyRun && ENTER) {
+                        try { accuracyRun.recordFirstTry(accuracyClassicPending); } catch { /* never break answering on stats */ }
+                        accuracyClassicSeen.add(question);
+                    }
+                    accuracyClassicPending = null;
                     // a real submission happened: any box-interference streak is over
                     boxTamperedRounds = 0;
 
@@ -2358,9 +2398,12 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
                     if (outcome === 'advanced') {
                         // the round was graded and moved on: acceptance. Whatever futility
-                        // streak this question had is over.
+                        // streak this question had is over. The question leaves the
+                        // first-try set so a later new round with the same text is again
+                        // eligible; modal retries stay suppressed until then.
                         futileDict[futileKey(question)] = 0;
                         futileStop = false;
+                        accuracyClassicSeen.delete(question);
                     }
 
                     if (outcome === 'modal') {
@@ -2395,16 +2438,22 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         if (!TOGGLE) break;
                         await page.click(DIR.answer_box_css).catch(() => { });
                         if (!TOGGLE) break;
-                        if (!await enterClassic(question, answer, true)) break;
-                        const retry = await waitForAdvance(question, ADVANCE_TIMEOUT, answer);
+                        // Retry always uses the correct answer so a first-try typo is not resubmitted.
+                        if (!await enterClassic(question, accuracyClassicCorrect, true)) break;
+                        const retry = await waitForAdvance(question, ADVANCE_TIMEOUT, accuracyClassicCorrect);
                         if (retry === 'timeout') {
-                            console.error(`Question "${question}" did not advance after submitting "${answer}". Stopping.`);
+                            console.error(`Question "${question}" did not advance after submitting "${accuracyClassicCorrect}". Stopping.`);
                             await alert(`Answer loop stopped: "${question}" did not advance.`);
                             break;
                         }
                         if (retry === 'aborted') break;
+                        if (retry === 'advanced') {
+                            futileDict[futileKey(question)] = 0;
+                            futileStop = false;
+                            accuracyClassicSeen.delete(question);
+                        }
                         if (retry === 'modal') {
-                            if (!await handleModalAndContinue(question, answer)) break;
+                            if (!await handleModalAndContinue(question, accuracyClassicCorrect)) break;
                         }
                     }
                 }

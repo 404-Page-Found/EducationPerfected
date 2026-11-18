@@ -60,12 +60,16 @@ assert.ok(parseAccuracyCliArgs(['--bogus']).error);
 assert.equal(resolveAccuracyConfig({ cli: {}, env: { EP_PERFECT: '1' } }).enabled, false);
 assert.equal(resolveAccuracyConfig({ cli: { perfect: true }, env: {} }).enabled, false);
 assert.equal(resolveAccuracyConfig({ cli: {}, env: { EP_ACCURACY_RANGE: '60-80' } }).min, 60);
+// Explicit CLI target/range overrides env perfect; --perfect stays the final override.
+assert.equal(resolveAccuracyConfig({ cli: { fixedTarget: 82 }, env: { EP_PERFECT: '1' } }).enabled, true);
+assert.equal(resolveAccuracyConfig({ cli: { min: 60, max: 80 }, env: { EP_PERFECT: '1' } }).enabled, true);
+assert.equal(resolveAccuracyConfig({ cli: { fixedTarget: 82, perfect: true }, env: { EP_PERFECT: '1' } }).enabled, false);
 
 // Per-run target: fixed vs randomized, inclusive bounds.
 assert.equal(pickTarget({ enabled: false }, () => 0), 100);
 assert.equal(pickTarget({ enabled: true, fixedTarget: 82 }, () => 0.99), 82);
 assert.equal(pickTarget({ enabled: true, min: 70, max: 90 }, () => 0), 70);
-assert.ok(pickTarget({ enabled: true, min: 70, max: 90 }, () => 0.999) <= 90);
+assert.equal(pickTarget({ enabled: true, min: 70, max: 90 }, () => 0.999), 90);
 
 // Run controller: Bernoulli near target, stats tracking.
 {

@@ -132,13 +132,13 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 - `inspect-self-mark` - read-only capture of a self-mark (Reflection) page
 - `quit` - close the CLI
 
-Random accuracy is ON by default to simulate a real student: each `start` picks a first-try target in 70-90% and occasionally submits a small human-like mistake (typo for text/audio, neighboring distractor for single-choice) before the normal wrong-answer-modal / retry / Next flow completes the run. Other lesson surfaces stay perfect to preserve their fail-closed proofs. Startup flags and env override the band:
+Random accuracy is ON by default to simulate a real student: each `start` picks a first-try target in 70-90% and occasionally submits a small human-like mistake (typo for text/audio, neighboring distractor for single-choice) before the normal wrong-answer-modal / retry / Next flow completes the run. Other lesson surfaces stay perfect to preserve their fail-closed proofs. Startup flags and env override the band (installer command shown; for a source checkout pass the same option to `npm run cli`, e.g. `npm run cli -- --accuracy 82`):
 
     educationperfected --accuracy 82
     educationperfected --accuracy-range 70-90
-    educationperfected --perfect  # or --no-mistakes (100%)
+    educationperfected --perfect
 
-Env: `EP_ACCURACY=82`, `EP_ACCURACY_RANGE=70-90`, `EP_PERFECT=1`. `status` shows the active target and first-try stats; the run log reports `Accuracy target X%` at start and a summary at exit.
+`--no-mistakes` is an alias for `--perfect` (100%). Env: `EP_ACCURACY=82`, `EP_ACCURACY_RANGE=70-90`, `EP_PERFECT=1`. `status` shows the active target and first-try stats; the run log reports `Accuracy target X%` at start and a summary at exit.
 
 The legacy hotkey-only program is still there if you want it: run `node index.js`, or double-click [start.cmd](start.cmd) (Windows) or [start.sh](start.sh) (Linux/Mac).
 
