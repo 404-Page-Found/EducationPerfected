@@ -870,6 +870,15 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             let candidatesDict = Object.create(null);
             let dashTimedThisRun = false;   // issue #230: current run shows a dash timer
             let dashUnknownWarned = false;  // one-shot timed-guess warning per run
+            // Issue #230: on a timed (Dash) round every guessed answer costs clock
+            // a sprint cannot recover. Say so once, clearly, instead of silently
+            // guessing through the sprint - whether the question was never listed
+            // or every listed answer was already rejected.
+            function warnDashGuess() {
+                if (!dashTimedThisRun || dashUnknownWarned) return;
+                dashUnknownWarned = true;
+                console.warn('Timed task detected (dash timer) and the word list cannot answer this question: answers are learned from the wrong-answer modal and every guess burns the clock. Refresh Words on the task-starter page before starting a timed run.');
+            }
             // question -> Set of answers EP has graded wrong this session. Without this,
             // a rejected answer was "learned" from its own wrong-answer modal and then
             // resubmitted forever: "io prendo" / "I take" looped incorrect indefinitely
@@ -1321,14 +1330,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 }
                 if (hadCandidates) return null;
                 console.log(`No answer found for ${question}`);
-                // Issue #230: on a timed (Dash) round every unknown question costs
-                // clock a sprint cannot recover. Say so once, clearly, instead of
-                // silently guessing through the sprint. Dictionary size alone is
-                // not the signal: entries may belong to a different task.
-                if (dashTimedThisRun && !dashUnknownWarned) {
-                    dashUnknownWarned = true;
-                    console.warn('Timed task detected (dash timer) and the word list does not know this question: answers are learned from the wrong-answer modal and every guess burns the clock. Refresh Words on the task-starter page before starting a timed run.');
-                }
+                // Dictionary size alone is not the signal: entries may belong to a
+                // different task, so the warning lives at the guess itself.
+                warnDashGuess();
                 return generateRandomString(8, 10);
             }
 
@@ -2242,6 +2246,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     // ROUNDS, and counting both stages would trip the bound at half of it.
                     let randomRound = false;
                     if (answer === null) {
+                        warnDashGuess();
                         // Every candidate this session knows for the question was already
                         // graded wrong. Feed EP a random string so its wrong-answer modal
                         // reveals the canonical answer (which then joins the candidates),
