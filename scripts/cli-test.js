@@ -80,7 +80,7 @@ const { bootCli, fixtureLogin } = require('./cli-test-harness');
             const exitDeadline = Date.now() + 15000;
             while (child.exitCode === null && Date.now() < exitDeadline) await new Promise(resolve => setTimeout(resolve, 30));
             assert.equal(child.exitCode, 0, 'CLI must exit on its own after the browser is closed: ' + output());
-            assert.ok(output.includes('Browser closed; exiting.'), 'External close must be announced: ' + output());
+            assert.ok(output().includes('Browser closed; exiting.'), 'External close must be announced: ' + output());
         } else if (process.argv.includes('--signal')) child.kill('SIGINT');
         else await command('quit', '"state":"closed"');
         if (child.exitCode === null) await new Promise(resolve => child.once('exit', resolve));
