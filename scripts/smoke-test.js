@@ -129,6 +129,40 @@ async function testCompletionExit(page, origin) {
     check('completion exit button resolves and clicks to dashboard');
 }
 
+// Issue #230: Dash (timed sprint) against the synthetic fixture. Same classic
+// selectors drive the round; the timer/score elements are fixture-invented.
+async function testDashFlow(page, origin) {
+    await page.goto(`${origin}/dash-task`, { waitUntil: 'domcontentloaded' });
+    const readList = selector => page.$$eval(selector, els => els.map(el => el.innerText));
+    assert.deepEqual(await readList('div.baseLanguage span'), WORDS.map(w => w[0]));
+    assert.deepEqual(await readList('div.targetLanguage span'), WORDS.map(w => w[1]));
+    check('dash starter: word lists readable with the classic selectors');
+
+    await page.goto(`${origin}/dash-task/play`, { waitUntil: 'domcontentloaded' });
+    assert.equal(await question(), WORDS[0][0]);
+    await page.waitForSelector('#dash-timer', { timeout: 2000 });
+    check('dash round: question and timer element present');
+
+    for (const [base, answer] of WORDS) {
+        const last = base === WORDS[WORDS.length - 1][0];
+        assert.equal(await question(), base);
+        await clearBox();
+        await page.keyboard.type(answer, { delay: 20 });
+        await page.keyboard.press('Enter');
+        const advanced = await page.waitForFunction(isLast => {
+            const questionEl = document.querySelector('#question-text');
+            if (isLast) return questionEl === null && !document.querySelector('#answer-text');
+            return questionEl !== null && questionEl.textContent !== '';
+        }, { timeout: 2000 }, last).then(() => true).catch(() => false);
+        assert.ok(advanced, `dash round "${answer}" advances`);
+    }
+    check(`dash: correct answers advance all ${WORDS.length} rounds`);
+    assert.equal(await page.$eval('#dash-score', el => el.textContent), String(WORDS.length * 10));
+    check('dash: score accumulates per correct answer');
+
+    await testCompletionExit(page, origin);
+}
+
 async function testHotkeyPreloadSurvival(page, origin) {
     const state = { refreshed: 0 };
     const doRefresh = async () => { state.refreshed += 1; };
@@ -233,6 +267,9 @@ async function main() {
 
         // Completion exit
         await testCompletionExit(page, origin);
+
+        // --- Dash timed sprint (synthetic fixture, issue #230) ---
+        await testDashFlow(page, origin);
 
         // --- host bindings + preload ---
         await testHotkeyPreloadSurvival(page, origin);
