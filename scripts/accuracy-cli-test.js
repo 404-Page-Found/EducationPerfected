@@ -68,10 +68,17 @@ const { bootCli, fixtureLogin } = require('./cli-test-harness');
     } finally {
         if (browser) await browser.close().catch(() => {});
         try { cleanupTestProcess(child); } catch { /* already gone */ }
+        try { server.close(); } catch { /* already closed */ }
     }
+})()
 
-    // Issue #229: the top-level `accuracy <n>` subcommand launches the run with
-    // that accuracy setting (same meaning as the run flags).
+// Issue #229: the top-level `accuracy <n>` subcommand launches the run with
+// that accuracy setting (same meaning as the run flags). Own server so a
+// failure in the first scenario cannot leave this one hanging.
+.then(async () => {
+    const server = createServer();
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const origin = `http://127.0.0.1:${server.address().port}`;
     const sub = bootCli(origin, { args: ['accuracy', '0'] });
     let subBrowser;
     try {
@@ -91,6 +98,6 @@ const { bootCli, fixtureLogin } = require('./cli-test-harness');
     } finally {
         if (subBrowser) await subBrowser.close().catch(() => {});
         try { cleanupTestProcess(sub.child); } catch { /* already gone */ }
-        server.close();
+        try { server.close(); } catch { /* already closed */ }
     }
-})().catch(error => { console.error(error); process.exitCode = 1; });
+}).catch(error => { console.error(error); process.exitCode = 1; });
