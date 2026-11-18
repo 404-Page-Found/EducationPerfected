@@ -133,7 +133,7 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 - `inspect-self-mark` - read-only capture of a self-mark (Reflection) page
 - `quit` - close the CLI
 
-Random accuracy is ON by default to simulate a real student: each `start` picks a first-try target in 70-90% and occasionally submits a small human-like mistake (typo for text/audio, neighboring distractor for single-choice) before the normal wrong-answer-modal / retry / Next flow completes the run. Other lesson surfaces stay perfect to preserve their fail-closed proofs. Startup flags and env override the band (installer command shown; for a source checkout pass the same option to `npm run cli`, e.g. `npm run cli -- --accuracy 82`):
+Random accuracy is OFF by default: runs answer perfectly. Turn it on to simulate a real student: each `start` then picks a first-try target in the configured band and occasionally submits a small human-like mistake (typo for text/audio, neighboring distractor for single-choice) before the normal wrong-answer-modal / retry / Next flow completes the run. Other lesson surfaces stay perfect to preserve their fail-closed proofs. Startup flags and env enable and tune the simulation (installer command shown; for a source checkout pass the same option to `npm run cli`, e.g. `npm run cli -- --accuracy 82`):
 
     educationperfected --accuracy 82      # or -a 82
     educationperfected --accuracy-range 70-90   # or -r 70-90
@@ -143,11 +143,11 @@ The same settings exist as a top-level subcommand (applies to this invocation on
 
     educationperfected accuracy 82        # fixed target for this run
     educationperfected accuracy 70-90     # band, randomized per run
-    educationperfected accuracy off       # perfect (100%)
-    educationperfected accuracy on        # default 70-90 band
+    educationperfected accuracy off       # perfect (100%) - the default
+    educationperfected accuracy on        # 70-90 band
     educationperfected accuracy status    # show the resolved config without launching
 
-`--no-mistakes` is an alias for `--perfect` (100%). Env: `EP_ACCURACY=82`, `EP_ACCURACY_RANGE=70-90`, `EP_PERFECT=1`. `status` shows the active target and first-try stats; the run log reports `Accuracy target X%` at start and a summary at exit.
+`--no-mistakes` is an alias for `--perfect` (100%). Env: `EP_ACCURACY=82`, `EP_ACCURACY_RANGE=70-90`, `EP_PERFECT=0` (enable the default band), `EP_PERFECT=1` (force perfect). `status` shows the active target and first-try stats; the run log reports `Accuracy target X%` at start and a summary at exit.
 
 The legacy hotkey-only program is still there if you want it: run `node index.js`, or double-click [start.cmd](start.cmd) (Windows) or [start.sh](start.sh) (Linux/Mac).
 
@@ -181,8 +181,8 @@ features, but it is a lot slower.)
 Note that the learned dictionary lives only in the running program's memory - restart the program and you'll need
 to press Refresh Words again for the task's word list.
 
-**Random Accuracy (70%-90% by default)**: A real student does not get everything right on the first try. Each run randomizes
-a first-try target in 70-90% and, with probability `1 - target`, submits a plausible-but-wrong answer first: a small typo
+**Random Accuracy (off by default)**: Runs answer perfectly unless you opt in. When enabled, each run randomizes
+a first-try target in the configured band (70-90% via `accuracy on`) and, with probability `1 - target`, submits a plausible-but-wrong answer first: a small typo
 for text/audio/lesson short-answer, or a neighboring distractor for single-choice. The mistake flows through the normal
 wrong-answer-modal / retry / Next path, so the run still completes with lower first-try accuracy. Semi-auto fills the
 correct answer (no intentional mistakes) and other lesson surfaces (gaps, multi-select, textboxes, dropdowns, highlight,

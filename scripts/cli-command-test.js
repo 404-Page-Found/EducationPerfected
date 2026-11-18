@@ -25,7 +25,7 @@ assert.match(parseCommand(['accuracy','90-70']).error,/Usage: accuracy/);
 assert.deepEqual(parseCommand(['--accuracy','82']),{command:'run',accuracy:{fixedTarget:82}});
 assert.match(parseCommand(['--accuracy']).error,/Missing value/);
 // Read-only status report resolves defaults and env without launching.
-assert.match(accuracyStatusText({}),/Accuracy: enabled, band 70-90%/);
+assert.match(accuracyStatusText({}),/Accuracy: perfect \(100%\)/);
 assert.match(accuracyStatusText({EP_PERFECT:'1'}),/Accuracy: perfect/);
 assert.match(accuracyStatusText({EP_ACCURACY:'82'}),/fixed target 82%/);
 assert.match(accuracyStatusText({EP_ACCURACY_RANGE:'60-80'}),/band 60-80%/);
@@ -33,7 +33,7 @@ assert.throws(()=>accuracyStatusText({EP_ACCURACY:'oops'}),/Invalid EP_ACCURACY/
 assert.match(helpText(),/educationperfected accuracy <n\|min-max\|off\|on\|status>/);
 // The real source-checkout dispatch prints the report without launching.
 const statusOut=require('node:child_process').execFileSync(process.execPath,[path.join(__dirname,'../bin/cli.js'),'accuracy','status'],{encoding:'utf8',env:{PATH:process.env.PATH}});
-assert.match(statusOut,/Accuracy: enabled, band 70-90%/);
+assert.match(statusOut,/Accuracy: perfect \(100%\)/);
 assert.match(helpText(),/no answers until start/);
 assert.ok(helpText().startsWith('EducationPerfected ' + require('../package.json').version + '\n'),'help header derives the version from package.json');
 const source=fs.readFileSync(path.join(__dirname,'../packaging/bootstrap.js'),'utf8');
@@ -74,7 +74,7 @@ async function probe(args,downloadFails=false,updateFails=false){
  for(const command of ['check-credentials','forget-credentials'])assert.deepEqual((await probe([command])).events,['runtime','--'+command,'cleanup']);
  // accuracy status stays read-only in the packaged bootstrap: no runtime, no browser.
  for(const args of [['accuracy'],['accuracy','status']]){
-  const result=await probe(args);assert.deepEqual(result.events,[]);assert.match(result.out[0],/Accuracy: enabled, band 70-90%/);assert.ok(!result.exitCode);
+  const result=await probe(args);assert.deepEqual(result.events,[]);assert.match(result.out[0],/Accuracy: perfect \(100%\)/);assert.ok(!result.exitCode);
  }
  console.log('Subcommand/flag dispatch, side-effect-free help/version/legacy refusals, consent-before-optional-store setup passed (inert).');
 })().catch(error=>{console.error(error);process.exitCode=1;});
