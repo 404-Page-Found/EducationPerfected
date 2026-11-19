@@ -11,7 +11,7 @@ const { readChoiceInPage } = require('../lib/choice-state');
 
 // The model is passed as an evaluate argument, never interpolated into
 // evaluated source (CodeQL js/bad-code-sanitization).
-const installStub = (model) => { window.angular = { element: () => ({ scope: () => ({ self: { model } }) }) }; };
+const installStub = (self) => { window.angular = { element: () => ({ scope: () => ({ self }) }) }; };
 const OPTION_TEXTS = ['alpha', 'bravo', 'charlie', 'delta'];
 const dom = (texts = OPTION_TEXTS, extra = '') => '<div class="multi-choice-component v-group single-select" role="radiogroup">'
     + texts.map(t => `<div class="mcq-preview-option" role="option"><div class="mcq-contents"><span>${t}</span></div></div>`).join('')
@@ -46,7 +46,7 @@ const MODEL = (q, modelOverrides = {}) => ({ gameMode: null, isDash: true, _curr
         await page.goto(origin + '/dash-task/quiz');
         const run = async (html, model, allowMix = false) => {
             await page.setContent(html);
-            await page.evaluate(installStub, model);
+            await page.evaluate(installStub, model && model.model ? model : { model });
             return page.evaluate(readChoiceInPage, null, null, allowMix);
         };
         const refuse = (descriptor, guard) => {
@@ -73,6 +73,7 @@ const MODEL = (q, modelOverrides = {}) => ({ gameMode: null, isDash: true, _curr
 
         // Refusals by name.
         refuse(await run(dom(), MODEL(question(), { gameMode: 3 })), 'game-mode');
+        refuse(await run(dom(), { model: MODEL(question()), sectionData: { activityGroup: { isAutoMarked: true } } }), 'section-data');
         refuse(await run(dom(), MODEL(question()), ['TEXT_BOX_COMPONENT']), 'mixed-slide');
         refuse(await run(dom(), MODEL(question({}, { AllowMultiSelect: true }))), 'multi-select');
         refuse(await run(dom(), MODEL(question({}, { Marked: 0 }))), 'marking-flag');
@@ -103,6 +104,13 @@ const MODEL = (q, modelOverrides = {}) => ({ gameMode: null, isDash: true, _curr
         assert.match(offRoute.reason, /Dash timed sprint round detected outside a confirmed dash route/);
         assert.match(offRoute.reason, /inspect-dash/);
 
+        // A "dash" substring inside another word (/learning/dashboard) is
+        // not a dash route: the match is segment-bound.
+        await page.goto(origin + '/learning/dashboard');
+        const dashboard = await run(dom(), MODEL(question()));
+        assert.equal(dashboard.kind, 'unsupported');
+        assert.match(dashboard.reason, /outside a confirmed dash route/);
+
         // Handle re-reads confirm the Dash model instead of gameMode 3.
         await page.goto(origin + '/dash-task/quiz');
         await run(dom(), MODEL(question()));
@@ -116,7 +124,7 @@ const MODEL = (q, modelOverrides = {}) => ({ gameMode: null, isDash: true, _curr
         const lessonRead = await handle2.evaluate(readChoiceInPage, { key: 'choice:99001:0' });
         assert.deepEqual(lessonRead, { visible: false, text: '' });
         await handle2.dispose();
-        await page.evaluate(installStub, { gameMode: 3, _currentQuestion: { contentID: 99001, questionIndex: 0 } });
+        await page.evaluate(installStub, { model: { gameMode: 3, _currentQuestion: { contentID: 99001, questionIndex: 0 } } });
         const handle3 = await page.$('div.mcq-preview-option');
         const nonDashRead = await handle3.evaluate(readChoiceInPage, { key: 'choice:99001:0', dash: true });
         assert.deepEqual(nonDashRead, { visible: false, text: '' });
