@@ -71,9 +71,9 @@ const SCRATCH_PAD = { ComponentTypeCode: 'SCRATCH_PAD_COMPONENT', ComponentID: '
         assert.equal((await detectQuestion(page)).kind, 'unsupported', 'textbox with long-answer companion did not refuse');
 
         // scratch pad: admitted only when the cached runtime component proves
-        // the pad is unmarked; a marked, unknown-type or unverifiable pad stays
-        // answer-bearing and refuses (chunk606: unmarked pads emit a constant
-        // NOT_MARKED 0/0/0 marking payload, marked pads are scored)
+        // the pad is unmarked under EP's own loose check (marked == MARKED):
+        // unmarked pads emit a constant NOT_MARKED 0/0/0 marking payload, marked
+        // pads are scored; a marked, wrong-type or unverifiable pad refuses
         const withPad = (component) => page.evaluate(c => {
             const f = window.highlightFixture;
             f.q.questionDef.Components.push({ ComponentTypeCode: 'SCRATCH_PAD_COMPONENT', ComponentID: 'pad-1', Marked: 0 });
@@ -83,7 +83,11 @@ const SCRATCH_PAD = { ComponentTypeCode: 'SCRATCH_PAD_COMPONENT', ComponentID: '
         assert.equal((await detectQuestion(page)).kind, 'unsupported', 'unverifiable scratch pad did not refuse');
         await setupHighlight(); await withPad({ type: 'scratch-pad', marked: 1, id: 'pad-1' });
         assert.equal((await detectQuestion(page)).kind, 'unsupported', 'marked scratch pad did not refuse');
-        await setupHighlight(); await withPad({ type: 'sound', marked: 2, id: 'pad-1' });
+        await setupHighlight(); await withPad({ type: 'scratch-pad', id: 'pad-1' });
+        assert.equal((await detectQuestion(page)).kind, 'highlight', 'pad with missing marked refused (EP treats it as unmarked: loose marked == MARKED fails)');
+        await setupHighlight(); await withPad({ type: 'scratch-pad', marked: '1', id: 'pad-1' });
+        assert.equal((await detectQuestion(page)).kind, 'unsupported', "scratch pad with string marked '1' did not refuse (EP's loose == MARKED counts it)");
+        await setupHighlight(); await withPad({ type: 'sound', marked: 0, id: 'pad-1' });
         assert.equal((await detectQuestion(page)).kind, 'unsupported', 'wrong-type cached pad did not refuse');
         await setupHighlight(); await withPad({ type: 'scratch-pad', marked: 2, id: 'pad-1' });
         assert.equal((await detectQuestion(page)).kind, 'highlight', 'unmarked scratch pad companion refused');
@@ -92,7 +96,35 @@ const SCRATCH_PAD = { ComponentTypeCode: 'SCRATCH_PAD_COMPONENT', ComponentID: '
         assert.equal(gapsPad.kind, 'unsupported', 'gaps with unverifiable scratch pad did not refuse');
         assert.match(gapsPad.reason, /unsupported accompanying component: SCRATCH_PAD_COMPONENT/);
 
-        console.log('Presentation companions: sound/annotated-text admitted by gaps, highlight, working-formula and textbox readers; unmarked scratch pad admitted only on runtime proof; answer-bearing companions still refuse PASS. Synthetic only.');
+        // pad admission/refusal across every other single-surface reader:
+        // runtime-proven unmarked admits, marked refuses, ambiguous two-entry
+        // refuses, missing runtime entry refuses
+        const UNMARKED = { type: 'scratch-pad', marked: 0, id: 'pad-1' };
+        const MARKED = { type: 'scratch-pad', marked: 1, id: 'pad-1' };
+        const probePad = (fixtureName) => (component) => page.evaluate(({ g, c }) => {
+            const f = window[g];
+            f.q.questionDef.Components.push({ ComponentTypeCode: 'SCRATCH_PAD_COMPONENT', ComponentID: 'pad-1', Marked: 0 });
+            if (c !== null) f.q.cachedRenderers[1].identifiedComponents.baseComponents['pad-1'] = Array.isArray(c) ? c : [c];
+        }, { g: fixtureName, c: component });
+        const probe = async (label, setupFn, fixtureName, admitKind) => {
+            const pad = probePad(fixtureName);
+            await setupFn(); await pad(UNMARKED);
+            assert.equal((await detectQuestion(page)).kind, admitKind, label + ': unmarked scratch pad refused');
+            await setupFn(); await pad(MARKED);
+            assert.equal((await detectQuestion(page)).kind, 'unsupported', label + ': marked scratch pad did not refuse');
+            await setupFn(); await pad([UNMARKED, { type: 'scratch-pad', marked: 0, id: 'pad-1b' }]);
+            assert.equal((await detectQuestion(page)).kind, 'unsupported', label + ': ambiguous two-entry pad did not refuse');
+            await setupFn(); await pad(null);
+            assert.equal((await detectQuestion(page)).kind, 'unsupported', label + ': missing runtime entry did not refuse');
+        };
+        const { setup: setupMath } = require('./choice-renderer-fixture');
+        await probe('textbox', () => setupTextbox(), 'textboxFixture', 'textbox');
+        await probe('number-box', () => page.goto(origin + '/lesson-number-box'), 'numberBoxFixture', 'numberbox');
+        await probe('working-formula', setupFormula, 'workingFormulaFixture', 'workingformula');
+        await probe('multi-choice', () => page.goto(origin + '/lesson-multi'), 'multiFixture', 'choice');
+        await probe('choice', () => setupMath(page, origin), 'mathFixture', 'choice');
+
+        console.log('Presentation companions: sound/annotated-text admitted by gaps, highlight, working-formula and textbox readers; unmarked scratch pad admitted only on runtime proof by all six readers; marked or unverifiable pads refuse PASS. Synthetic only.');
     } finally {
         await browser?.close().catch(() => {});
         server.close();

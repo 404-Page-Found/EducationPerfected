@@ -17,7 +17,7 @@ Source: [EP public chunk 606](https://mfe-student-app.educationperfect.com/main/
 | LONG_ANSWER_COMPONENT | LongAnswerComponent | input | componentState.marking | answer-bearing |
 | FREEFORM_WORKING_COMPONENT | (working state) | input | checkAnswer + steps | answer-bearing |
 | FILL_IN_GAPS_COMPONENT | FillInTheGapsComponent | input | per-gap marking | answer-bearing |
-| SCRATCH_PAD_COMPONENT | ScratchPadComponent | input (canvas) | NOT_MARKED 0/0/0 when the runtime component is not MARKED; scored when marked | admitted only on runtime proof of unmarked, see below |
+| SCRATCH_PAD_COMPONENT | ScratchPadComponent | input (interactive canvas) | constant {marked NOT_MARKED, 0/0/0} unless `marked == MARKED` (loose, enum 1); scored when marked | admitted only on runtime proof of unmarked, see below |
 | FILE_UPLOADER_COMPONENT | UploaderComponent | input | constant {score 1, max 1, weight 1} regardless of input | unresolved, see below |
 | SOUND_RECORDER_COMPONENT | SoundRecorderComponent (extends UploaderComponent) | input | inherits UploaderComponent's constant {score 1, max 1, weight 1} regardless of any recording | unresolved, see below |
 | SOUND_COMPONENT | SoundComponentState (factory state) / SoundComponent (component) | false | constant {score 1, max 1, weight 0} | presentation-only, proven |
@@ -37,7 +37,7 @@ SOUND_COMPONENT and ANNOTATED_TEXT_COMPONENT are admitted as companions by the g
 
 The choice and multi-choice readers already passed both codes through their answer-bearing deny-list; their behavior is unchanged.
 
-Every single-surface reader (gaps, highlight, working-formula, textbox/number-box, choice, multi-select) also admits a SCRATCH_PAD_COMPONENT companion when its cached runtime component proves the pad unmarked: exactly one baseComponents entry, the `scratch-pad` builder type, `marked` neither 1 nor true. ScratchPadComponent sets `marked` from the definition's is_marked and returns a constant NOT_MARKED 0/0/0 payload unless `marked == MARKED` (enum 1), and its canvas is not an editable control. A marked, wrong-type, ambiguous or unverifiable pad stays answer-bearing and refuses the slide.
+Every single-surface reader (gaps, highlight, working-formula, textbox/number-box, choice, multi-select) also admits a SCRATCH_PAD_COMPONENT companion when its cached runtime component proves the pad unmarked: exactly one baseComponents entry, the `scratch-pad` builder type, a matching component id, and `marked` failing EP's own loose `marked == MARKED` check. ScratchPadComponent sets `marked` from the definition's raw is_marked and returns a constant {marked NOT_MARKED, 0/0/0} payload unless `marked == MARKED` (loose equality in EP's code), so the admission mirrors EP's own scoring exactly: a string '1' counts as marked and refuses, while a missing `marked` admits the way EP itself would score it. A marked, wrong-type, ambiguous or otherwise unverifiable pad stays answer-bearing and refuses the slide. The pad's canvas is interactive but not an editable control, and anything drawn on it is unmarked by definition. The gaps reader's registry guard exempts the verified pad's entry (its isInput is not false); the choice reader reads the registry through its own own-data accessors, never the lazy getters.
 
 ## Not admitted (documented, needs a product decision or live evidence)
 
