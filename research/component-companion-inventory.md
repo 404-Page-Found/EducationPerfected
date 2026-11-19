@@ -29,7 +29,7 @@ Source: [EP public chunk 606](https://mfe-student-app.educationperfect.com/main/
 | WORKING_FORMULA_COMPONENT | WorkingFormulaComponent (built outside the switch) | input | checkAnswer + working-step comparison | answer-bearing |
 | FORMULA_COMPONENT | FormulaComponent (built outside the switch) | input | checkAnswer + working-step comparison | answer-bearing |
 
-WORKING_FORMULA_COMPONENT and FORMULA_COMPONENT are question-component codes (factory `*_TYPECODE` statics) with no case in `createComponentState`; both build the same working-formula editor, and the working-formula reader admits exactly these two codes.
+WORKING_FORMULA_COMPONENT and FORMULA_COMPONENT are question-component codes (factory `*_TYPECODE` statics) with no case in `createComponentState`. The working-formula reader admits WORKING_FORMULA_COMPONENT and FREEFORM_WORKING_COMPONENT (the switch builds the same editor state for both); FORMULA_COMPONENT has its own FormulaComponent class (input, `checkAnswer` + working-step comparison) and no reader path, so a slide carrying it still refuses.
 
 ## Admitted companions (implemented)
 
