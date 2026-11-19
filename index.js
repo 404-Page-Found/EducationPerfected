@@ -25,6 +25,7 @@ const { readChoiceInPage } = require('./lib/choice-state');
 const { diagnostic } = require('./lib/diagnostics');
 const { collectSelfMarkDiagnostics } = require('./lib/self-mark-diagnostics');
 const { guardClassicEnter } = require('./lib/classic-enter');
+const { boxMatchesAnswer } = require('./lib/answer-normalize');
 const {captureSelectionBaseline,inspectSelectionModal,advanceSelectionSection}=require('./lib/selection-modal');
 const { DASH_TIMER_CSS, DASH_SCORE_CSS, DASH_RESULTS_CSS, DASH_PACING_NOTE, DASH_ACCURACY_NOTE, DASH_EMPTY_WORDLIST_NOTE, detectDashInPage } = require('./lib/dash');
 
@@ -1532,10 +1533,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     const value = await answerBoxValue();
                     if (value === null) return value;
                     if (value === previous) return value; // stabilized without matching
-                    if (value === answer) {
+                    if (boxMatchesAnswer(answer, value)) {
                         await new Promise(resolve => setTimeout(resolve, 25));
                         const confirm = await answerBoxValue();
-                        if (confirm === answer) return value; // matched and held
+                        if (boxMatchesAnswer(answer, confirm)) return value; // matched and held (EP may IME-normalize punctuation)
                         previous = confirm; // changed after the match: keep settling
                         continue;
                     }
@@ -1583,7 +1584,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     }
                     if (!TOGGLE) return false;
                     const typed = await readSettledBox(answer);
-                    if (typed === answer) return true;
+                    if (boxMatchesAnswer(answer, typed)) {
+                        if (typed !== answer) console.log(`Answer box holds EP-normalized punctuation; expected "${answer}", got "${typed}". Submitting as-is.`);
+                        return true;
+                    }
                     if (typed === null) return false; // box vanished mid-attempt (round transition)
                     console.log(`Answer box mismatch; expected "${answer}", got "${typed}". Retrying.`);
                 }
@@ -1815,7 +1819,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 // Recheck the actual value after scope detection, immediately
                 // before Enter. No submission slot is consumed by a lost box.
                 if (!await contextUnchanged()) return false;
-                if (await answerBoxValue() !== submitAnswer || !TOGGLE) return true;
+                if (!boxMatchesAnswer(submitAnswer, await answerBoxValue()) || !TOGGLE) return true;
                 // Re-reading ENTER after the wait cancels the press when the
                 // user switched to semi mid-wait.
                 if (ENTER) {
@@ -1850,7 +1854,8 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     }
                     // Retry always uses the correct answer: a first-try typo must not be
                     // resubmitted, otherwise --accuracy 0 would loop typos on timeouts.
-                    if (inBox !== correct) {
+                    // A box holding EP's IME-normalized punctuation still verifies.
+                    if (!boxMatchesAnswer(correct, inBox)) {
                         console.log(inBox === ''
                             ? 'The answer box was cleared after the submission (quiet rejection); retyping the answer for the retry.'
                             : 'The answer box content changed after the submission; retyping the answer for the retry.');
@@ -1867,7 +1872,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         return false;
                     }
                     if (!await contextUnchanged()) return false;
-                    if (await answerBoxValue() !== correct || !TOGGLE) return true;
+                    if (!boxMatchesAnswer(correct, await answerBoxValue()) || !TOGGLE) return true;
                     const retryCount = typedSubmissionsByKey.get(key) || 0;
                     if (retryCount >= 2) {
                         const message = `EP has not accepted ${retryCount} submissions for ${key}; stopping instead of resubmitting.`;
@@ -2428,7 +2433,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     const stillPending = lastSubmitted !== null
                         && lastSubmitted.question === question
                         && lastSubmitted.answer === answer
-                        && boxValue === lastSubmitted.answer;
+                        && boxMatchesAnswer(lastSubmitted.answer, boxValue);
                     if (stillPending) {
                         // the previous round for this question produced no visible progress. Rather
                         // than resubmitting it, wait for the page to catch up (or stop).
@@ -2500,8 +2505,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     }
                     // even with the question text intact, the box content can still change
                     // during the wait above: submit only what was verified, or not at all.
+                    // EP may IME-normalize punctuation after typing (issue #232), so a
+                    // normalized-equal box still verifies and submits as-is.
                     const boxBeforeEnter = await answerBoxValue();
-                    if (boxBeforeEnter !== answer) {
+                    if (!boxMatchesAnswer(answer, boxBeforeEnter)) {
                         if (boxBeforeEnter === null) {
                             boxVanishedRounds += 1;
                             console.log(`Answer box missing before submission (${boxVanishedRounds}/5); re-reading on a fresh pass.`);
@@ -2590,7 +2597,8 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         // A swallowed first Enter leaves the typo in the box, and enterClassic's
                         // guard refuses to press Enter over a mismatched box, so restore the
                         // correct answer first (enterAnswer clears, retypes and verifies).
-                        if (await answerBoxValue() !== accuracyClassicCorrect) {
+                        // A normalized-punctuation box (issue #232) still verifies.
+                        if (!boxMatchesAnswer(accuracyClassicCorrect, await answerBoxValue())) {
                             console.log('Restoring the correct answer in the box before the retry.');
                             if (!await enterAnswer(accuracyClassicCorrect)) break;
                         }
