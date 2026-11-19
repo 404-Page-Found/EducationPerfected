@@ -1,10 +1,20 @@
 // Regression test for issue #234: comma/semicolon round skew
 // ("eight, 8" detected vs "eight; 8" graded) must keep answering from the
 // learned correction, and every answerQuestions exit must log its reason.
+// Uses the shared production dictionary (lib/classic-dict) so the test fails
+// if production stops using questionVariants or handles rejections wrongly.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { cleanString, questionKeyVariants } = require('../lib/question-keys');
+const {
+    answerCandidates: sharedAnswerCandidates,
+    mergeCandidates: sharedMergeCandidates,
+    hasCandidates: sharedHasCandidates,
+    findCandidate: sharedFindCandidate,
+    learnEntryIn: sharedLearnEntry,
+    recordRejectionIn: sharedRecordRejection,
+} = require('../lib/classic-dict');
 
 // 1. cleanString is shared across renderings.
 assert.equal(cleanString('eight, 8'), 'eight');
@@ -27,77 +37,35 @@ assert.deepEqual(questionKeyVariants('  eight; 8  ')[0], 'eight; 8');
 assert.ok(!questionKeyVariants('').includes(''), 'empty never indexes ""');
 assert.ok(!questionKeyVariants('   ').includes(''), 'whitespace never indexes ""');
 
-// 3. Learn/find symmetry: learn(modalQuestion="eight; 8", modalAnswer="八, bā")
-// must be found from detected question "eight, 8".
-// Mirrors index.js learnEntry/findAnswer (mergeCandidates + answerCandidates
-// simplified to the built-in alternative handling for this fixture).
-function answerCandidates(raw) {
-    const text = String(raw).replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
-    if (text === '') return [];
-    const groups = text.split(/[;|]/).map(g => g.trim()).filter(Boolean);
-    const out = [];
-    const seen = new Set();
-    const push = v => { const t = v.trim(); if (t && !seen.has(t)) { seen.add(t); out.push(t); } };
-    for (const g of groups) push(g);
-    if (groups.length > 1) push(text);
-    for (const g of groups) for (const p of g.split(',')) push(p);
-    return out;
-}
-function mergeCandidates(existing, incoming, incomingFirst = true) {
-    const ordered = incomingFirst ? [...incoming, ...existing] : [...existing, ...incoming];
-    const out = [];
-    const seen = new Set();
-    for (const c of ordered) if (typeof c === 'string' && c.trim() !== '' && !seen.has(c)) { seen.add(c); out.push(c); }
-    return out;
-}
+// 3. Learn/find symmetry via shared production functions.
 let candidatesDict = Object.create(null);
 let rejectedDict = Object.create(null);
 function learnEntry(question, rawAnswer, incomingFirst = true) {
-    const incoming = answerCandidates(rawAnswer);
-    if (!incoming.length) return false;
-    let changed = false;
-    for (const key of questionKeyVariants(question)) {
-        if (key === '') continue;
-        const before = candidatesDict[key] || [];
-        const after = mergeCandidates(before, incoming, incomingFirst);
-        if (after.length > before.length) changed = true;
-        candidatesDict[key] = after;
-    }
-    return changed;
+    return sharedLearnEntry(candidatesDict, question, rawAnswer, incomingFirst);
 }
 function recordRejection(question, answer) {
-    for (const key of questionKeyVariants(question)) {
-        if (key === '') continue;
-        if (!rejectedDict[key]) rejectedDict[key] = new Set();
-        rejectedDict[key].add(answer);
-    }
+    return sharedRecordRejection(rejectedDict, question, answer);
 }
 function findAnswer(question) {
-    const probes = questionKeyVariants(question);
-    const unionRejected = new Set();
-    for (const p of probes) {
-        const s = rejectedDict[String(p).trim()];
-        if (s) for (const v of s) unionRejected.add(v);
-    }
-    let hadCandidates = false;
-    const visited = new Set();
-    for (const probe of probes) {
-        const key = String(probe).trim();
-        if (!key || visited.has(key)) continue;
-        visited.add(key);
-        const cands = candidatesDict[key];
-        if (!cands || !cands.length) continue;
-        hadCandidates = true;
-        for (const c of cands) if (!unionRejected.has(c)) return c;
-    }
-    return hadCandidates ? null : `RANDOM-${question}`;
+    const { candidate, hadCandidates } = sharedFindCandidate(candidatesDict, rejectedDict, question);
+    if (candidate !== null) return candidate;
+    if (hadCandidates) return null;
+    return `RANDOM-${question}`;
 }
+
+// Shared builder sanity: production candidate order for the fixture.
+const built = sharedAnswerCandidates('八, bā');
+assert.ok(built.includes('八, bā'), 'shared builder keeps full answer');
+assert.ok(built.includes('八'), 'shared builder keeps piece');
+assert.ok(sharedMergeCandidates(['a'], ['b']).includes('a'), 'shared merge keeps existing');
+assert.equal(sharedHasCandidates(candidatesDict, 'eight, 8'), false, 'unknown has no candidates');
 
 // Simulate the issue: unknown "eight, 8", modal grades "eight; 8" -> "八, bā".
 assert.ok(findAnswer('eight, 8').startsWith('RANDOM'), 'unknown probe before learning');
 recordRejection('eight; 8', 'YCVYg6MIo');
 const learned = learnEntry('eight; 8', '八, bā');
 assert.equal(learned, true, 'modal correction adds new candidates');
+assert.equal(sharedHasCandidates(candidatesDict, 'eight, 8'), true, 'post-learn comma rendering is known via shared variants');
 const next = findAnswer('eight, 8');
 assert.ok(['八, bā', '八', 'bā'].includes(next), `post-learning lookup for "eight, 8" returns learned candidate, got ${next}`);
 assert.equal(findAnswer('eight; 8'), next, 'semicolon rendering returns the same top candidate');
@@ -110,27 +78,64 @@ learnEntry('eight; 8', '八, bā');
 recordRejection('eight, 8', '八, bā');
 assert.equal(findAnswer('eight; 8'), '八', 'rejected full answer under comma variant is skipped via semicolon lookup (union)');
 
-// 4. Stop paths emit a reason line (issue #234 debuggability).
-// Every answerQuestions break must log "Answer loop stopping:" and the exit
-// line must keep the historic "answerLoop Exited." substring.
-const indexSrc = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
-assert.ok(indexSrc.includes("Answer loop stopping: futility guard tripped"), 'futileStop exit logs a reason');
-assert.ok(indexSrc.includes("Answer loop stopping: pre-submit guard refused"), 'enterClassic refusal logs a reason');
-assert.ok(indexSrc.includes("Answer loop stopping: Enter-retry timeout"), 'Enter-retry timeout logs a reason');
-assert.ok(indexSrc.includes("Answer loop stopping: question text never held still"), 'unstable exit logs a reason');
-assert.ok(indexSrc.includes("Answer loop stopping: answer box never reappeared"), 'boxVanished exit logs a reason');
-assert.ok(indexSrc.includes("Answer loop stopping: answer box keeps changing"), 'boxTampered exit logs a reason');
-assert.ok(indexSrc.includes("Answer loop stopping: advance wait aborted"), 'aborted wait logs a reason');
-assert.ok(indexSrc.includes("answerLoop Exited."), 'exit line keeps historic substring');
+// All-rejected stays distinct from unknown: candidates exist but all blocked.
+candidatesDict = Object.create(null);
+rejectedDict = Object.create(null);
+learnEntry('eight; 8', 'solo');
+recordRejection('eight, 8', 'solo');
+assert.equal(findAnswer('eight, 8'), null, 'all-rejected returns null (caller escalates), not a random probe');
 
-// 5. Unknown-probe advance heuristic: random submissions must not treat a
-// cleared box as advancement (the false-accept that caused the double
-// "No answer found" before any learning).
-assert.ok(indexSrc.includes("isRandomProbe"), 'waitForAdvance takes a random-probe flag');
-assert.ok(indexSrc.includes("CLEAR_GRACE_MS"), 'cleared-box grace is implemented');
+// 4. Stop paths emit a reason line (issue #234 debuggability).
+// Every answerQuestions break must log "Answer loop stopping:" — checked
+// structurally (each break preceded by the log), not by matching a fixed
+// list of strings, so a future break without a reason fails the test.
+const indexSrc = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
+assert.ok(indexSrc.includes('answerLoop Exited.'), 'exit line keeps historic substring');
+const answerQuestionsStart = indexSrc.indexOf('async function answerQuestions()');
+assert.ok(answerQuestionsStart !== -1, 'answerQuestions found');
+const answerQuestionsEnd = indexSrc.indexOf('function startLoop()', answerQuestionsStart);
+assert.ok(answerQuestionsEnd !== -1, 'answerQuestions end found');
+const loopSrc = indexSrc.slice(answerQuestionsStart, answerQuestionsEnd);
+const loopLines = loopSrc.split('\n');
+let breakCount = 0;
+for (let i = 0; i < loopLines.length; i++) {
+    if (loopLines[i].trim() !== 'break;') continue;
+    // Inner stabilization-loop success breaks out of its `for`, not the run.
+    if (i > 0 && loopLines[i - 1].trim() === 'unstable = false;') continue;
+    breakCount += 1;
+    const window = loopLines.slice(Math.max(0, i - 8), i + 1).join('\n');
+    assert.ok(
+        window.includes('Answer loop stopping:'),
+        `break at answerQuestions line ${i + 1} must be preceded by an "Answer loop stopping:" reason`,
+    );
+}
+assert.ok(breakCount >= 10, `expected many guarded breaks, found ${breakCount}`);
+
+// 5. Unknown-probe advance heuristic: unknown random probes (no candidates)
+// and all-rejected randoms must both pass true to every classic advance wait,
+// so a submit-clear never false-accepts before the correction modal.
+assert.ok(indexSrc.includes('isRandomProbe'), 'waitForAdvance takes a random-probe flag');
+assert.ok(indexSrc.includes('CLEAR_GRACE_MS'), 'cleared-box grace is implemented');
+assert.ok(indexSrc.includes('unknownProbe'), 'unknown probes tracked separately from randomRound');
 assert.ok(
-    indexSrc.includes("await waitForAdvance(question, ENTER ? ADVANCE_TIMEOUT : 0, answer, randomRound)"),
-    'main wait passes randomRound'
+    indexSrc.includes('const isRandomProbe = randomRound || unknownProbe'),
+    'advance flag unions both random kinds',
+);
+assert.ok(
+    indexSrc.includes('lastSubmitted = { question, answer, isRandomProbe }'),
+    'stall guard remembers the probe flag',
+);
+const classicWaits = [...indexSrc.matchAll(/await waitForAdvance\(question,[^;]*?\)/g)].map(m => m[0]);
+assert.ok(classicWaits.length >= 4, `expected classic advance waits, found ${classicWaits.length}`);
+for (const call of classicWaits) {
+    assert.ok(
+        call.includes('isRandomProbe') || call.includes('stalledProbe'),
+        `classic advance wait must pass the probe flag, got: ${call}`,
+    );
+}
+assert.ok(
+    !classicWaits.some(call => /,\s*randomRound\s*\)$/.test(call)),
+    'no classic advance wait passes randomRound alone (issue #258: unknown probes would miss)',
 );
 
 console.log('Classic round-skew (#234): symmetric ,/; keys learn-and-continue, futility bounds intact, and every stop path logs a reason.');

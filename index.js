@@ -27,6 +27,14 @@ const { collectSelfMarkDiagnostics } = require('./lib/self-mark-diagnostics');
 const { guardClassicEnter } = require('./lib/classic-enter');
 const { boxMatchesAnswer } = require('./lib/answer-normalize');
 const { cleanString: cleanQuestionString, questionKeyVariants } = require('./lib/question-keys');
+const {
+    answerCandidates: buildAnswerCandidates,
+    mergeCandidates: mergeCandidateLists,
+    hasCandidates: dictHasCandidates,
+    findCandidate: findDictCandidate,
+    learnEntryIn: learnDictEntry,
+    recordRejectionIn: recordDictRejection,
+} = require('./lib/classic-dict');
 const {captureSelectionBaseline,inspectSelectionModal,advanceSelectionSection}=require('./lib/selection-modal');
 const { DASH_TIMER_CSS, DASH_SCORE_CSS, DASH_RESULTS_CSS, DASH_PACING_NOTE, DASH_ACCURACY_NOTE, DASH_EMPTY_WORDLIST_NOTE, detectDashInPage } = require('./lib/dash');
 
@@ -937,71 +945,25 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
             /**
  * Builds an ordered list of candidate answers from a raw answer string.
- * Handles EP's different join formats (; , |) and produces candidates in priority order:
- * joined groups, whole groups, full display string, then bare pieces.
+ * Single source lives in lib/classic-dict (issue #234 review): production
+ * and regression tests share the same builder.
  * @param {string} rawAnswer
  * @returns {string[]}
  */
             function answerCandidates(rawAnswer) {
-                const text = String(rawAnswer)
-                    .replace(/\([^)]*\)/g, " ")
-                    .replace(/\s+/g, " ")
-                    .trim();
-                if (text === '') return [];
-
-                const candidates = [];
-                const seen = new Set();
-                const push = value => {
-                    const trimmed = value.trim();
-                    if (trimmed !== '' && !seen.has(trimmed)) {
-                        seen.add(trimmed);
-                        candidates.push(trimmed);
-                    }
-                };
-
-                // ";" and "|" both separate whole alternative answers; "," inside a
-                // group is part of that answer's text
-                const groups = text.split(/[;|]/).map(group => group.trim()).filter(group => group !== '');
-                if (groups.length > 1 && groups.every(group => !/[;,]/.test(group))) {
-                    push(groups.join(", "));  // EP joins alternative phrases with ", "
-                }
-                // whole alternative answers first (all of them, then all pieces — the
-                // pieces of group one must not be tried before group two's whole answer,
-                // which strict grading is far likelier to accept)
-                for (const group of groups) push(group);
-                // the whole display string as written: the modal's "|" may separate
-                // alternatives (per-group grading) or just join the one required
-                // answer's parts; keeping this AFTER the group-fulls costs nothing when
-                // per-group grading is right, and is the only candidate that can ever
-                // match a whole-display grader
-                if (groups.length > 1) push(text);
-                // bare pieces last: each costs a wrong round under strict grading
-                for (const group of groups) {
-                    for (const piece of group.split(",")) push(piece);
-                }
-                return candidates;
+                return buildAnswerCandidates(rawAnswer);
             }
 
             /**
  * Merges two candidate arrays, preserving order and deduplicating.
+ * Single source lives in lib/classic-dict.
  * @param {string[]} existing
  * @param {string[]} incoming
  * @param {boolean} incomingFirst - If true, incoming candidates take priority
  * @returns {string[]}
  */
             function mergeCandidates(existing, incoming, incomingFirst = true) {
-                const merged = [];
-                const seen = new Set();
-                const ordered = incomingFirst
-                    ? [...(incoming || []), ...(existing || [])]
-                    : [...(existing || []), ...(incoming || [])];
-                for (const candidate of ordered) {
-                    if (typeof candidate === 'string' && candidate.trim() !== '' && !seen.has(candidate)) {
-                        seen.add(candidate);
-                        merged.push(candidate);
-                    }
-                }
-                return merged;
+                return mergeCandidateLists(existing, incoming, incomingFirst);
             }
 
             /**
@@ -1023,17 +985,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
  * @returns {boolean}
  */
             function learnEntry(question, rawAnswer, incomingFirst = true) {
-                const incoming = answerCandidates(rawAnswer);
-                if (incoming.length === 0) return false;
-                let changed = false;
-                for (const key of questionVariants(question)) {
-                    if (key === '') continue;
-                    const before = candidatesDict[key] || [];
-                    const after = mergeCandidates(before, incoming, incomingFirst);
-                    if (after.length > before.length) changed = true;
-                    candidatesDict[key] = after;
-                }
-                return changed;
+                return learnDictEntry(candidatesDict, question, rawAnswer, incomingFirst);
             }
 
             /**
@@ -1054,16 +1006,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
  * @param {string} answer
  */
             function recordRejection(question, answer) {
-                if (typeof answer !== 'string' || answer.trim() === '') return;
-                for (const key of questionVariants(question)) {
-                    if (key === '') continue;
-                    let rejected = rejectedDict[key];
-                    if (!rejected) {
-                        rejected = new Set();
-                        rejectedDict[key] = rejected;
-                    }
-                    rejected.add(answer);
-                }
+                recordDictRejection(rejectedDict, question, answer);
             }
 
             /**
@@ -1353,41 +1296,33 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
             /**
  * Finds the best candidate answer for a question.
- * Checks all key variants, returns the first non-rejected candidate.
+ * Shared lookup lives in lib/classic-dict (issue #234 review); this wrapper
+ * adds the unknown-probe logging/side effects.
  * Returns null if candidates exist but all were rejected (caller escalates).
  * Returns a random string if the question is completely unknown.
  * @param {string} question
  * @returns {string|null}
  */
             function findAnswer(question) {
-                const probes = questionVariants(question);
-                // A rejection recorded under one punctuation rendering must block
-                // the same answer under the other: union all variants so a
-                // comma/semicolon skew cannot resubmit a proven-wrong answer.
-                const unionRejected = new Set();
-                for (const probe of probes) {
-                    const set = rejectedDict[String(probe).trim()];
-                    if (set) for (const value of set) unionRejected.add(value);
-                }
-                let hadCandidates = false;
-                const visited = new Set();
-                for (let probe of probes) {
-                    const key = String(probe).trim();
-                    if (key === '' || visited.has(key)) continue;
-                    visited.add(key);
-                    const candidates = candidatesDict[key];
-                    if (!candidates || candidates.length === 0) continue;
-                    hadCandidates = true;
-                    for (const candidate of candidates) {
-                        if (!unionRejected.has(candidate)) return candidate;
-                    }
-                }
+                const { candidate, hadCandidates } = findDictCandidate(candidatesDict, rejectedDict, question);
+                if (candidate !== null) return candidate;
                 if (hadCandidates) return null;
                 console.log(`No answer found for ${question}`);
                 // Dictionary size alone is not the signal: entries may belong to a
                 // different task, so the warning lives at the guess itself.
                 warnDashGuess();
                 return generateRandomString(8, 10);
+            }
+
+            /**
+ * True when the dictionary holds any candidate for the question's variants.
+ * Single source lives in lib/classic-dict; used to tag unknown probes
+ * (findAnswer random strings) separately from all-rejected escalations.
+ * @param {string} question
+ * @returns {boolean}
+ */
+            function hasKnownCandidates(question) {
+                return dictHasCandidates(candidatesDict, question);
             }
 
             /**
@@ -2287,7 +2222,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                             if (modalSeen) {
                                 // the completion flow is a modal window: let the modal path
                                 // resolve it (it clicks exit/continue and reports completion)
-                                if (!await handleModalAndContinue(lastSubmitted?.question ?? '', lastSubmitted?.answer ?? '')) {
+                                if (!await handleModalAndContinue(lastSubmitted?.question ?? '', lastSubmitted?.answer ?? '', lastSubmitted?.isRandomProbe ?? false)) {
                                     console.log('Answer loop stopping: completion modal resolved the task.');
                                     break;
                                 }
@@ -2384,6 +2319,18 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     // the correction modal is also unreadable: the meter counts submission
                     // ROUNDS, and counting both stages would trip the bound at half of it.
                     let randomRound = false;
+                    // Unknown probe: findAnswer returns a random string when no
+                    // candidates exist for any variant (answer !== null). It must
+                    // be tracked separately from the all-rejected escalation
+                    // (answer === null): both are random submissions for the
+                    // advance-wait heuristic, but only the all-rejected one was
+                    // already counted toward futility at submission time.
+                    // (issue #258 review: randomRound alone left unknown probes
+                    // passing false to waitForAdvance.)
+                    let unknownProbe = false;
+                    if (answer !== null && !hasKnownCandidates(question)) {
+                        unknownProbe = true;
+                    }
                     if (answer === null) {
                         warnDashGuess();
                         // Every candidate this session knows for the question was already
@@ -2405,6 +2352,12 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         console.log(`Every known answer for "${question}" was rejected; submitting a random string to make EP reveal its answer (round ${attempt}/4).`);
                         answer = generateRandomString(8, 10);
                     }
+                    // Both random kinds never advance via a cleared box: an
+                    // unknown probe's submit-clear precedes its correction modal
+                    // (issue #234), and an all-rejected retry behaves the same.
+                    // Futility counting keeps using randomRound alone (unknown
+                    // probes are counted in correctAnswer when unreadable).
+                    const isRandomProbe = randomRound || unknownProbe;
                     // No reset in the non-null branch: an unknown question falls through
                     // it with a fresh random string every pass, and resetting there would
                     // wipe the unreadable-modal count before it could ever reach the
@@ -2427,17 +2380,14 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     // the stat is recorded only after a confirmed submission.
                     let accuracyClassicPending = null;
                     let accuracyClassicCorrect = answer;
-                    if (accuracyRun && ENTER && !randomRound && !accuracyClassicSeen.has(question)) {
+                    if (accuracyRun && ENTER && !isRandomProbe && !accuracyClassicSeen.has(question)) {
                         try {
                             // Unknown probe: no candidates for any key variant, so
                             // findAnswer returned a random string. Never mistake those
                             // and never count them toward first-try accuracy.
-                            let known = false;
-                            for (const probe of questionVariants(question)) {
-                                const key = String(probe).trim();
-                                if (key !== '' && Array.isArray(candidatesDict[key]) && candidatesDict[key].length > 0) { known = true; break; }
-                            }
-                            if (!known) {
+                            // unknownProbe is computed from the shared dict helper
+                            // above (single source with findAnswer).
+                            if (unknownProbe) {
                                 // Unknown question: random probe, not an accuracy decision.
                             } else if (accuracyRun.shouldMistake()) {
                                 const { makeTypoFor } = require('./lib/accuracy');
@@ -2478,7 +2428,8 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         // the previous round for this question produced no visible progress. Rather
                         // than resubmitting it, wait for the page to catch up (or stop).
                         console.log(`Question "${question}" has not advanced since the last submission; waiting before retrying.`);
-                        const stalled = await waitForAdvance(question, 0, lastSubmitted.answer);
+                        const stalledProbe = lastSubmitted.isRandomProbe ?? isRandomProbe;
+                        const stalled = await waitForAdvance(question, 0, lastSubmitted.answer, stalledProbe);
                         if (stalled === 'aborted') {
                             console.log('Answer loop stopping: stalled-question wait aborted (stopped or context changed).');
                             break;
@@ -2584,7 +2535,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         console.log(`Answer loop stopping: pre-submit guard refused submission for "${question}" (question changed, box mismatch, or stopped).`);
                         break;
                     }
-                    lastSubmitted = { question, answer };
+                    lastSubmitted = { question, answer, isRandomProbe };
                     // Record the first-try result only after a confirmed submission so
                     // changed questions, vanished boxes, or refused selections never
                     // inflate the displayed stats. Mark the question seen so a modal-driven
@@ -2602,8 +2553,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     // answer, or task complete) ends the wait immediately; a cleared box
                     // counts only after it persists (issue #234 grace) so a random probe's
                     // submit-clear cannot false-accept before its correction modal renders.
-                    // Random probes never advance via a cleared box at all.
-                    const outcome = await waitForAdvance(question, ENTER ? ADVANCE_TIMEOUT : 0, answer, randomRound);
+                    // Random probes (unknown or all-rejected) never advance via a
+                    // cleared box at all.
+                    const outcome = await waitForAdvance(question, ENTER ? ADVANCE_TIMEOUT : 0, answer, isRandomProbe);
 
                     if (outcome === 'aborted') {
                         console.log('Answer loop stopping: advance wait aborted (stopped or context changed).');
@@ -2635,7 +2587,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                             // restarting the loop never double-submits. (This wait is unbounded, so it
                             // cannot actually time out; the branch is kept for safety.)
                             console.log(`Waiting for the answer to "${question}" to be submitted.`);
-                            const resolved = await waitForAdvance(question, 0, answer, randomRound);
+                            const resolved = await waitForAdvance(question, 0, answer, isRandomProbe);
                             if (resolved === 'aborted') {
                                 console.log('Answer loop stopping: semi-auto resolve wait aborted.');
                                 break;
@@ -2683,7 +2635,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                             console.log(`Answer loop stopping: pre-submit guard refused retry for "${question}".`);
                             break;
                         }
-                        const retry = await waitForAdvance(question, ADVANCE_TIMEOUT, accuracyClassicCorrect, randomRound);
+                        const retry = await waitForAdvance(question, ADVANCE_TIMEOUT, accuracyClassicCorrect, isRandomProbe);
                         if (retry === 'timeout') {
                             console.error(`Question "${question}" did not advance after submitting "${accuracyClassicCorrect}". Stopping.`);
                             await alert(`Answer loop stopped: "${question}" did not advance.`);
