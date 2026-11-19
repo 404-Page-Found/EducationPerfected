@@ -2221,8 +2221,12 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         if (descriptor === null) {
                             if (modalSeen) {
                                 // the completion flow is a modal window: let the modal path
-                                // resolve it (it clicks exit/continue and reports completion)
-                                if (!await handleModalAndContinue(lastSubmitted?.question ?? '', lastSubmitted?.answer ?? '', lastSubmitted?.isRandomProbe ?? false)) {
+                                // resolve it (it clicks exit/continue and reports completion).
+                                // Futility counting uses randomRound alone: unknown probes
+                                // were not pre-counted at submission, so they must still
+                                // count in correctAnswer when unreadable (isRandomProbe
+                                // would skip the increment and spin forever).
+                                if (!await handleModalAndContinue(lastSubmitted?.question ?? '', lastSubmitted?.answer ?? '', lastSubmitted?.randomRound ?? false)) {
                                     console.log('Answer loop stopping: completion modal resolved the task.');
                                     break;
                                 }
@@ -2435,7 +2439,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                             break;
                         }
                         if (stalled === 'modal') {
-                            if (!await handleModalAndContinue(question, answer, randomRound)) {
+                            // Futility uses the submission's pre-counted state (as in
+                            // the main modal path), not the advance-wait probe flag.
+                            if (!await handleModalAndContinue(question, answer, lastSubmitted?.randomRound ?? randomRound)) {
                                 console.log('Answer loop stopping: completion modal resolved the task (stalled wait).');
                                 break;
                             }
@@ -2535,7 +2541,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         console.log(`Answer loop stopping: pre-submit guard refused submission for "${question}" (question changed, box mismatch, or stopped).`);
                         break;
                     }
-                    lastSubmitted = { question, answer, isRandomProbe };
+                    lastSubmitted = { question, answer, isRandomProbe, randomRound };
                     // Record the first-try result only after a confirmed submission so
                     // changed questions, vanished boxes, or refused selections never
                     // inflate the displayed stats. Mark the question seen so a modal-driven

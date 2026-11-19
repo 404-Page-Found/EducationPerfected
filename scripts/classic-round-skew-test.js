@@ -122,8 +122,8 @@ assert.ok(
     'advance flag unions both random kinds',
 );
 assert.ok(
-    indexSrc.includes('lastSubmitted = { question, answer, isRandomProbe }'),
-    'stall guard remembers the probe flag',
+    indexSrc.includes('lastSubmitted = { question, answer, isRandomProbe, randomRound }'),
+    'stall guard remembers both the probe flag (advance wait) and randomRound (futility)',
 );
 const classicWaits = [...indexSrc.matchAll(/await waitForAdvance\(question,[^;]*?\)/g)].map(m => m[0]);
 assert.ok(classicWaits.length >= 4, `expected classic advance waits, found ${classicWaits.length}`);
@@ -137,5 +137,24 @@ assert.ok(
     !classicWaits.some(call => /,\s*randomRound\s*\)$/.test(call)),
     'no classic advance wait passes randomRound alone (issue #258: unknown probes would miss)',
 );
+// 6. Futility counting uses randomRound alone: the descriptor-gone fallback
+// and stalled-wait modal paths must forward the submission's randomRound,
+// not isRandomProbe (unknown probes were not pre-counted; passing
+// isRandomProbe would skip the unreadable-modal increment and spin forever).
+assert.ok(
+    indexSrc.includes('lastSubmitted?.randomRound ?? false'),
+    'descriptor-gone modal fallback forwards randomRound (issue #258)',
+);
+assert.ok(
+    indexSrc.includes('lastSubmitted?.randomRound ?? randomRound'),
+    'stalled modal path forwards the submission randomRound',
+);
+const modalForwards = [...indexSrc.matchAll(/await handleModalAndContinue\([^;]*?\)/g)].map(m => m[0]);
+for (const call of modalForwards) {
+    assert.ok(
+        !call.includes('isRandomProbe'),
+        `modal forward must pass randomRound, not isRandomProbe, got: ${call}`,
+    );
+}
 
 console.log('Classic round-skew (#234): symmetric ,/; keys learn-and-continue, futility bounds intact, and every stop path logs a reason.');
