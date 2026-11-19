@@ -554,6 +554,10 @@ const audioRejectPage = (selectedActivity, sectionDataSnippet) => PAGE(`
         box.focus();
     </script>`);
 
+// Returns the allowlist entry itself (a constant), never the request value, so
+// query input cannot flow into the HTML served below.
+const pickAllowed = (raw, allowed, fallback = '') => allowed.find((v) => v === raw) ?? fallback;
+
 function createServer() {
     return http.createServer((req, res) => {
         const url = new URL(req.url, 'http://127.0.0.1');
@@ -579,14 +583,13 @@ function createServer() {
         if (url.pathname === '/lesson') return send(lessonPage(false));
         if (url.pathname === '/lesson-dropdown') {
             const count = Number.parseInt(url.searchParams.get('count') || '5', 10) || 5;
-            const variant = ['variables','annotated-text','sound'].includes(url.searchParams.get('variant')) ? url.searchParams.get('variant') : '';
+            const variant = pickAllowed(url.searchParams.get('variant'), ['variables', 'annotated-text', 'sound']);
             return send(lessonPage(false).replace('</body></html>', `<script>(${installDropdownFixture.toString()})(${count},${JSON.stringify(variant)});</script></body></html>`));
         }
         if (url.pathname === '/lesson-textbox') return send(lessonPage(false).replace('</body></html>', `<script>(${installInputBoxFixture.toString()})(${JSON.stringify(inputBoxFixtures.textbox)});</script></body></html>`));
         if (url.pathname === '/lesson-number-box') return send(lessonPage(false).replace('</body></html>', `<script>(${installInputBoxFixture.toString()})(${JSON.stringify(inputBoxFixtures.numberbox)});</script></body></html>`));
         if (url.pathname === '/lesson-dropdown-number-box') {
-            const raw = url.searchParams.get('variant') || '';
-            const variant = ['unmarked', 'textbox', 'textbox-unmarked', 'boxes-textbox', 'boxes-textbox-unmarked', 'boxes-textbox-delayed'].includes(raw) ? raw : '';
+            const variant = pickAllowed(url.searchParams.get('variant'), ['unmarked', 'textbox', 'textbox-unmarked', 'boxes-textbox', 'boxes-textbox-unmarked', 'boxes-textbox-delayed']);
             // 'textbox' adds one lesson text box as a third answer surface
             // (the three-surface composition of Page's live refusal:
             // dropdowns, number boxes and a text box sharing one slide; this
@@ -613,8 +616,7 @@ function createServer() {
             return send(lessonPage(false).replace('</body></html>', `<script>(${installReflectionFixture.toString()})(${JSON.stringify(variant)});</script></body></html>`));
         }
         if (url.pathname === '/lesson-working-formula') {
-            const raw = url.searchParams.get('variant') || '';
-            const variant = ['unmarked', 'delayed', 'prefilled', 'twosets', 'hints', 'freeform', 'misbound'].includes(raw) ? raw : '';
+            const variant = pickAllowed(url.searchParams.get('variant'), ['unmarked', 'delayed', 'prefilled', 'twosets', 'hints', 'freeform', 'misbound']);
             return send(lessonPage(false).replace('</body></html>', `<script>(${installWorkingFormulaFixture.toString()})(${JSON.stringify(variant)});</script></body></html>`));
         }
         if (url.pathname === '/lesson-textbox-variables') return send(lessonPage(false).replace('</body></html>', `<script>(${installInputBoxFixture.toString()})(${JSON.stringify(inputBoxFixtures['textbox-variables'])});</script></body></html>`));
