@@ -448,6 +448,10 @@ This license does not grant permission to use Education Perfect's services or
 access them automatically. Service use may be subject to
 [Education Perfect's terms of service](https://www.educationperfect.com/).
 
+Please read the [detailed disclaimer](docs/disclaimer.md) before use: automating
+schoolwork can breach school or service rules, and may be detected, marked
+wrong, or acted on. The software is provided as-is, at your own risk.
+
 
 ## CLI credential setup (source build)
 
