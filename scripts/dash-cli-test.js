@@ -6,6 +6,10 @@
 //   mistyping through the sprint;
 // - after Refresh Words on the starter page, the same timed run completes
 //   through the classic loop with no warning.
+// The /dash-task/quiz page models the shape the 2026-11-19 live run actually
+// showed (multi-choice component on EP's QuizModel: classic gameMode, isDash
+// true): a run must refuse by name and the read-only inspect-dash command must
+// capture the round's structure without answering.
 // Synthetic only; never touches the live site.
 const { createServer } = require('./mock-ep');
 const { cleanupTestProcess } = require('./test-process-cleanup');
@@ -42,7 +46,37 @@ const { bootCli, fixtureLogin } = require('./cli-test-harness');
             throw new Error('timed warning printed despite a refreshed word list');
         }
         await command('status', '"state":"completed"');
-        console.log('Dash: unknown-question timed run warns; refreshed timed run completes without the warning PASS. Synthetic only.');
+
+        // The shape the 2026-11-19 live Dash run actually showed (multi-choice
+        // on EP's QuizModel, isDash true): the run must stop and name Dash
+        // instead of complaining about Smart Lesson practice mode.
+        await page.goto(origin + '/dash-task/quiz');
+        let quizOffset = output().length;
+        await command('start', '"state":"running"');
+        await wait(() => output().slice(quizOffset).includes('answerLoop Exited.'));
+        const quizOut = output().slice(quizOffset);
+        if (!quizOut.includes('Dash timed sprint round detected')) {
+            throw new Error('Dash quiz round did not refuse by name');
+        }
+        if (!quizOut.includes('inspect-dash')) {
+            throw new Error('Dash refusal did not point at the inspect-dash capture');
+        }
+        await command('status', '"state":"stopped"');
+
+        // The read-only capture reports the round's structure through the CLI
+        // and stays sanitised (no fixture-private marker strings).
+        quizOffset = output().length;
+        await command('inspect-dash', 'EP_DASH_INSPECT ');
+        const inspectLine = output().slice(quizOffset).split('\n')
+            .find(line => line.startsWith('EP_DASH_INSPECT '));
+        if (!inspectLine) throw new Error('inspect-dash produced no EP_DASH_INSPECT line');
+        const capture = JSON.parse(inspectLine.slice('EP_DASH_INSPECT '.length).trim());
+        if (capture.guard !== 'captured' || capture.gameMode !== 1 || capture.isDash !== true) {
+            throw new Error('unexpected dash capture: ' + inspectLine);
+        }
+        if (inspectLine.includes('private-')) throw new Error('dash capture leaked fixture content');
+
+        console.log('Dash: unknown-question timed run warns; refreshed timed run completes without the warning; quiz-shaped round refuses by name and inspect-dash captures it PASS. Synthetic only.');
     } finally {
         if (browser) await browser.close().catch(() => {});
         try { cleanupTestProcess(child); } catch { /* already gone */ }

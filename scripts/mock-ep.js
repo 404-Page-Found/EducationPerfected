@@ -171,23 +171,15 @@ const taskPage = (start) => {
 };
 
 
-// ---------------------------------------------------------------------------
-// Dash fixture (issues #230/#237, 2026-11-19 reconstruction, NOT a live capture):
-// no Dash starter/round/timer/completion DOM has been recorded from an
-// account. This reconstruction reuses the audited classic selectors
-// (#question-text, input#answer-text, div.baseLanguage/div.targetLanguage,
-// the wrong-answer modal, button.exit-button) so the classic loop answers
-// it like a translation task, and adds the smallest plausible timed-sprint
-// chrome: a visible countdown (.dash-timer, also #dash-timer), a score readout
-// (.dash-score, also #dash-score) and a results interstitial (.dash-results)
-// that keeps the same exit control. If a live capture disagrees, update these
-// selectors and re-audit.
-// The countdown ticks for realism but never auto-ends the fixture; the run
-// ends by answering every round, like the classic fixture. Unified from the
-// #230 (#dash-timer/#dash-score, +10) and #237 (.dash-timer/.dash-score/
-// .dash-results, +1) fixtures: single definition with both id and class so
-// either selector resolves, score +1 per correct answer, results interstitial
-// retained.
+// Issue #230 Dash (timed sprint) fixture. SYNTHETIC, and now known NOT to be
+// the real shape: a live Dash run on 2026-11-19 stopped at the Smart Lesson
+// mode guard because the real round renders a multi-choice component on EP's
+// QuizModel (classic gameMode, isDash === true), not classic word-to-word
+// markup. This classic-shaped page is retained only to exercise the
+// timed-run guess warning (#dash-timer remains fixture-invented); the
+// bundle-shaped model of the observed round is /dash-task/quiz below. The
+// timer counts down visually but never interrupts the round (real Dash
+// expiry behavior is one of the open live-capture questions in #230).
 const dashStarterPage = PAGE(`
     <main>
         ${WORDS.map(([base]) => `<div class="baseLanguage"><span>${base}</span></div>`).join('')}
@@ -280,6 +272,58 @@ const dashTaskPage = (start) => {
         box.focus();
     </script>`);
 };
+
+// Issue #230 Dash round, modelled from EP's public chunk 171 (QuizModel:
+// gameMode CLASSIC, isDash true; see research/dash-source-map.md) and the
+// 2026-11-19 live run, which proved the round renders a visible multi-choice
+// component (the CLI stopped at the choice reader's mode guard). STILL
+// SYNTHETIC: the round's real question state (options, Correct flags, timer,
+// scoring, completion) has never been captured live; that is what the
+// read-only inspect-dash command collects on Page's next Dash run.
+const dashQuizPage = PAGE(`
+    <main>
+        <div id="dash-timer" data-seconds="60">01:00</div>
+        <div class="quiz-score">0</div>
+        <div class="multi-choice-component v-group single-select" role="radiogroup">
+            <div class="mcq-preview-option" role="option"><div class="mcq-contents"><span>private-option-1</span></div></div>
+            <div class="mcq-preview-option" role="option"><div class="mcq-contents"><span>private-option-2</span></div></div>
+            <div class="mcq-preview-option" role="option"><div class="mcq-contents"><span>private-option-3</span></div></div>
+            <div class="mcq-preview-option" role="option"><div class="mcq-contents"><span>private-option-4</span></div></div>
+        </div>
+        <button class="submit-button nice-button positive-green">Submit</button>
+        <button class="exit-button" hidden onclick="location.href='/learning/dashboard'">Exit</button>
+    </main>
+    <script>
+        const dashSelf = { model: {
+            gameMode: 1,
+            isDash: true,
+            contentSource: { selectedActivity: { _taskID: null, _activityType: 1, _contentType: 1 } },
+            _currentQuestion: {
+                contentID: 99001,
+                questionIndex: 0,
+                questionType: 0,
+                questionDef: {
+                    Components: [{
+                        ComponentTypeCode: 'MULTICHOICE_COMPONENT',
+                        AllowMultiSelect: false,
+                        Marked: 1,
+                        PrivateKey: 'private-component-value',
+                        Options: [
+                            { Correct: 'false', Hint: 'private-hint-1' },
+                            { Correct: 'true', Hint: 'private-hint-2' },
+                            { Correct: 'false', Hint: 'private-hint-3' },
+                            { Correct: 'false', Hint: 'private-hint-4' },
+                        ],
+                    }],
+                },
+            },
+        } };
+        window.angular = { element: () => ({ scope: () => ({ self: dashSelf }) }) };
+        // A throwing accessor on an unlisted field proves the capture reads
+        // only own data properties of the fields it names.
+        Object.defineProperty(dashSelf.model._currentQuestion, 'Answers',
+            { get() { throw new Error('accessor-must-not-run'); } });
+    </script>`);
 
 // ---------------------------------------------------------------------------
 // Fixtures BUILT FROM the 2026-10-30 live-audit notes (no account data, no
@@ -539,6 +583,7 @@ function createServer() {
             const start = Number.parseInt(url.searchParams.get('start') || '0', 10);
             return send(dashTaskPage(start));
         }
+        if (url.pathname === '/dash-task/quiz') return send(dashQuizPage);
         if (url.pathname === '/lesson') return send(lessonPage(false));
         if (url.pathname === '/lesson-dropdown') {
             const count = Number.parseInt(url.searchParams.get('count') || '5', 10) || 5;
