@@ -167,6 +167,111 @@ const taskPage = (start) => {
 
 
 // ---------------------------------------------------------------------------
+// Dash fixture (issue #237, 2026-11-19 reconstruction, NOT a live capture):
+// no Dash starter/round/timer/completion DOM has been recorded from an
+// account. This reconstruction reuses the audited classic selectors
+// (#question-text, input#answer-text, div.baseLanguage/div.targetLanguage,
+// the wrong-answer modal, button.exit-button) so the classic loop answers
+// it like a translation task, and adds the smallest plausible timed-sprint
+// chrome: a visible countdown (.dash-timer), a score readout (.dash-score)
+// and a results interstitial (.dash-results) that keeps the same exit
+// control. If a live capture disagrees, update these selectors and re-audit.
+// The countdown ticks for realism but never auto-ends the fixture; the run
+// ends by answering every round, like the classic fixture.
+const dashStarterPage = PAGE(`
+    <main>
+        ${WORDS.map(([base]) => `<div class="baseLanguage"><span>${base}</span></div>`).join('')}
+        ${WORDS.map(([, target]) => `<div class="targetLanguage"><span>${target}</span></div>`).join('')}
+        <div class="dash-info">Timed word-to-word sprint</div>
+        <button id="start-button-main" onclick="location.href='/dash-task/play'">Start</button>
+    </main>`);
+
+const dashTaskPage = (start) => {
+    const clamped = Number.isInteger(start) && start >= 0 && start < WORDS.length ? start : 0;
+    const round = WORDS.slice(clamped).map(([base, target]) => ({ question: base, answer: target }));
+    return PAGE(`
+    <main>
+        <div class="dash-timer">60</div>
+        <div class="dash-score">0</div>
+        <div class="dash-results" hidden>Dash complete: ${round.length}/${round.length}</div>
+        <table><tr>
+            <td id="question-text">${round[0].question}</td>
+            <td><input id="answer-text" autocomplete="off"></td>
+        </tr></table>
+        <button class="exit-button" hidden onclick="location.href='/learning/dashboard'">Exit</button>
+    </main>
+    <script>
+        const rounds = ${JSON.stringify(WORDS.slice(clamped).map(([base, target]) => ({ question: base, answer: target })))};
+        const classicSelf = { model: { gameMode: 1, _currentQuestion: {} } };
+        window.angular = { element: () => ({ scope: () => ({ self: classicSelf }) }) };
+        let index = 0;
+        let score = 0;
+        let secondsLeft = 60;
+        const question = document.getElementById('question-text');
+        const box = document.getElementById('answer-text');
+        const exit = document.querySelector('.exit-button');
+        const timer = document.querySelector('.dash-timer');
+        const scoreEl = document.querySelector('.dash-score');
+        const results = document.querySelector('.dash-results');
+        const countdown = setInterval(() => {
+            secondsLeft = Math.max(0, secondsLeft - 1);
+            if (timer) timer.textContent = String(secondsLeft);
+            if (secondsLeft <= 0) clearInterval(countdown);
+        }, 1000);
+
+        function render() {
+            if (index >= rounds.length) {
+                clearInterval(countdown);
+                if (timer) timer.textContent = String(secondsLeft);
+                if (scoreEl) scoreEl.textContent = String(score);
+                question.remove();
+                box.parentElement.innerHTML = '';
+                if (results) results.hidden = false;
+                exit.hidden = false;
+                return;
+            }
+            question.textContent = rounds[index].question;
+            box.value = '';
+            box.focus();
+        }
+
+        function showWrong(input) {
+            const modal = document.createElement('div');
+            modal.setAttribute('uib-modal-window', 'modal-window');
+            modal.innerHTML = \`
+                <table class="modal-body">
+                    <tr><td id="question-field">\${rounds[index].question}</td></tr>
+                    <tr><td id="correct-answer-field">\${rounds[index].answer}</td></tr>
+                    <tr><td id="users-answer-field"><span>\${input}</span></td></tr>
+                </table>
+                <button id="continue-button" disabled onclick="advance()">Continue</button>\`;
+            document.body.appendChild(modal);
+        }
+
+        function advance() {
+            document.querySelectorAll('[uib-modal-window]').forEach(m => m.remove());
+            index += 1;
+            render();
+        }
+
+        box.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            const input = box.value;
+            if (input.trim() === rounds[index].answer) {
+                score += 1;
+                if (scoreEl) scoreEl.textContent = String(score);
+                index += 1;
+                render();
+            } else {
+                showWrong(input);
+            }
+        });
+        box.focus();
+    </script>`);
+};
+
+// ---------------------------------------------------------------------------
 // Fixtures BUILT FROM the 2026-10-30 live-audit notes (no account data, no
 // captured markup): they reproduce the audited selectors and scope-state shape
 // for Smart Lesson choice slides and audio tasks. EP is an AngularJS app whose
@@ -419,6 +524,11 @@ function createServer() {
             const start = Number.parseInt(url.searchParams.get('start') || '0', 10);
             return send(taskPage(start));
         }
+        if (url.pathname === '/dash-task') return send(dashStarterPage);
+        if (url.pathname === '/dash-task/play') {
+            const start = Number.parseInt(url.searchParams.get('start') || '0', 10);
+            return send(dashTaskPage(start));
+        }
         if (url.pathname === '/lesson') return send(lessonPage(false));
         if (url.pathname === '/lesson-dropdown') {
             const count = Number.parseInt(url.searchParams.get('count') || '5', 10) || 5;
@@ -501,7 +611,7 @@ function createServer() {
     });
 }
 
-module.exports = { createServer, WORDS, LESSON_ROUNDS, AUDIO_ROUNDS };
+module.exports = { createServer, WORDS, LESSON_ROUNDS, AUDIO_ROUNDS, dashStarterPage, dashTaskPage };
 
 if (require.main === module) {
     const server = createServer();
