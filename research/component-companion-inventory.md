@@ -8,6 +8,8 @@ Source: [EP public chunk 606](https://mfe-student-app.educationperfect.com/main/
 
 ## The factory's 14 question-component codes
 
+The switch covers 14 codes. `WORKING_FORMULA_COMPONENT` and `FORMULA_COMPONENT` are also question-component codes (factory `*_TYPECODE` statics) but are built outside this switch; they are classified after the table.
+
 | Code | Component class | isInput | Marking output | Companion verdict |
 |---|---|---|---|---|
 | MULTICHOICE_COMPONENT | MultiChoiceComponent | input | computed from selections | answer-bearing |
@@ -25,7 +27,7 @@ Source: [EP public chunk 606](https://mfe-student-app.educationperfect.com/main/
 | ANNOTATED_QUESTION_COMPONENT | AnnotatedQuestionComponent | input | componentState.marking | answer-bearing |
 | ANNOTATED_TEXT_COMPONENT | AnnotatedTextComponent | false | {marked NOT_MARKED, score 0, max 0, weight 0} | presentation-only, proven |
 
-WORKING_FORMULA_COMPONENT and FORMULA_COMPONENT exist as `*_TYPECODE` statics on the factory and build the same working-formula editor components (see [[working-formula]] handling in lib/working-formula-state.js).
+WORKING_FORMULA_COMPONENT and FORMULA_COMPONENT exist as `*_TYPECODE` statics on the factory and are used as question components, but `createComponentState` has no case for them; both build the same working-formula editor components (`WorkingFormulaComponent` / `FormulaComponent`: input, `checkAnswer` + working-step comparison, real marking output). Verdict: answer-bearing; the working-formula reader admits exactly these two codes.
 
 ## Admitted companions (implemented)
 
