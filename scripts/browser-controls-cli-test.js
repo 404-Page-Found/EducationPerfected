@@ -58,6 +58,31 @@ const { installControlMenu } = require('../lib/browser-controls');
             });
             await page.screenshot({ path: process.env.EP_PANEL_SCREENSHOT });
         }
+        const panelPos = () => page.evaluate(() => {
+            const rect = document.getElementById('educationperfected-controls').getBoundingClientRect();
+            return { left: rect.left, top: rect.top };
+        });
+        const beforeDrag = await panelPos();
+        await page.evaluate(() => {
+            const root = document.getElementById('educationperfected-controls').shadowRoot;
+            const summary = root.querySelector('summary');
+            const rect = summary.getBoundingClientRect();
+            const start = { x: rect.left + 30, y: rect.top + 10 };
+            const fire = (target, type, x, y) => target.dispatchEvent(new PointerEvent(type, { bubbles: true, composed: true, clientX: x, clientY: y, button: 0, pointerId: 1 }));
+            fire(summary, 'pointerdown', start.x, start.y);
+            fire(window, 'pointermove', start.x - 1, start.y - 1); // below the 4px threshold: not a drag yet
+            fire(window, 'pointermove', start.x - 150, start.y - 120);
+            fire(window, 'pointerup', start.x - 150, start.y - 120);
+            summary.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true })); // the click every drag ends with
+        });
+        const afterDrag = await panelPos();
+        assert.ok(Math.abs(afterDrag.left - (beforeDrag.left - 150)) < 2 && Math.abs(afterDrag.top - (beforeDrag.top - 120)) < 2, 'drag moves the panel with the pointer');
+        assert.equal(await page.evaluate(() => document.getElementById('educationperfected-controls').shadowRoot.querySelector('details').open), true, 'the click ending a drag does not toggle the panel');
+        await page.goto(origin + '/app'); await ready();
+        const restored = await panelPos();
+        assert.ok(Math.abs(restored.left - afterDrag.left) < 2 && Math.abs(restored.top - afterDrag.top) < 2, 'panel position persists across navigation');
+        console.log('Panel drag, click suppression and position persistence passed');
+        await page.goto(origin + '/lesson'); await ready();
         await press('start');
         console.log('Panel start completed');
         assert.equal((await page.evaluate(() => window.epControl('status'))).state, 'running');
