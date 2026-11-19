@@ -474,6 +474,15 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
         // only Dash-specific selectors. See lib/dash.js for the pacing/accuracy decision.
         question_css: '#question-text',
         answer_box_css: 'input#answer-text',
+        // Dash (timed sprint, issues #230/#237): believed to reuse every classic task
+        // selector above. Audited 2026-11-19 against the SYNTHETIC fixture in
+        // scripts/mock-ep.js (/dash-task) only - no live Dash capture exists yet,
+        // so this audit pins the assumption, not the live markup. The timer/score/
+        // results selectors below are fixture-invented (lib/dash.js): the timer is
+        // used to warn when a timed run starts with an empty word list and to note
+        // the sprint; it never drives answering. The fixture exposes both
+        // .dash-timer and #dash-timer (likewise score/results) so either selector
+        // resolves.
         dash_timer_css: DASH_TIMER_CSS,
         dash_score_css: DASH_SCORE_CSS,
         dash_results_css: DASH_RESULTS_CSS,
@@ -871,6 +880,17 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // keys ("constructor" is a real Spanish vocab item) must never resolve to
             // Object.prototype members and masquerade as arrays or Sets.
             let candidatesDict = Object.create(null);
+            let dashTimedThisRun = false;   // issue #230: current run shows a dash timer
+            let dashUnknownWarned = false;  // one-shot timed-guess warning per run
+            // Issue #230: on a timed (Dash) round every guessed answer costs clock
+            // a sprint cannot recover. Say so once, clearly, instead of silently
+            // guessing through the sprint - whether the question was never listed
+            // or every listed answer was already rejected.
+            function warnDashGuess() {
+                if (!dashTimedThisRun || dashUnknownWarned) return;
+                dashUnknownWarned = true;
+                console.warn('Timed task detected (dash timer) and the word list cannot answer this question: answers are learned from the wrong-answer modal and every guess burns the clock. Refresh Words on the task-starter page before starting a timed run.');
+            }
             // question -> Set of answers EP has graded wrong this session. Without this,
             // a rejected answer was "learned" from its own wrong-answer modal and then
             // resubmitted forever: "io prendo" / "I take" looped incorrect indefinitely
@@ -1346,6 +1366,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 }
                 if (hadCandidates) return null;
                 console.log(`No answer found for ${question}`);
+                // Dictionary size alone is not the signal: entries may belong to a
+                // different task, so the warning lives at the guess itself.
+                warnDashGuess();
                 return generateRandomString(8, 10);
             }
 
@@ -2096,6 +2119,13 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 startAccuracyRun();
                 console.log("answerLoop entered.");
 
+                // Issue #230: note whether this run shows a dash timer so the
+                // first unknown question can trigger the timed-guess warning.
+                dashUnknownWarned = false;
+                const dashTimer = await page.$(DIR.dash_timer_css).catch(() => null);
+                dashTimedThisRun = Boolean(dashTimer);
+                if (dashTimer) await dashTimer.dispose().catch(() => {});
+
                 try {
                     // If the previous run's modal cleanup is still in flight, wait for it
                     // before answering: the old deleteModals() must never remove a modal
@@ -2303,6 +2333,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     // ROUNDS, and counting both stages would trip the bound at half of it.
                     let randomRound = false;
                     if (answer === null) {
+                        warnDashGuess();
                         // Every candidate this session knows for the question was already
                         // graded wrong. Feed EP a random string so its wrong-answer modal
                         // reveals the canonical answer (which then joins the candidates),

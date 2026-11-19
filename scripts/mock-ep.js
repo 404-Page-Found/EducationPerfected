@@ -8,6 +8,11 @@
 //                    wrong-answer modal (uib-modal-window + td#question-field ...),
 //                    completion button (button.exit-button)
 //
+//   GET /dash-task   Dash starter (same word lists, synthetic per #230/#237)
+//   GET /dash-task/play  Dash round: classic markup + invented timer/score/
+//                    results elements (.dash-timer/.dash-score/.dash-results,
+//                    also addressable as #dash-timer/#dash-score); synthetic only
+//
 // The answers are the German words one..five; a wrong submission shows the
 // correction modal, a right one advances the round.
 const http = require('node:http');
@@ -25,7 +30,7 @@ const WORDS = [
     ['two', 'zwei'],
     ['three', 'drei'],
     ['four', 'vier'],
-    ['five', 'fünf'],
+    ['five', 'f├╝nf'],
 ];
 
 const PAGE = (body) => `<!doctype html>
@@ -167,17 +172,22 @@ const taskPage = (start) => {
 
 
 // ---------------------------------------------------------------------------
-// Dash fixture (issue #237, 2026-11-19 reconstruction, NOT a live capture):
+// Dash fixture (issues #230/#237, 2026-11-19 reconstruction, NOT a live capture):
 // no Dash starter/round/timer/completion DOM has been recorded from an
 // account. This reconstruction reuses the audited classic selectors
 // (#question-text, input#answer-text, div.baseLanguage/div.targetLanguage,
 // the wrong-answer modal, button.exit-button) so the classic loop answers
 // it like a translation task, and adds the smallest plausible timed-sprint
-// chrome: a visible countdown (.dash-timer), a score readout (.dash-score)
-// and a results interstitial (.dash-results) that keeps the same exit
-// control. If a live capture disagrees, update these selectors and re-audit.
+// chrome: a visible countdown (.dash-timer, also #dash-timer), a score readout
+// (.dash-score, also #dash-score) and a results interstitial (.dash-results)
+// that keeps the same exit control. If a live capture disagrees, update these
+// selectors and re-audit.
 // The countdown ticks for realism but never auto-ends the fixture; the run
-// ends by answering every round, like the classic fixture.
+// ends by answering every round, like the classic fixture. Unified from the
+// #230 (#dash-timer/#dash-score, +10) and #237 (.dash-timer/.dash-score/
+// .dash-results, +1) fixtures: single definition with both id and class so
+// either selector resolves, score +1 per correct answer, results interstitial
+// retained.
 const dashStarterPage = PAGE(`
     <main>
         ${WORDS.map(([base]) => `<div class="baseLanguage"><span>${base}</span></div>`).join('')}
@@ -191,9 +201,9 @@ const dashTaskPage = (start) => {
     const round = WORDS.slice(clamped).map(([base, target]) => ({ question: base, answer: target }));
     return PAGE(`
     <main>
-        <div class="dash-timer">60</div>
-        <div class="dash-score">0</div>
-        <div class="dash-results" hidden>Dash complete: ${round.length}/${round.length}</div>
+        <div id="dash-timer" class="dash-timer">60</div>
+        <div id="dash-score" class="dash-score">0</div>
+        <div id="dash-results" class="dash-results" hidden>Dash complete: ${round.length}/${round.length}</div>
         <table><tr>
             <td id="question-text">${round[0].question}</td>
             <td><input id="answer-text" autocomplete="off"></td>
