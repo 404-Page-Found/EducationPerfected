@@ -18,8 +18,9 @@ The original was started by [akioweh](https://github.com/akioweh) and is now **[
 The original's README used to claim its status was: **_CORRECT STATUS: ALL intended features functional._**  
 _*Last time they checked... which was... two years ago???*_
 
-- This repo's development program is **V2026** (package version `2026.11.16`), not a published packaged release. It is an independent JavaScript ([node.js](https://nodejs.org/)) program that uses the [Puppeteer](https://github.com/puppeteer/puppeteer) library to drive a web browser.
+- This repo's development program is **V2026** (package version `2026.11.16`, published as release [v2026.11.16](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.16)). It is an independent JavaScript ([node.js](https://nodejs.org/)) program that uses the [Puppeteer](https://github.com/puppeteer/puppeteer) library to drive a web browser.
 - The anti-cheat workaround no longer trips anti-cheat detection, as of the latest updates. EP can still change, so don't assume it stays working.
+- The task-page and wrong-answer-modal selectors were checked against what EP's live bundles currently ship, and an end-to-end run through a real task on the live service confirmed the markup reading was correct.
 - Release, signing and rights status: see [release/README.md](release/README.md) and [release/license-and-rights.md](release/license-and-rights.md).
 
 ## Introduction
@@ -34,7 +35,7 @@ A snapshot of V2 at version **v2.2.0** is frozen in [V2_Archive/](V2_Archive), a
 
 ### Installer (recommended)
 
-Installers will be available with **v2026.11.16**; no V2026 packaged release is published yet. The [Publish workflow](.github/workflows/publish.yml) attaches them to the release. The gates in [release/README.md](release/README.md) still apply.
+Installers are published with **[v2026.11.16](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.16)** (15 November 2026); the [Publish workflow](.github/workflows/publish.yml) attaches them to the release. The gates in [release/README.md](release/README.md) still apply.
 
 The installer is the same on every platform; pick yours:
 
@@ -178,7 +179,7 @@ Upon starting, the program opens the browser and gets EP ready (including loggin
 | Listening and Dictation (audio) | Bounded live checks; answered from data EP ships to the browser | [audio contract](docs/question-types.md#assigned-vocabulary-audio-contract) |
 | Smart Lesson multiple-choice (single-choice) | Bounded live check in auto-marked activities | [single-choice contract](docs/question-types.md#plain-block-single-choice-source-contract) |
 | Multi-select | Synthetic coverage only | [contract](docs/question-types.md#multi-select-source-contract) |
-| Drag-and-drop fill-in-the-gaps | Narrow source contract; synthetic coverage | [contract](docs/question-types.md#drag-and-drop-fill-in-the-gaps-contract) |
+| Drag-and-drop fill-in-the-gaps | Narrow source contract; synthetic coverage plus the 5/6 November one-question live validations | [contract](docs/question-types.md#drag-and-drop-fill-in-the-gaps-contract) |
 | Ordinary lesson dropdowns | Guarded; synthetic coverage plus one bounded live submission | [contract](docs/question-types.md#ordinary-lesson-dropdown-source-contract) |
 | Text and number boxes | Narrow source contract; synthetic coverage | [contract](docs/question-types.md#ordinary-lesson-text-and-number-box-source-contract) |
 | Highlight (click the correct tokens) | Narrow source contract; synthetic coverage | [contract](docs/question-types.md#highlight-source-contract) |
