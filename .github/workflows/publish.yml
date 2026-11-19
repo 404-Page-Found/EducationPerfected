@@ -235,6 +235,16 @@ jobs:
         run: |
           cd build/windows-x64-downloadable
           sha256sum educationperfected-windows-x64-setup.exe >> SHA256SUMS
+      - name: Ensure trusted ref for manual publish
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          case "${GITHUB_REF}" in
+            refs/tags/v*) ;;
+            *)
+              echo "Ref ${GITHUB_REF} is not an allowed trusted release tag ref (refs/tags/v*)."
+              exit 1
+              ;;
+          esac
       - name: Install rpm tooling for Linux package lanes
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y rpm rpm2cpio
