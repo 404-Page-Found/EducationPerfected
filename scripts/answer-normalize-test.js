@@ -32,6 +32,11 @@ assert.equal(boxMatchesAnswer('a.b', 'a．b'), true, 'fullwidth full stop verifi
 assert.equal(boxMatchesAnswer('I speak', 'I I sI speakeakat'), false, 'input-race garble refuses');
 assert.equal(boxMatchesAnswer('hello', 'hallo'), false, 'letter drift refuses');
 assert.equal(boxMatchesAnswer('hello?', 'hello!'), false, 'different punctuation refuses');
+// Non-punctuation NFKC folds must not verify: only the explicit punctuation
+// map folds, so ligatures and fullwidth alphanumerics still refuse.
+assert.equal(boxMatchesAnswer('fi', 'ﬁ'), false, 'ligature fold refuses');
+assert.equal(boxMatchesAnswer('ABC', 'ＡＢＣ'), false, 'fullwidth letters refuse');
+assert.equal(boxMatchesAnswer('123', '１２３'), false, 'fullwidth digits refuse');
 assert.equal(boxMatchesAnswer('你饿了吗?', '你饿了吗'), false, 'missing punctuation refuses');
 assert.equal(boxMatchesAnswer('你饿了吗?', '你饿了吗？？'), false, 'extra punctuation refuses');
 assert.equal(boxMatchesAnswer('answer', ''), false, 'cleared box refuses');
