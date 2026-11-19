@@ -475,12 +475,14 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
         exit_button_css: 'button.exit-button',
         exit_continue_button_css: 'button.continue-button',
 
-        // Dash (timed sprint, issue #230): believed to reuse every classic task
-        // selector above. Audited 2026-11-19 against the SYNTHETIC fixture in
-        // scripts/mock-ep.js (/dash-task) only - no live Dash capture exists yet,
-        // so this audit pins the assumption, not the live markup. The timer
-        // selector below is fixture-invented and used only to warn when a timed
-        // run starts with an empty word list; it never drives answering.
+        // Dash (timed sprint, issue #230): a live Dash run on 2026-11-19
+        // showed the real round is NOT the classic shape assumed below - it
+        // renders a multi-choice component on EP's QuizModel (classic
+        // gameMode, isDash true), and every reader now refuses it by name.
+        // The timer selector below remains fixture-invented and is used only
+        // to warn when a timed run starts with an empty word list; it never
+        // drives answering. The live round's real markup is captured by the
+        // read-only inspect-dash command (lib/dash-diagnostics.js).
         dash_timer_css: '#dash-timer',
 
         continue_button_css: 'button#continue-button',
@@ -2688,6 +2690,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 setMode: value => { ENTER = value === 'auto'; },
                 refresh: refreshWords,
                 inspect: () => collectSelfMarkDiagnostics(page),
+                inspectDash: () => require('./lib/dash-diagnostics').collectDashDiagnostics(page),
                 close: () => legacySignals && startupSignal ? closeSignalBrowser() : browser.close(),
             });
             // Issue #222: expose accuracy in status and allow tuning when stopped.
