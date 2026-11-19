@@ -54,6 +54,32 @@ const { collectDashDiagnostics } = require('../lib/dash-diagnostics');
         // Read-only: no input, click, key, change or focus events fired.
         assert.deepEqual(await page.evaluate(() => window.inspectionCounts), { events: 0 });
 
+        // An accessor on an Options index must not run; that option simply
+        // reports its fields as unreadable and the capture still completes.
+        await page.evaluate(() => {
+            const q = window.angular.element(document.body).scope().self.model._currentQuestion;
+            const options = q.questionDef.Components[0].Options;
+            window.inspectionCounts.getters = 0;
+            Object.defineProperty(options, '0', { configurable: true,
+                get() { window.inspectionCounts.getters++; throw new Error('option-accessor-must-not-run'); } });
+        });
+        const accessorRun = await collectDashDiagnostics(page);
+        assert.equal(accessorRun.guard, 'captured');
+        assert.equal(accessorRun.question.components[0].optionCount, 4);
+        assert.equal(accessorRun.question.components[0].correctStringTrue, 1);
+        assert.deepEqual(accessorRun.question.components[0].correctFieldShapes, ['absent', 'string']);
+        assert.equal(JSON.stringify(accessorRun).includes('option-accessor-must-not-run'), false);
+        assert.deepEqual(await page.evaluate(() => window.inspectionCounts), { events: 0, getters: 0 });
+
+        // Model-level assessment boundary: gameMode 2 stops the capture before
+        // any question state is read, even without the mounted assessment shell.
+        await page.evaluate(() => { window.angular.element(document.body).scope().self.model.gameMode = 2; });
+        const assessmentModel = await collectDashDiagnostics(page);
+        assert.equal(assessmentModel.guard, 'assessment-mode');
+        assert.equal(assessmentModel.gameMode, 2);
+        assert.equal('question' in assessmentModel, false);
+        await page.evaluate(() => { window.angular.element(document.body).scope().self.model.gameMode = 1; });
+
         // The assessment shell boundary applies even to a read-only capture,
         // and the capture reads no answer state behind it.
         await page.goto(origin + '/lesson-assessment');
@@ -66,7 +92,7 @@ const { collectDashDiagnostics } = require('../lib/dash-diagnostics');
         await page.goto(origin + '/learning/dashboard');
         const noModel = await collectDashDiagnostics(page);
         assert.equal(noModel.guard, 'model-unreadable');
-        console.log('Dash diagnostics: sanitised capture, no side effects, assessment and model-less guards hold PASS. Synthetic only.');
+        console.log('Dash diagnostics: sanitised capture, no side effects or accessors, assessment shell and model guards hold PASS. Synthetic only.');
     } finally {
         await session.cleanup();
     }

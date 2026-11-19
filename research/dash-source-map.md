@@ -23,7 +23,7 @@ Primary source: [public student chunk 171](https://mfe-student-app.educationperf
 - The real timer markup and expiry behavior, scoring element, and the completion/results screen.
 - Whether any Dash round is typed-input rather than multi-choice.
 
-Until those are captured (read-only `inspect-dash` command, `lib/dash-diagnostics.js`), every Dash round refuses by name (`dash: true` unsupported descriptors in the choice, classic-text, audio and typed readers).
+Until those are captured (read-only `inspect-dash` command, `lib/dash-diagnostics.js`), a Dash round that reaches the choice, classic-text, audio or typed reader refuses by name (`dash: true`); a Dash layout those readers do not recognize still stops unanswered on the generic refusal and transition paths.
 
 ## Synthetic evidence and its limits
 
