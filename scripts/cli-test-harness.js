@@ -44,4 +44,21 @@ async function fixtureLogin(wait, output) {
     return { browser, page };
 }
 
-module.exports = { bootCli, fixtureLogin };
+// Start a complete mock CLI session for suites that exercise real controls.
+async function createCliFixture(options) {
+    const server = require('./mock-ep').createServer();
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    const cli = bootCli(origin, options);
+    try {
+        const login = await fixtureLogin(cli.wait, cli.output);
+        await cli.wait(() => cli.output().includes('Commands: start'));
+        return { server, origin, ...cli, ...login };
+    } catch (error) {
+        try { require('./test-process-cleanup').cleanupTestProcess(cli.child); } catch {}
+        server.closeAllConnections();
+        server.close();
+        throw error;
+    }
+}
+module.exports = { bootCli, fixtureLogin, createCliFixture };

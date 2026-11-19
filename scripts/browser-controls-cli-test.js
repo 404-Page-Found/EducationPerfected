@@ -1,20 +1,11 @@
 // Offline real-program browser panel test, no live EP account or service.
 const assert = require('node:assert/strict');
-const { createServer } = require('./mock-ep');
 const { cleanupTestProcess } = require('./test-process-cleanup');
-const { bootCli, fixtureLogin } = require('./cli-test-harness');
+const { createCliFixture } = require('./cli-test-harness');
 const { installControlMenu } = require('../lib/browser-controls');
 (async () => {
-    const server = createServer();
-    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-    const origin = `http://127.0.0.1:${server.address().port}`;
-    const { child, wait, command, output } = bootCli(origin);
-    let browser;
+    const { server, origin, child, wait, command, output, browser, page } = await createCliFixture();
     try {
-        const login = await fixtureLogin(wait, output);
-        browser = login.browser;
-        const page = login.page;
-        await wait(() => output().includes('Commands: start'));
         const ready = () => page.waitForFunction(() => document.getElementById('educationperfected-controls')?.shadowRoot?.getElementById('live').textContent.includes('stopped'));
         const press = async (action, value, read = false) => {
             await page.evaluate(({ action, value, read }) => {
