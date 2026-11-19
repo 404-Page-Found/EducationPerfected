@@ -170,6 +170,8 @@ async function setup(page, origin) {
                 assert.equal(descriptor.diagnostic?.boundary, 'raw-template', raw0);
                 assert.equal(descriptor.diagnostic?.check, expected.check, raw0);
                 assert.equal(descriptor.diagnostic?.option, 0, raw0);
+                assert.equal(descriptor.diagnostic?.directive, expected.directive, raw0);
+                assert.ok(!JSON.stringify(descriptor.diagnostic).includes('mystery'), raw0);
             }
         };
         await variableVariant('[block\n{x}\n]', '[block\n42\n]', '42', { kind: 'choice' });
@@ -183,7 +185,10 @@ async function setup(page, origin) {
         await variableVariant('[block\nx { y\n]', '[block\nx { y\n]', 'x { y', { kind: 'choice' });
         await variableVariant('[block\nx y }\n]', '[block\nx y }\n]', 'x y }', { kind: 'choice' });
         await variableVariant('[block\n@@{color}@Yes@@\n]', '[block\n@@1@Yes@@\n]', 'Yes', { kind: 'choice' });
-        await variableVariant('[block\n[table\n]\n]', '[block\nx\n]', 'x', { kind: 'unsupported', check: 'body-bracket' });
+        await variableVariant('[block\n[table\n]\n]', '[block\nx\n]', 'x', { kind: 'unsupported', check: 'body-bracket', directive: 'table' });
+        await variableVariant('[block\n[mystery x=1]\n]', '[block\nx\n]', 'x', { kind: 'unsupported', check: 'body-bracket', directive: 'unlisted-directive' });
+        await variableVariant('[block\nsee [1] here\n]', '[block\nx\n]', 'x', { kind: 'unsupported', check: 'body-bracket', directive: 'inline-bracket' });
+        await variableVariant('[block\nx ]\n]', '[block\nx\n]', 'x', { kind: 'unsupported', check: 'body-bracket', directive: 'inline-bracket' });
         await variableVariant('[block\n \n]', '[block\nx\n]', 'x', { kind: 'unsupported', check: 'body-blank' });
         await variableVariant('[block\n \u000b \n]', '[block\nx\n]', 'x', { kind: 'unsupported', check: 'body-control' });
         const boundaries = {

@@ -116,6 +116,16 @@ The legacy entrypoint (hotkeys and browser menu, without terminal commands) is s
 
 You can close the browser window or the popped-up terminal window whenever you are done. If you run into weird behavior, try restarting the program.
 
+### Saved settings
+
+Interactive `accuracy` and `delay` changes are saved to
+`~/.educationperfected/config.json` (Windows: `%USERPROFILE%\.educationperfected\config.json`).
+The next launch reuses them. CLI accuracy options override environment variables,
+which override saved settings, which override built-in defaults. Flags and env
+changes are not saved. `accuracy off` restores perfect answers; `delay on` re-enables pacing while keeping any custom range; `delay reset` restores
+the per-type ranges. Invalid config files fall back to defaults.
+Credentials stay in the OS keyring, never in this file.
+
 ### Random accuracy (off by default)
 
 Runs answer perfectly unless you opt in. When enabled, each `start` picks a first-try target in the configured band (70-90% via `accuracy on`) and, with probability `1 - target`, submits a plausible-but-wrong answer first: a small typo for text/audio, or a neighboring distractor for single-choice. The mistake flows through the normal wrong-answer-modal / retry / Next path, so the run still completes with lower first-try accuracy. Other lesson surfaces stay perfect to preserve their fail-closed completion proofs. The provisional Dash recommendation is perfect answers, because each Dash mistake is expected, unproved live, to burn sprint time and points.
@@ -126,7 +136,8 @@ Startup flags and env enable and tune the simulation (installer command shown; f
     educationperfected --accuracy-range 70-90   # or -r 70-90
     educationperfected --perfect          # or -p
 
-The same settings exist as a top-level subcommand (applies to this invocation only; nothing is persisted):
+The same settings exist as a top-level subcommand (applies to this invocation only;
+interactive commands inside the running app are saved):
 
     educationperfected accuracy 82        # fixed target for this run
     educationperfected accuracy 70-90     # band, randomized per run
