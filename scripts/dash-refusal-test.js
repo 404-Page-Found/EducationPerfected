@@ -9,7 +9,9 @@ const puppeteer = require('puppeteer');
 const { detectQuestionInPage } = require('../lib/detect-question');
 const { readChoiceInPage } = require('../lib/choice-state');
 
-const STUB = (model) => `window.angular = { element: () => ({ scope: () => ({ self: { model: ${JSON.stringify(model)} } }) }) };`;
+const STUB = (model) => {
+    window.angular = { element: () => ({ scope: () => ({ self: { model } }) }) };
+};
 const DASH_QUESTION = {
     contentID: 99001,
     questionIndex: 0,
@@ -31,30 +33,30 @@ const DASH_QUESTION = {
 
         // classic text question on a Dash model
         await page.setContent('<table><tr><td id="question-text">word</td></tr></table>');
-        await page.evaluate(STUB({ gameMode: 1, isDash: true, _currentQuestion: {} }));
+        await page.evaluate(STUB, { gameMode: 1, isDash: true, _currentQuestion: {} });
         refuseByName(await page.evaluate(detectQuestionInPage), 'classic-text');
 
         // audio task on a Dash model (audio accepts gameMode 1 without the guard)
         await page.setContent('<button class="voice-speaker">play</button>');
-        await page.evaluate(STUB({ gameMode: 1, isDash: true, _currentQuestion: {} }));
+        await page.evaluate(STUB, { gameMode: 1, isDash: true, _currentQuestion: {} });
         refuseByName(await page.evaluate(detectQuestionInPage), 'audio');
 
         // typed lesson slide on a Dash model
         await page.setContent('<div id="ep-question-container"><input id="answer-text"></div>');
-        await page.evaluate(STUB({ gameMode: 1, isDash: true, _currentQuestion: {} }));
+        await page.evaluate(STUB, { gameMode: 1, isDash: true, _currentQuestion: {} });
         refuseByName(await page.evaluate(detectQuestionInPage), 'typed');
 
         // choice slide on a Dash model
         await page.setContent('<div class="multi-choice-component" role="radiogroup">'
             + '<div class="mcq-preview-option" role="option">a</div>'
             + '<div class="mcq-preview-option" role="option">b</div></div>');
-        await page.evaluate(STUB({ gameMode: 1, isDash: true, _currentQuestion: DASH_QUESTION }));
+        await page.evaluate(STUB, { gameMode: 1, isDash: true, _currentQuestion: DASH_QUESTION });
         refuseByName(await page.evaluate(readChoiceInPage, null, null, false), 'choice');
 
         // A non-Dash classic model stays accepted (no isDash flag): the guard
         // must not block ordinary classic tasks.
         await page.setContent('<table><tr><td id="question-text">word</td></tr></table>');
-        await page.evaluate(STUB({ gameMode: 1, _currentQuestion: {} }));
+        await page.evaluate(STUB, { gameMode: 1, _currentQuestion: {} });
         const classic = await page.evaluate(detectQuestionInPage);
         assert.equal(classic && classic.kind, 'text', 'classic text without isDash was refused');
         console.log('Dash refusal: classic, audio, typed and choice readers name Dash and stop; non-Dash classic unaffected PASS. Synthetic only.');
