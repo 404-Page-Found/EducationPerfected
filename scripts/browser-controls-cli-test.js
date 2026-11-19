@@ -6,7 +6,7 @@ const { installControlMenu } = require('../lib/browser-controls');
 (async () => {
     const { server, origin, child, wait, command, output, browser, page } = await createCliFixture();
     try {
-        const ready = () => page.waitForFunction(() => document.getElementById('educationperfected-controls')?.shadowRoot?.getElementById('live').textContent.includes('Stopped'));
+        const ready = () => page.waitForFunction(() => document.getElementById('educationperfected-controls')?.shadowRoot?.getElementById('live').textContent.includes('|'));
         const press = async (action, value, read = false) => {
             await page.evaluate(({ action, value, read }) => {
                 const root = document.getElementById('educationperfected-controls').shadowRoot;
@@ -34,6 +34,21 @@ const { installControlMenu } = require('../lib/browser-controls');
             root.getElementById('accuracy').dispatchEvent(new KeyboardEvent('keyup', { key: 's', altKey: true, bubbles: true, composed: true }));
         });
         assert.equal(await page.evaluate(() => window.panelLeakedKeys), 0);
+        // A first real header click expands the panel without re-anchoring it off screen.
+        await page.evaluate(() => { document.getElementById('educationperfected-controls').shadowRoot.querySelector('details').open = false; });
+        const summaryCenter = await page.evaluate(() => {
+            const rect = document.getElementById('educationperfected-controls').shadowRoot.querySelector('summary').getBoundingClientRect();
+            return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        });
+        await page.mouse.click(summaryCenter.x, summaryCenter.y);
+        await page.waitForFunction(() => document.getElementById('educationperfected-controls').shadowRoot.querySelector('details').open);
+        const placed = await page.evaluate(() => {
+            const host = document.getElementById('educationperfected-controls');
+            const rect = host.getBoundingClientRect();
+            return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, vw: window.innerWidth, vh: window.innerHeight, bottomAnchor: host.style.bottom };
+        });
+        assert.equal(placed.bottomAnchor, '12px', 'first expand keeps the bottom/right anchoring');
+        assert.ok(placed.top >= 0 && placed.left >= 0 && placed.bottom <= placed.vh && placed.right <= placed.vw, 'first expand keeps the panel fully on screen');
         await press('mode', 'semi'); assert.equal((await page.evaluate(() => window.epControl('status'))).mode, 'semi');
         await press('accuracy', '82'); assert.equal((await page.evaluate(() => window.epControl('status'))).accuracy.fixedTarget, 82);
         await press('accuracy', 'bad'); assert.match(await message(), /^Couldn't apply accuracy: /, 'errors read as a sentence'); assert.match(await message(), /Usage/);
@@ -46,9 +61,17 @@ const { installControlMenu } = require('../lib/browser-controls');
         assert.match(await result(), /Pacing: /, 'status result explains pacing in words');
         assert.ok(!(await result()).includes('"state"'), 'readable result hides raw JSON');
         assert.match(await raw(), /"state": "stopped"/, 'raw JSON stays under Technical details');
-        assert.match(await live(), /Stopped\.\nSemi-auto mode: answers are filled in, you submit them\./, 'live banner reads as sentences');
+        assert.match(await live(), /^stopped \| semi \| accuracy 82% \| pacing off$/, 'live bar is one compact line');
+        const topDown = await page.evaluate(() => {
+            const root = document.getElementById('educationperfected-controls').shadowRoot;
+            const after = (a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+            return after(root.getElementById('live'), root.getElementById('message'))
+                && after(root.getElementById('message'), root.getElementById('result'))
+                && after(root.getElementById('result'), root.querySelector('button'));
+        });
+        assert.ok(topDown, 'result block sits at the top between the status bar and the controls');
         await command('accuracy off', '"enabled":false');
-        await page.waitForFunction(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('live').textContent.includes('Accuracy: every answer goes in correct'));
+        await page.waitForFunction(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('live').textContent.includes('accuracy 100%'));
         if (process.env.EP_PANEL_SCREENSHOT) {
             await page.setViewport({ width: 1100, height: 1000 });
             await page.evaluate(() => {
