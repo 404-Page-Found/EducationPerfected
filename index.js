@@ -26,6 +26,15 @@ const { diagnostic } = require('./lib/diagnostics');
 const { collectSelfMarkDiagnostics } = require('./lib/self-mark-diagnostics');
 const { guardClassicEnter } = require('./lib/classic-enter');
 const { boxMatchesAnswer } = require('./lib/answer-normalize');
+const { cleanString: cleanQuestionString, questionKeyVariants } = require('./lib/question-keys');
+const {
+    answerCandidates: buildAnswerCandidates,
+    mergeCandidates: mergeCandidateLists,
+    hasCandidates: dictHasCandidates,
+    findCandidate: findDictCandidate,
+    learnEntryIn: learnDictEntry,
+    recordRejectionIn: recordDictRejection,
+} = require('./lib/classic-dict');
 const {captureSelectionBaseline,inspectSelectionModal,advanceSelectionSection}=require('./lib/selection-modal');
 const { DASH_TIMER_CSS, DASH_SCORE_CSS, DASH_RESULTS_CSS, DASH_PACING_NOTE, DASH_ACCURACY_NOTE, DASH_EMPTY_WORDLIST_NOTE, detectDashInPage } = require('./lib/dash');
 
@@ -929,84 +938,41 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             /**
  * Normalizes a string by removing parenthetical content and taking the first
  * segment separated by ; , or |. Used for question dictionary keys.
+ * Single source lives in lib/question-keys (issue #234 punctuation skew).
  * @param {string} string
  * @returns {string}
  */
             function cleanString(string) {
-                return String(string)
-                    .replace(/\([^)]*\)/g, "").trim()
-                    .split(";")[0].trim()
-                    .split(",")[0].trim()
-                    .split("|")[0].trim();
+                return cleanQuestionString(string);
             }
+
+            // Symmetric key variants for "," vs ";" renderings ("eight, 8" vs
+            // "eight; 8"). All dict reads/writes use this so a correction
+            // learned under one rendering is found from the other (issue #234).
+            // Local alias keeps the loop code short; logic lives in lib.
+            const questionVariants = questionKeyVariants;
 
             /**
  * Builds an ordered list of candidate answers from a raw answer string.
- * Handles EP's different join formats (; , |) and produces candidates in priority order:
- * joined groups, whole groups, full display string, then bare pieces.
+ * Single source lives in lib/classic-dict (issue #234 review): production
+ * and regression tests share the same builder.
  * @param {string} rawAnswer
  * @returns {string[]}
  */
             function answerCandidates(rawAnswer) {
-                const text = String(rawAnswer)
-                    .replace(/\([^)]*\)/g, " ")
-                    .replace(/\s+/g, " ")
-                    .trim();
-                if (text === '') return [];
-
-                const candidates = [];
-                const seen = new Set();
-                const push = value => {
-                    const trimmed = value.trim();
-                    if (trimmed !== '' && !seen.has(trimmed)) {
-                        seen.add(trimmed);
-                        candidates.push(trimmed);
-                    }
-                };
-
-                // ";" and "|" both separate whole alternative answers; "," inside a
-                // group is part of that answer's text
-                const groups = text.split(/[;|]/).map(group => group.trim()).filter(group => group !== '');
-                if (groups.length > 1 && groups.every(group => !/[;,]/.test(group))) {
-                    push(groups.join(", "));  // EP joins alternative phrases with ", "
-                }
-                // whole alternative answers first (all of them, then all pieces — the
-                // pieces of group one must not be tried before group two's whole answer,
-                // which strict grading is far likelier to accept)
-                for (const group of groups) push(group);
-                // the whole display string as written: the modal's "|" may separate
-                // alternatives (per-group grading) or just join the one required
-                // answer's parts; keeping this AFTER the group-fulls costs nothing when
-                // per-group grading is right, and is the only candidate that can ever
-                // match a whole-display grader
-                if (groups.length > 1) push(text);
-                // bare pieces last: each costs a wrong round under strict grading
-                for (const group of groups) {
-                    for (const piece of group.split(",")) push(piece);
-                }
-                return candidates;
+                return buildAnswerCandidates(rawAnswer);
             }
 
             /**
  * Merges two candidate arrays, preserving order and deduplicating.
+ * Single source lives in lib/classic-dict.
  * @param {string[]} existing
  * @param {string[]} incoming
  * @param {boolean} incomingFirst - If true, incoming candidates take priority
  * @returns {string[]}
  */
             function mergeCandidates(existing, incoming, incomingFirst = true) {
-                const merged = [];
-                const seen = new Set();
-                const ordered = incomingFirst
-                    ? [...(incoming || []), ...(existing || [])]
-                    : [...(existing || []), ...(incoming || [])];
-                for (const candidate of ordered) {
-                    if (typeof candidate === 'string' && candidate.trim() !== '' && !seen.has(candidate)) {
-                        seen.add(candidate);
-                        merged.push(candidate);
-                    }
-                }
-                return merged;
+                return mergeCandidateLists(existing, incoming, incomingFirst);
             }
 
             /**
@@ -1028,18 +994,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
  * @returns {boolean}
  */
             function learnEntry(question, rawAnswer, incomingFirst = true) {
-                const incoming = answerCandidates(rawAnswer);
-                if (incoming.length === 0) return false;
-                const q = String(question);
-                let changed = false;
-                for (const key of new Set([q.trim(), q.trim().replace(/,/g, ";"), cleanString(question)])) {
-                    if (key === '') continue;
-                    const before = candidatesDict[key] || [];
-                    const after = mergeCandidates(before, incoming, incomingFirst);
-                    if (after.length > before.length) changed = true;
-                    candidatesDict[key] = after;
-                }
-                return changed;
+                return learnDictEntry(candidatesDict, question, rawAnswer, incomingFirst);
             }
 
             /**
@@ -1060,17 +1015,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
  * @param {string} answer
  */
             function recordRejection(question, answer) {
-                if (typeof answer !== 'string' || answer.trim() === '') return;
-                const q = String(question);
-                for (const key of new Set([q.trim(), q.trim().replace(/,/g, ";"), cleanString(question)])) {
-                    if (key === '') continue;
-                    let rejected = rejectedDict[key];
-                    if (!rejected) {
-                        rejected = new Set();
-                        rejectedDict[key] = rejected;
-                    }
-                    rejected.add(answer);
-                }
+                recordDictRejection(rejectedDict, question, answer);
             }
 
             /**
@@ -1360,34 +1305,33 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
             /**
  * Finds the best candidate answer for a question.
- * Checks all key variants, returns the first non-rejected candidate.
+ * Shared lookup lives in lib/classic-dict (issue #234 review); this wrapper
+ * adds the unknown-probe logging/side effects.
  * Returns null if candidates exist but all were rejected (caller escalates).
  * Returns a random string if the question is completely unknown.
  * @param {string} question
  * @returns {string|null}
  */
             function findAnswer(question) {
-                const probes = [question, question.replace(/,/g, ";"), cleanString(question)];
-                let hadCandidates = false;
-                const visited = new Set();
-                for (let probe of probes) {
-                    const key = String(probe).trim();
-                    if (key === '' || visited.has(key)) continue;
-                    visited.add(key);
-                    const candidates = candidatesDict[key];
-                    if (!candidates || candidates.length === 0) continue;
-                    hadCandidates = true;
-                    const rejected = rejectedDict[key] || new Set();
-                    for (const candidate of candidates) {
-                        if (!rejected.has(candidate)) return candidate;
-                    }
-                }
+                const { candidate, hadCandidates } = findDictCandidate(candidatesDict, rejectedDict, question);
+                if (candidate !== null) return candidate;
                 if (hadCandidates) return null;
                 console.log(`No answer found for ${question}`);
                 // Dictionary size alone is not the signal: entries may belong to a
                 // different task, so the warning lives at the guess itself.
                 warnDashGuess();
                 return generateRandomString(8, 10);
+            }
+
+            /**
+ * True when the dictionary holds any candidate for the question's variants.
+ * Single source lives in lib/classic-dict; used to tag unknown probes
+ * (findAnswer random strings) separately from all-rejected escalations.
+ * @param {string} question
+ * @returns {boolean}
+ */
+            function hasKnownCandidates(question) {
+                return dictHasCandidates(candidatesDict, question);
             }
 
             /**
@@ -1439,15 +1383,19 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
             /**
  * Waits for the round to advance past the previous question, or for a modal to appear.
- * Polls the question text and answer box value; treats a cleared box as advancement.
+ * Polls the question text and answer box value; a cleared box counts as advancement
+ * only after a grace period (and never for random probes, issue #234).
  * Aborts cleanly if TOGGLE becomes false. Returns a status string.
  * @param {string} previous - The previous question text
  * @param {number} timeout - Timeout in ms (0 = no timeout)
  * @param {string} submitted - The answer that was submitted
+ * @param {boolean} isRandomProbe - True when the submission was an unknown-probe random string
  * @returns {Promise<'advanced'|'modal'|'timeout'|'aborted'>}
  */
-            async function waitForAdvance(previous, timeout, submitted) {
+            async function waitForAdvance(previous, timeout, submitted, isRandomProbe = false) {
                 const deadline = timeout > 0 ? Date.now() + timeout : Infinity;
+                const CLEAR_GRACE_MS = 2000;
+                let clearedSince = null;
                 while (TOGGLE && Date.now() < deadline) {
                     if ((await detectQuestion(page))?.kind === 'unsupported') {
                         TOGGLE = false;
@@ -1466,7 +1414,17 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
                     if (state.modal) return 'modal';
                     if (state.question === null || state.question !== previous) return 'advanced';
-                    if (typeof submitted === 'string' && state.box === '') return 'advanced';
+                    if (typeof submitted === 'string' && state.box === '') {
+                        if (isRandomProbe) {
+                            clearedSince = null;
+                        } else if (clearedSince === null) {
+                            clearedSince = Date.now();
+                        } else if (Date.now() - clearedSince >= CLEAR_GRACE_MS) {
+                            return 'advanced';
+                        }
+                    } else {
+                        clearedSince = null;
+                    }
                     await new Promise(resolve => setTimeout(resolve, 50));
                 }
                 return TOGGLE ? 'timeout' : 'aborted';
@@ -2202,7 +2160,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         const acc = accuracyRun.accuracy();
                         console.log(`Accuracy this run: target ${accuracyRun.target}%, first-try ${accuracyRun.stats.attempts - accuracyRun.stats.mistakes}/${accuracyRun.stats.attempts}${acc === null ? '' : ` (${acc.toFixed(1)}%)`}.`);
                     }
-                    console.log('answerLoop Exited.');
+                    console.log(`answerLoop Exited. (reason=${runReason}, futileStop=${futileStop})`);
                 }
                 return { reason: runReason };
             }
@@ -2222,7 +2180,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 while (TOGGLE) {
                     if (futileStop) {
                         // correctAnswer tripped a futility guard mid-pass; it cannot break
-                        // this loop itself, so honor it here
+                        // this loop itself, so honor it here. The guard already logged
+                        // the specific bound; this line makes the exit itself visible
+                        // so a tail ending after a Details block is still answerable.
+                        console.log('Answer loop stopping: futility guard tripped (see prior futility message).');
                         break;
                     }
                     // Per-round question-type detection (issues #33/#32): the loop asks
@@ -2269,8 +2230,15 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         if (descriptor === null) {
                             if (modalSeen) {
                                 // the completion flow is a modal window: let the modal path
-                                // resolve it (it clicks exit/continue and reports completion)
-                                if (!await handleModalAndContinue(lastSubmitted?.question ?? '', lastSubmitted?.answer ?? '')) break;
+                                // resolve it (it clicks exit/continue and reports completion).
+                                // Futility counting uses randomRound alone: unknown probes
+                                // were not pre-counted at submission, so they must still
+                                // count in correctAnswer when unreadable (isRandomProbe
+                                // would skip the increment and spin forever).
+                                if (!await handleModalAndContinue(lastSubmitted?.question ?? '', lastSubmitted?.answer ?? '', lastSubmitted?.randomRound ?? false)) {
+                                    console.log('Answer loop stopping: completion modal resolved the task.');
+                                    break;
+                                }
                                 continue;
                             }
                             console.log(complete
@@ -2278,7 +2246,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                                 : 'Question element never returned within 20s; stopping the run.');
                             if (complete && TOGGLE) {
                                 const proven = await taskCompletionProven();
-                                if (!TOGGLE) break;
+                                if (!TOGGLE) {
+                                    console.log('Answer loop stopping: stopped while proving task completion.');
+                                    break;
+                                }
                                 const completion = await page.evaluate((exitCss, contCss, resultsCss) => {
                                     const shown = (css) => {
                                         const el = document.querySelector(css);
@@ -2306,12 +2277,16 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                                 if (proven && TOGGLE && (completion.clicked || completion.resultsVisible)) runReason = 'completed';
                                 console.log(completion.clicked ? 'Clicked the task exit/continue button.' : (completion.resultsVisible ? 'Dash results interstitial confirms sprint completion; no exit control to click.' : 'The completion controls vanished; stopping the run.'));
                             }
+                            console.log(`Answer loop stopping: question element gone (complete=${complete}, reason=${runReason}).`);
                             break;
                         }
                         // a question came back: fall through to its pass
                     }
                     if (descriptor.kind !== 'text') {
-                        if (!await handleNonTextRound(descriptor)) break;
+                        if (!await handleNonTextRound(descriptor)) {
+                            console.log('Answer loop stopping: non-text round requested a stop (see prior refusal message).');
+                            break;
+                        }
                         continue;
                     }
                     await noteDashOnce();
@@ -2332,7 +2307,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         unstable = false;
                         break;
                     }
-                    if (!TOGGLE) break;
+                    if (!TOGGLE) {
+                        console.log('Answer loop stopping: stopped during question stabilization.');
+                        break;
+                    }
                     if (question === null) {
                         console.log('Question vanished during stabilization; re-reading it in a fresh pass.');
                         continue;
@@ -2341,7 +2319,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         unstableRounds += 1;
                         console.log(`Question text churned within a pass; restart ${unstableRounds}/3.`);
                         if (unstableRounds >= 3) {
-                            console.log('Question text never held still; stopping the run.');
+                            console.log('Answer loop stopping: question text never held still (unstable x3).');
                             break;
                         }
                         continue;
@@ -2354,6 +2332,18 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     // the correction modal is also unreadable: the meter counts submission
                     // ROUNDS, and counting both stages would trip the bound at half of it.
                     let randomRound = false;
+                    // Unknown probe: findAnswer returns a random string when no
+                    // candidates exist for any variant (answer !== null). It must
+                    // be tracked separately from the all-rejected escalation
+                    // (answer === null): both are random submissions for the
+                    // advance-wait heuristic, but only the all-rejected one was
+                    // already counted toward futility at submission time.
+                    // (issue #258 review: randomRound alone left unknown probes
+                    // passing false to waitForAdvance.)
+                    let unknownProbe = false;
+                    if (answer !== null && !hasKnownCandidates(question)) {
+                        unknownProbe = true;
+                    }
                     if (answer === null) {
                         warnDashGuess();
                         // Every candidate this session knows for the question was already
@@ -2368,12 +2358,19 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                             const message = `EP rejected every known answer for "${question}" ${attempt} rounds in a row; stopping the loop. Check that item's entry in the word list.`;
                             console.error(message);
                             await alert(message);
+                            console.log(`Answer loop stopping: all-rejected bound for "${question}" (attempt ${attempt}/4).`);
                             break;
                         }
                         randomRound = true;
                         console.log(`Every known answer for "${question}" was rejected; submitting a random string to make EP reveal its answer (round ${attempt}/4).`);
                         answer = generateRandomString(8, 10);
                     }
+                    // Both random kinds never advance via a cleared box: an
+                    // unknown probe's submit-clear precedes its correction modal
+                    // (issue #234), and an all-rejected retry behaves the same.
+                    // Futility counting keeps using randomRound alone (unknown
+                    // probes are counted in correctAnswer when unreadable).
+                    const isRandomProbe = randomRound || unknownProbe;
                     // No reset in the non-null branch: an unknown question falls through
                     // it with a fresh random string every pass, and resetting there would
                     // wipe the unreadable-modal count before it could ever reach the
@@ -2381,7 +2378,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     // learn that adds new candidates, a changed-list refresh, or a run
                     // restart.
                     if (typeof answer !== 'string' || answer === '') {
-                        console.log(`Refusing to type an empty answer for "${question}".`);
+                        console.log(`Answer loop stopping: refusing to type an empty answer for "${question}".`);
                         break;
                     }
                     // Issue #222: occasional human-like first-try mistake (small typo).
@@ -2396,22 +2393,19 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     // the stat is recorded only after a confirmed submission.
                     let accuracyClassicPending = null;
                     let accuracyClassicCorrect = answer;
-                    if (accuracyRun && ENTER && !randomRound && !accuracyClassicSeen.has(question)) {
+                    if (accuracyRun && ENTER && !isRandomProbe && !accuracyClassicSeen.has(question)) {
                         try {
                             // Unknown probe: no candidates for any key variant, so
                             // findAnswer returned a random string. Never mistake those
                             // and never count them toward first-try accuracy.
-                            let known = false;
-                            for (const probe of [question, question.replace(/,/g, ";"), cleanString(question)]) {
-                                const key = String(probe).trim();
-                                if (key !== '' && Array.isArray(candidatesDict[key]) && candidatesDict[key].length > 0) { known = true; break; }
-                            }
-                            if (!known) {
+                            // unknownProbe is computed from the shared dict helper
+                            // above (single source with findAnswer).
+                            if (unknownProbe) {
                                 // Unknown question: random probe, not an accuracy decision.
                             } else if (accuracyRun.shouldMistake()) {
                                 const { makeTypoFor } = require('./lib/accuracy');
                                 const avoid = [];
-                                for (const probe of [question, question.replace(/,/g, ";"), cleanString(question)]) {
+                                for (const probe of questionVariants(question)) {
                                     const key = String(probe).trim();
                                     const list = candidatesDict[key];
                                     if (Array.isArray(list)) avoid.push(...list);
@@ -2447,10 +2441,19 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         // the previous round for this question produced no visible progress. Rather
                         // than resubmitting it, wait for the page to catch up (or stop).
                         console.log(`Question "${question}" has not advanced since the last submission; waiting before retrying.`);
-                        const stalled = await waitForAdvance(question, 0, lastSubmitted.answer);
-                        if (stalled === 'aborted') break;
+                        const stalledProbe = lastSubmitted.isRandomProbe ?? isRandomProbe;
+                        const stalled = await waitForAdvance(question, 0, lastSubmitted.answer, stalledProbe);
+                        if (stalled === 'aborted') {
+                            console.log('Answer loop stopping: stalled-question wait aborted (stopped or context changed).');
+                            break;
+                        }
                         if (stalled === 'modal') {
-                            if (!await handleModalAndContinue(question, answer)) break;
+                            // Futility uses the submission's pre-counted state (as in
+                            // the main modal path), not the advance-wait probe flag.
+                            if (!await handleModalAndContinue(question, answer, lastSubmitted?.randomRound ?? randomRound)) {
+                                console.log('Answer loop stopping: completion modal resolved the task (stalled wait).');
+                                break;
+                            }
                         }
                         continue;
                     }
@@ -2465,13 +2468,16 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         boxVanishedRounds += 1;
                         console.log(`Answer box missing at entry; restart ${boxVanishedRounds}/5.`);
                         if (boxVanishedRounds >= 5) {
-                            console.log('Answer box never reappeared; stopping the run.');
+                            console.log('Answer loop stopping: answer box never reappeared (missing x5).');
                             break;
                         }
                         continue;
                     }
                     boxVanishedRounds = 0;
-                    if (!TOGGLE) break;
+                    if (!TOGGLE) {
+                        console.log('Answer loop stopping: stopped after answer entry.');
+                        break;
+                    }
 
                     // The round can advance while the answer is being typed; EP then grades
                     // the submission against a different item than `question` was looked up
@@ -2522,23 +2528,29 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                             boxVanishedRounds += 1;
                             console.log(`Answer box missing before submission (${boxVanishedRounds}/5); re-reading on a fresh pass.`);
                             if (boxVanishedRounds >= 5) {
-                                console.log('Answer box never returned; stopping the run.');
+                                console.log('Answer loop stopping: answer box never returned (missing x5).');
                                 break;
                             }
                         } else {
                             boxTamperedRounds += 1;
                             console.log(`Answer box changed before submission for "${question}" (now "${boxBeforeEnter}"); restart ${boxTamperedRounds}/5.`);
                             if (boxTamperedRounds >= 5) {
-                                console.log('The answer box keeps changing between entry and submission; stopping the run.');
+                                console.log('Answer loop stopping: answer box keeps changing between entry and submission (tampered x5).');
                                 break;
                             }
                         }
                         continue;
                     }
-                    if (!TOGGLE) break;
+                    if (!TOGGLE) {
+                        console.log('Answer loop stopping: stopped before submission.');
+                        break;
+                    }
 
-                    if (!await enterClassic(question, answer, ENTER)) break;
-                    lastSubmitted = { question, answer };
+                    if (!await enterClassic(question, answer, ENTER)) {
+                        console.log(`Answer loop stopping: pre-submit guard refused submission for "${question}" (question changed, box mismatch, or stopped).`);
+                        break;
+                    }
+                    lastSubmitted = { question, answer, isRandomProbe, randomRound };
                     // Record the first-try result only after a confirmed submission so
                     // changed questions, vanished boxes, or refused selections never
                     // inflate the displayed stats. Mark the question seen so a modal-driven
@@ -2553,12 +2565,17 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
                     // wait for the round to move on before the next lookup, so the next answer is
                     // not typed against the question that was just submitted. A modal (wrong
-                    // answer, or task complete) ends the wait immediately, and so does the box
-                    // being cleared for the next round — which happens even when the dealt
-                    // question repeats the same text.
-                    const outcome = await waitForAdvance(question, ENTER ? ADVANCE_TIMEOUT : 0, answer);
+                    // answer, or task complete) ends the wait immediately; a cleared box
+                    // counts only after it persists (issue #234 grace) so a random probe's
+                    // submit-clear cannot false-accept before its correction modal renders.
+                    // Random probes (unknown or all-rejected) never advance via a
+                    // cleared box at all.
+                    const outcome = await waitForAdvance(question, ENTER ? ADVANCE_TIMEOUT : 0, answer, isRandomProbe);
 
-                    if (outcome === 'aborted') break;
+                    if (outcome === 'aborted') {
+                        console.log('Answer loop stopping: advance wait aborted (stopped or context changed).');
+                        break;
+                    }
 
                     if (outcome === 'advanced') {
                         // the round was graded and moved on: acceptance. Whatever futility
@@ -2571,7 +2588,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     }
 
                     if (outcome === 'modal') {
-                        if (!await handleModalAndContinue(question, answer, randomRound)) break;
+                        if (!await handleModalAndContinue(question, answer, randomRound)) {
+                            console.log('Answer loop stopping: completion modal resolved the task.');
+                            break;
+                        }
                         continue;
                     }
 
@@ -2582,10 +2602,16 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                             // restarting the loop never double-submits. (This wait is unbounded, so it
                             // cannot actually time out; the branch is kept for safety.)
                             console.log(`Waiting for the answer to "${question}" to be submitted.`);
-                            const resolved = await waitForAdvance(question, 0, answer);
-                            if (resolved === 'aborted') break;
+                            const resolved = await waitForAdvance(question, 0, answer, isRandomProbe);
+                            if (resolved === 'aborted') {
+                                console.log('Answer loop stopping: semi-auto resolve wait aborted.');
+                                break;
+                            }
                             if (resolved === 'modal') {
-                                if (!await handleModalAndContinue(question, answer)) break;
+                                if (!await handleModalAndContinue(question, answer, randomRound)) {
+                                    console.log('Answer loop stopping: completion modal resolved the task (semi-auto).');
+                                    break;
+                                }
                             }
                             continue;
                         }
@@ -2594,14 +2620,20 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         // first Enter (it checks for real key events now, but focus or
                         // round-trip timing can still lose it). The timeout branch is only
                         // reached with the round genuinely unresolved (no modal, question
-                        // unchanged, box not cleared for a new round), so re-submitting
-                        // the same content is safe. Only a second timeout stops the run;
-                        // break rather than throw so the loop falls through to its modal
-                        // cleanup.
+                        // unchanged, no persistent cleared box for a new round), so
+                        // re-submitting the same content is safe. Only a second timeout
+                        // stops the run; break rather than throw so the loop falls through
+                        // to its modal cleanup.
                         console.log(`Question "${question}" did not advance within ${ADVANCE_TIMEOUT}ms; pressing Enter again.`);
-                        if (!TOGGLE) break;
+                        if (!TOGGLE) {
+                            console.log('Answer loop stopping: stopped before Enter retry.');
+                            break;
+                        }
                         await page.click(DIR.answer_box_css).catch(() => { });
-                        if (!TOGGLE) break;
+                        if (!TOGGLE) {
+                            console.log('Answer loop stopping: stopped after focus click before retry.');
+                            break;
+                        }
                         // Retry always uses the correct answer so a first-try typo is not resubmitted.
                         // A swallowed first Enter leaves the typo in the box, and enterClassic's
                         // guard refuses to press Enter over a mismatched box, so restore the
@@ -2609,23 +2641,36 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         // A normalized-punctuation box (issue #232) still verifies.
                         if (!boxMatchesAnswer(accuracyClassicCorrect, await answerBoxValue())) {
                             console.log('Restoring the correct answer in the box before the retry.');
-                            if (!await enterAnswer(accuracyClassicCorrect)) break;
+                            if (!await enterAnswer(accuracyClassicCorrect)) {
+                                console.log('Answer loop stopping: answer box vanished while restoring for retry.');
+                                break;
+                            }
                         }
-                        if (!await enterClassic(question, accuracyClassicCorrect, true)) break;
-                        const retry = await waitForAdvance(question, ADVANCE_TIMEOUT, accuracyClassicCorrect);
+                        if (!await enterClassic(question, accuracyClassicCorrect, true)) {
+                            console.log(`Answer loop stopping: pre-submit guard refused retry for "${question}".`);
+                            break;
+                        }
+                        const retry = await waitForAdvance(question, ADVANCE_TIMEOUT, accuracyClassicCorrect, isRandomProbe);
                         if (retry === 'timeout') {
                             console.error(`Question "${question}" did not advance after submitting "${accuracyClassicCorrect}". Stopping.`);
                             await alert(`Answer loop stopped: "${question}" did not advance.`);
+                            console.log(`Answer loop stopping: Enter-retry timeout for "${question}".`);
                             break;
                         }
-                        if (retry === 'aborted') break;
+                        if (retry === 'aborted') {
+                            console.log('Answer loop stopping: retry wait aborted.');
+                            break;
+                        }
                         if (retry === 'advanced') {
                             futileDict[futileKey(question)] = 0;
                             futileStop = false;
                             accuracyClassicSeen.delete(question);
                         }
                         if (retry === 'modal') {
-                            if (!await handleModalAndContinue(question, accuracyClassicCorrect)) break;
+                            if (!await handleModalAndContinue(question, accuracyClassicCorrect, randomRound)) {
+                                console.log('Answer loop stopping: completion modal resolved the task (retry).');
+                                break;
+                            }
                         }
                     }
                 }
