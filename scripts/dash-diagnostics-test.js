@@ -41,6 +41,7 @@ const { collectDashDiagnostics } = require('../lib/dash-diagnostics');
         assert.equal(component.correctStringTrue, 1);
         assert.equal(component.correctBooleanTrue, 0);
         assert.deepEqual(component.correctFieldShapes, ['string']);
+        assert.equal(component.accessorOptionSlots, 0);
         assert.equal(result.dom.choiceGroups, 1);
         assert.equal(result.dom.choiceOptions, 4);
         assert.equal(result.dom.submitButtons, 1);
@@ -67,7 +68,8 @@ const { collectDashDiagnostics } = require('../lib/dash-diagnostics');
         assert.equal(accessorRun.guard, 'captured');
         assert.equal(accessorRun.question.components[0].optionCount, 4);
         assert.equal(accessorRun.question.components[0].correctStringTrue, 1);
-        assert.deepEqual(accessorRun.question.components[0].correctFieldShapes, ['absent', 'string']);
+        assert.deepEqual(accessorRun.question.components[0].correctFieldShapes, ['string']);
+        assert.equal(accessorRun.question.components[0].accessorOptionSlots, 1);
         assert.equal(JSON.stringify(accessorRun).includes('option-accessor-must-not-run'), false);
         assert.deepEqual(await page.evaluate(() => window.inspectionCounts), { events: 0, getters: 0 });
 
