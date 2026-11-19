@@ -19,6 +19,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
    const runtime=createRuntimeDirectory({home});
    const root=path.join(fs.realpathSync(home),'.educationperfected'),browsers=path.join(root,'browsers');
    fs.mkdirSync(browsers);fs.writeFileSync(path.join(browsers,'inert-browser'),'keep-until-confirmed');
+   fs.writeFileSync(path.join(root,'config.json'),JSON.stringify({version:1,delay:{enabled:false,override:null}}));
    if(scenario==='empty')fs.rmSync(browsers,{recursive:true});
    if(scenario==='other-run')fs.mkdirSync(path.join(root,'tmp','run-ABC123'));
    if(scenario==='download-lock')fs.writeFileSync(path.join(browsers,'version.lock'),'inert');
@@ -48,6 +49,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
     assert.ok(!output.includes('Delete the executable manually'),'declined program removal is not nagged about');
     assert.ok(output.includes('detected the install method'),'inert.exe has no record; method is inferred');
    }
+   assert.equal(fs.existsSync(path.join(root,'config.json')),!choices.data,'settings removed only with app-data consent');
    assert.ok(!output.includes('Error:'));
   }finally{fs.rmSync(home,{recursive:true,force:true});}
  }

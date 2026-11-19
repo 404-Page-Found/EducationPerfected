@@ -22,6 +22,11 @@ try {
     assert.equal(resolveAccuracyConfig({ env: { EP_ACCURACY: '84' }, config: a }).fixedTarget, 84);
     assert.equal(resolveAccuracyConfig({ cli: { fixedTarget: 85 }, env: { EP_ACCURACY: '84' }, config: a }).fixedTarget, 85);
     assert.equal(resolveAccuracyConfig({ env: { EP_PERFECT: '1' }, config: a }).enabled, false);
+    const enabledFromPerfect = resolveAccuracyConfig({ env: { EP_PERFECT: '0' }, config: { ...a, enabled: false, fixedTarget: 100 } });
+    assert.equal(enabledFromPerfect.enabled, true);
+    assert.equal(enabledFromPerfect.fixedTarget, null);
+    assert.deepEqual([enabledFromPerfect.min, enabledFromPerfect.max], [70, 90]);
+    assert.equal(resolveAccuracyConfig({ env: { EP_PERFECT: '0', EP_ACCURACY: '84' }, config: a }).fixedTarget, 84);
     const delay = createHumanDelay({ env: {}, config: readConfig(options).delay });
     assert.equal(delay.isEnabled(), false);
     assert.deepEqual(delay.describe().override, [1500, 4000]);

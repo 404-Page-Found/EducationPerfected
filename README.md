@@ -115,8 +115,8 @@ Interactive `accuracy` and `delay` changes are saved to
 `~/.educationperfected/config.json` (Windows: `%USERPROFILE%\.educationperfected\config.json`).
 The next launch reuses them. CLI accuracy options override environment variables,
 which override saved settings, which override built-in defaults. Flags and env
-changes are not saved. `accuracy off` restores perfect answers; `delay on` and
-`delay reset` restore the default pacing. Invalid config files fall back to defaults.
+changes are not saved. `accuracy off` restores perfect answers; `delay on` re-enables pacing while keeping any custom range; `delay reset` restores
+the per-type ranges. Invalid config files fall back to defaults.
 Credentials stay in the OS keyring, never in this file.
 
 ### Random accuracy (off by default)

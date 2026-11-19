@@ -131,8 +131,14 @@ async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=p
   if(choices.data){
    let safe=safeRuntimeRoot(tmp,ownDirectory);
    // Unknown root entries are not recursively deleted, nor followed as links.
-   try{if(fs.readdirSync(root).some(name=>!['tmp','browsers','MAINTENANCE.lock'].includes(name)))safe=false;}catch{safe=false;}
+   try{if(fs.readdirSync(root).some(name=>!['tmp','browsers','MAINTENANCE.lock','config.json'].includes(name)))safe=false;}catch{safe=false;}
    if(!safe){incomplete=true;output.write('Live/uncertain runtime files or unknown app data retained. Close all app/browser processes and inspect before retrying.\n');}
+   const config=path.join(root,'config.json');
+   try{
+    const stat=fs.lstatSync(config);
+    if(stat.isFile()&&!stat.isSymbolicLink()){fs.unlinkSync(config);output.write('Saved app settings removed.\n');}
+    else{incomplete=true;output.write('Unexpected settings path retained for inspection.\n');}
+   }catch(error){if(error.code!=='ENOENT'){incomplete=true;output.write('Saved app settings could not be removed.\n');}}
    try{await cleanupOwn();}catch{incomplete=true;output.write('Owned runtime cleanup failed; retained for inspection.\n');}
    // Only remove empty containers. No recursive root or temp deletion.
    try{fs.rmdirSync(tmp);}catch(error){if(error.code!=='ENOENT')incomplete=true;}

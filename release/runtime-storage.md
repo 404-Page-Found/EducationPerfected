@@ -62,7 +62,10 @@ a browser. `help` and `version`, including -h/--help and -v/--version, return
 before runtime/store initialization. Old credential/update/uninstall --flags
 are refused with a hint and exit1, not silently accepted.
 
-`uninstall` requires an interactive typed confirmation. Close every other app
+`uninstall` requires an interactive typed confirmation. Its app-data choice removes
+the known `config.json` preferences file; keeping app data keeps those settings.
+An unexpected directory or symlink at that path is retained and reported incomplete.
+Close every other app
 copy, including source CLI and its browser, first. It removes only the app's
 native OS credential-store record, not legacy keytar records. A maintenance lock blocks
 new packaged runtime allocation while uninstall scans/deletes; stale maintenance
