@@ -36,7 +36,9 @@ Automated answering may breach some or all of:
 - your teacher's instructions for a particular task;
 - Education Perfect's terms or usage rules for your account.
 
-Only you can check whether a given use is allowed. When in doubt:
+Only you can check whether a given use is allowed. Students who choose
+to use this product do so at their own responsibility, and it is not
+recommended to use it for homework tasks. When in doubt:
 
 - ask your teacher or school before running automation on assigned,
   graded, or timed work;
@@ -131,5 +133,7 @@ release checks.
 Independent hobby project, not affiliated with Education Perfect.
 Automating schoolwork can violate school or service rules and can be
 detected, marked wrong, or acted on. No warranty, no liability, no
-promise it keeps working. Use only where you have permission, on your
+promise it keeps working. Students who choose to use this product do so
+at their own responsibility, and it is not recommended to use it for
+homework tasks. Use only where you have permission, on your
 own account, and at your own risk.
