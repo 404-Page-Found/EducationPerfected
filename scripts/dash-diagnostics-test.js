@@ -23,14 +23,16 @@ const { collectDashDiagnostics } = require('../lib/dash-diagnostics');
         assert.equal(result.guard, 'captured');
         assert.equal(result.build, 'dash-diagnostics-v1');
         assert.equal(result.readOnly, true);
-        assert.equal(result.gameMode, 1);
+        // The fixture mirrors the 2026-11-19 live capture: gameMode null,
+        // activity type 6, content type 0, question type 6.
+        assert.equal(result.gameMode, null);
         assert.equal(result.isDash, true);
         assert.equal(result.sectionData, 'absent');
-        assert.deepEqual(result.selectedActivity, { taskIdNull: true, activityType: 1, contentType: 1 });
+        assert.deepEqual(result.selectedActivity, { taskIdNull: false, activityType: 6, contentType: 0 });
         assert.equal(result.routing.pathIncludesDash, true);
         assert.equal(result.question.contentIdValid, true);
         assert.equal(result.question.questionIndexValid, true);
-        assert.equal(result.question.questionType, 0);
+        assert.equal(result.question.questionType, 6);
         assert.equal(result.question.componentCount, 1);
         const component = result.question.components[0];
         assert.equal(component.type, 'MULTICHOICE_COMPONENT');
@@ -80,7 +82,7 @@ const { collectDashDiagnostics } = require('../lib/dash-diagnostics');
         assert.equal(assessmentModel.guard, 'assessment-mode');
         assert.equal(assessmentModel.gameMode, 2);
         assert.equal('question' in assessmentModel, false);
-        await page.evaluate(() => { window.angular.element(document.body).scope().self.model.gameMode = 1; });
+        await page.evaluate(() => { window.angular.element(document.body).scope().self.model.gameMode = null; });
 
         // The assessment shell boundary applies even to a read-only capture,
         // and the capture reads no answer state behind it.

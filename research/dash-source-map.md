@@ -17,14 +17,41 @@ Primary source: [public student chunk 171](https://mfe-student-app.educationperf
 - The quiz page template renders a real Submit button (`button.submit-button.nice-button.positive-green`, disabled until `canSubmit`) wired to `onSubmitClicked` -> `answerInputManager.submitUserAnswer()`.
 - Stats: `saveQuestionAnswerLocally` per question (skipped for assigned tasks), `finaliseDashStats` at game end. `livesLeft` bounds the sprint (`NUMBER_OF_LIVES`, fewer for short quizzes); wrong answers can add penalty questions.
 
-## What is still unknown (needs the live capture)
+## What the 2026-11-19 live capture answered
 
-- The round's question state shape: whether `model._currentQuestion.questionDef` exists on the quiz page, whether options carry `Correct` flags, and the option DOM association.
-- The real timer markup and expiry behavior, scoring element, and the completion/results screen.
-- Whether any Dash round is typed-input rather than multi-choice.
+Page's same-day sanitised `EP_DASH_INSPECT` capture (read-only
+`inspect-dash` command, `lib/dash-diagnostics.js`) recorded the real round:
 
-Until those are captured (read-only `inspect-dash` command, `lib/dash-diagnostics.js`), a Dash round that reaches the choice, classic-text, audio or typed reader refuses by name (`dash: true`); a Dash layout those readers do not recognize still stops unanswered on the generic refusal and transition paths.
+- `model._currentQuestion.questionDef` EXISTS on the quiz page: exactly one
+  `MULTICHOICE_COMPONENT`, `AllowMultiSelect` false, `Marked` 1, four
+  options, exactly one `Correct` string `"true"` (no boolean-true),
+  `validAnswers` empty; valid `contentID`/`questionIndex`, `questionType` 6,
+  `translationMode` 4.
+- `gameMode` read as `null` live (not the CLASSIC value the constructor
+  sets; the reader accepts both), `isDash` true, `sectionData` undefined,
+  `selectedActivity` `_activityType` 6 / `_contentType` 0 / `_taskID` set,
+  and the route path includes `dash`.
+- DOM: no `#question-text`, `input#answer-text` or `.voice-speaker`; one
+  visible `div.multi-choice-component[role=radiogroup]` with four
+  `.mcq-preview-option`; one `button.submit-button`; one `.exit-button`;
+  NO timer element candidate matched (the real timer markup is still
+  uncaptured).
+
+Still unknown: the real timer markup and expiry behavior, scoring, the
+completion/results screen, wrong-answer behavior, and whether any Dash round
+is typed-input rather than multi-choice (such rounds still refuse by name:
+`dash: true`).
 
 ## Synthetic evidence and its limits
 
-`scripts/mock-ep.js` `/dash-task/quiz` models the shape above (multi-choice component, `gameMode: 1`, `isDash: true`, quiz Submit button, fixture-invented timer). `scripts/dash-cli-test.js` proves the real CLI refuses that round by name and that `inspect-dash` captures its structure sanitised; `scripts/dash-diagnostics-test.js` proves the capture is side-effect free, runs no accessors, and honors the assessment shell boundary. These fixtures are reconstructions from public source plus one refusal log line, not live captures; they do not establish Dash support.
+`scripts/mock-ep.js` `/dash-task/quiz` models the captured shape above
+(multi-choice component, `gameMode: null`, `isDash: true`, one
+string-"true" correct option, quiz Submit button, fixture-invented timer).
+`scripts/dash-cli-test.js` drives the real CLI through that fixture to
+completion and proves the same page off the dash route refuses by name;
+`scripts/dash-choice-test.js` covers the reader's accepted shape and named
+refusals; `scripts/dash-diagnostics-test.js` proves the capture is
+side-effect free, runs no accessors, and honors the assessment shell
+boundary. The fixtures reproduce the captured structure; select, submit,
+advance and completion behavior in them is fixture behavior, not
+live-verified EP behavior.

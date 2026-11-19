@@ -10,7 +10,7 @@ Dated evidence moved from the root README. Each entry is a dated, user-run check
 - 30 Oct 2026: Smart Lesson single-choice ran one accepted select/submit/advance cycle.
 - 30 Oct 2026: Listening and Dictation each ran one accepted type/submit/advance cycle.
 - 2026-10-30: the live Listening task ships no marking flag.
-- 19 Nov 2026: a live Dash run stopped at the Smart Lesson mode guard.
+- 19 Nov 2026: a live Dash run plus a read-only `EP_DASH_INSPECT` capture established the real multi-choice round shape; Dash multi-choice rounds are now answered from that shape, fixture-tested only - no end-to-end live Dash sprint yet.
 - Ordinary guarded dropdown: one bounded live F4 popup submission, which EP marked correct.
 - 5, 6, 8 and 17 Nov 2026: live validations. Their detailed sections are in [docs/developer-guide.md](docs/developer-guide.md).
 

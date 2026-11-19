@@ -2,7 +2,7 @@
 
 #### A JavaScript program that automatically answers Education Perfect language questions at **super** speeds.
 
-It automates word-to-word (translation) tasks, audio tasks (Listening and Dictation) and multiple-choice questions in auto-marked Smart Lessons on [Education Perfect](https://www.educationperfect.com/). Dash is not supported yet. The question types and their limits are listed in [Supported question types](#supported-question-types).
+It automates word-to-word (translation) tasks, audio tasks (Listening and Dictation) and multiple-choice questions in auto-marked Smart Lessons and Dash (timed sprint) multi-choice rounds on [Education Perfect](https://www.educationperfect.com/). The question types and their limits are listed in [Supported question types](#supported-question-types).
 
 **Live verification:** the word-to-word task flow has been run end-to-end against the live Education Perfect service. Other question types have only bounded live checks or synthetic coverage, and Dash has not been answered live. The dated evidence is in the [changelog](CHANGELOG.md#live-verification-log).
 
@@ -101,7 +101,7 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 - `refresh` - learn the answers from a task starter page's word lists (once per new task)
 - `status` - show current status (including accuracy target)
 - `inspect-self-mark` - read-only capture of a self-mark (Reflection) page
-- `inspect-dash` - read-only capture of a Dash round's structure (Dash answering is not supported yet)
+- `inspect-dash` - read-only capture of a Dash round's structure (used for shapes the Dash answerer refuses)
 - `quit` - close the CLI
 
 The legacy hotkey-only program is still there: run `node index.js`, or double-click [start.cmd](start.cmd) (Windows) or [start.sh](start.sh) (Linux/Mac).
@@ -184,14 +184,14 @@ Upon starting, the program opens the browser and gets EP ready (including loggin
 | Highlight (click the correct tokens) | Narrow source contract; synthetic coverage | [contract](docs/question-types.md#highlight-source-contract) |
 | Reflection / self-mark pages | Fills the user's own text only; submission and self-marking stay with the user | [contract](docs/question-types.md#reflection-and-self-mark-pages-114) |
 | Short-answer lesson questions | Answered the same way; not live-verified yet | [known limitations](docs/question-types.md#known-limitations-full-text) |
-| Dash (timed sprint) | **Not supported.** The run stops and names Dash | [Dash](docs/question-types.md#dash-timed-word-to-word-sprint) |
+| Dash (timed sprint) multi-choice rounds | Answered from the live-captured round shape; fixture-tested only, not yet live-verified end to end | [Dash](docs/question-types.md#dash-timed-word-to-word-sprint) |
 | Matching, ordering, image-based and other manual or assessment questions | Detected and reported, not answered | [assessment boundary](docs/question-types.md#assessment-source-boundary) |
 
 Unsupported Smart Lesson question types are detected and reported, not guessed at.
 
 ## Known limitations
 
-- **Dash is not supported yet.** A live Dash run stopped at the Smart Lesson mode guard (see [CHANGELOG](CHANGELOG.md#live-verification-log)), so the program refuses it by name and answers no Dash question. Run `inspect-dash` at the round and send the `EP_DASH_INSPECT` line to help build support.
+- **Dash support is fixture-tested only.** Multi-choice rounds are answered from a live structural capture (19 November 2026; see [CHANGELOG](CHANGELOG.md#live-verification-log)); no end-to-end live Dash sprint has been run through the program yet, and other Dash layouts are refused by name. Run `inspect-dash` at a refused round and send the `EP_DASH_INSPECT` line to help extend support.
 - **Audio answers depend on EP's data.** Audio is answered from the data EP ships to the browser before submission. If that state goes missing, those tasks fail loudly rather than fall back to guessing. Self-test work still earns points and stays visible to teachers.
 - **Smart Lesson support is limited.** Only explicitly auto-marked activities are answered. Full-lesson completion and automated rejection handling are not proved live.
 - **Word-list parsing is best-effort.** Extreme formatting cases can still produce incorrect answers.

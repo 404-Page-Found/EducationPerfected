@@ -499,11 +499,11 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
         // Dash (timed sprint, issue #230): a live Dash run on 2026-11-19
         // showed the real round is NOT the classic shape assumed below - it
         // renders a multi-choice component on EP's QuizModel (classic
-        // gameMode, isDash true), and every reader now refuses it by name.
-        // The timer selector below remains fixture-invented and is used only
-        // to warn when a timed run starts with an empty word list; it never
-        // drives answering. The live round's real markup is captured by the
-        // read-only inspect-dash command (lib/dash-diagnostics.js).
+        // gameMode, isDash true). The choice reader now answers that
+        // confirmed shape (see lib/choice-state.js); every other Dash layout
+        // still refuses by name. The timer selector below remains
+        // fixture-invented and is used only to warn when a timed run starts
+        // with an empty word list; it never drives answering.
         continue_button_css: 'button#continue-button',
 
         // non-blocking feedback toast (injected by this script, not part of EP)
