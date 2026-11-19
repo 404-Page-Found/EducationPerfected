@@ -105,7 +105,14 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 - `inspect-dash` - read-only capture of a Dash round's structure (used for shapes the Dash answerer refuses)
 - `quit` - close the CLI
 
-The legacy hotkey-only program is still there: run `node index.js`, or double-click [start.cmd](start.cmd) (Windows) or [start.sh](start.sh) (Linux/Mac).
+The browser also has a collapsible **EducationPerfected** menu in the bottom-right
+corner. Expand it to start/stop, change mode, refresh words, set/read accuracy and
+pacing, or run read-only self-mark/Dash inspections. Its status stays in sync with
+the terminal and hotkeys. Collapse it when it covers task content; its inputs are
+isolated from EP's page controls. It is reinstalled once after each navigation.
+The terminal still owns quit and any one-shot validation approvals.
+
+The legacy entrypoint (hotkeys and browser menu, without terminal commands) is still there: run `node index.js`, or double-click [start.cmd](start.cmd) (Windows) or [start.sh](start.sh) (Linux/Mac).
 
 You can close the browser window or the popped-up terminal window whenever you are done. If you run into weird behavior, try restarting the program.
 
