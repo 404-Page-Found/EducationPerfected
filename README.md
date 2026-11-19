@@ -127,14 +127,14 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 - `start` - start auto-answering; `stop` - stop it
 - `mode auto` - answer and submit automatically (default); `mode semi` - fill answers but leave submitting to you
 - `accuracy` - show accuracy config, per-run target and first-try stats; `accuracy <n|min-max|off|on>` - set accuracy when stopped (e.g. `accuracy 82`, `accuracy 70-90`, `accuracy off`)
-- `delay` - show the human-paced wait before each submission; `delay off` - restore super speed; `delay on` - re-enable; `delay MIN-MAX` - override the wait range in seconds (e.g. `delay 2-6`); `delay reset` - restore the per-question-type ranges
+- `delay` - show the human-paced wait before each submission (Dash shares the text 2-6s range in the reconstruction; `delay off` is expected ΓÇö unproved live ΓÇö to maximise Dash score); `delay off` - restore super speed (provisional Dash recommendation; live timing unproved); `delay on` - re-enable; `delay MIN-MAX` - override the wait range in seconds (e.g. `delay 2-6`); `delay reset` - restore the per-question-type ranges
 - `refresh` - learn the answers from a task starter page's word lists (once per new task)
 - `status` - show current status (including accuracy target)
 - `inspect-self-mark` - read-only capture of a self-mark (Reflection) page
 - `inspect-dash` - read-only capture of a Dash round's structure (Dash answering is not supported yet; this collects what support needs)
 - `quit` - close the CLI
 
-Random accuracy is OFF by default: runs answer perfectly. Turn it on to simulate a real student: each `start` then picks a first-try target in the configured band and occasionally submits a small human-like mistake (typo for text/audio, neighboring distractor for single-choice) before the normal wrong-answer-modal / retry / Next flow completes the run. Other lesson surfaces stay perfect to preserve their fail-closed proofs. Startup flags and env enable and tune the simulation (installer command shown; for a source checkout pass the same option to `npm run cli`, e.g. `npm run cli -- --accuracy 82`):
+Random accuracy is OFF by default: runs answer perfectly (the provisional Dash recommendation ΓÇö each Dash mistake is expected, unproved live, to burn sprint time/points). Turn it on to simulate a real student: each `start` then picks a first-try target in the configured band and occasionally submits a small human-like mistake (typo for text/audio, neighboring distractor for single-choice) before the normal wrong-answer-modal / retry / Next flow completes the run. Other lesson surfaces stay perfect to preserve their fail-closed proofs. Startup flags and env enable and tune the simulation (installer command shown; for a source checkout pass the same option to `npm run cli`, e.g. `npm run cli -- --accuracy 82`):
 
     educationperfected --accuracy 82      # or -a 82
     educationperfected --accuracy-range 70-90   # or -r 70-90
@@ -158,14 +158,14 @@ If you run into weird behavior, try restarting the program.
 ### Dependencies
 The program has four runtime dependencies, pinned in [package.json](package.json) and locked (with their own dependencies) in [package-lock.json](package-lock.json): [Puppeteer](https://github.com/puppeteer/puppeteer) **25.16.0** with `@puppeteer/browsers` **3.2.6** drives and downloads the browser (each Puppeteer version pairs with a Chrome build - Chrome 156 for this one), `@napi-rs/keyring` **2.1.2** handles the optional saved login in the OS credential store, and `modern-tar` **0.8.6** unpacks the downloaded browser archives. Install with `npm ci`, or just use one of the starter scripts, which run it for you when needed. To bump Puppeteer, change the version in `package.json`, run `npm install`, and commit the updated lockfile.
 
-That version was exercised by a local smoke test ([scripts/smoke-test.js](scripts/smoke-test.js)) against a mock EP site ([scripts/mock-ep.js](scripts/mock-ep.js)) covering the Puppeteer calls this program makes: login form fill and submit, reading the word lists, typing and submitting answers, reading and dismissing the wrong-answer modal, and the completion screen. Run it yourself with `npm run smoke` (use `SMOKE_HEADFUL=1` to watch a visible window, or `SMOKE_EXECUTABLE_PATH`/`SMOKE_BROWSER_URL` to target a browser you already have).  
+That version was exercised by a local smoke test ([scripts/smoke-test.js](scripts/smoke-test.js)) against a mock EP site ([scripts/mock-ep.js](scripts/mock-ep.js)) covering the Puppeteer calls this program makes: login form fill and submit, reading the word lists, typing and submitting answers, reading and dismissing the wrong-answer modal, and the completion screen, plus the Dash sprint fixture (/dash-task, /dash-task/play: shared word lists, shared question/answer pair, timer/score/results, refresh/answer/advance/completion-exit). Run it yourself with `npm run smoke` (use `SMOKE_HEADFUL=1` to watch a visible window, or `SMOKE_EXECUTABLE_PATH`/`SMOKE_BROWSER_URL` to target a browser you already have).  
 The Smart Lesson and audio handlers have their own end-to-end test ([scripts/handler-test.js](scripts/handler-test.js), run it with `npm run test:handlers`). It drives the program's real answer loop against local fixtures ([scripts/mock-ep.js](scripts/mock-ep.js)) that were built from notes taken while inspecting the live site (a multiple-choice lesson slide and an audio task, sanitised of account data) - they are reconstructions, not recorded sessions.  
 The interactive CLI groundwork has a separate local regression command: `npm run test:phase3`. It runs shared-control unit tests, startup-failure tests for all three entrypoints with both invalid-URL and connection-refused scenarios, startup and legacy-entrypoint SIGINT/SIGTERM cleanup, pending-launch cancellation feedback, the CLI browser fixture, and stop-during-completion-proof coverage. Run `node scripts/cli-test.js --signal` and `node scripts/cli-test.js --external-close` for signal and external-browser-close cases. These are local fixtures, not live-service or cross-platform release certification. Only the Windows taskkill path resolver has unit coverage; the cleanup itself has not been executed on Windows.
 *This smoke test proves the dependency setup works, including a synthetic Dash fixture. An end-to-end run against EP's live service (not just the mock) has since confirmed the word-to-word task flow works as expected (Dash is not supported yet, see Known limitations) - though the live site can still change, so re-verify if you suspect breakage.*
 
 ### Features
 **Start Answering**: There's one main function - automatically answer questions when you're doing a task.  
-It reads each question, finds the answer from the pre-learned dictionary, and submits it. To read as a student working rather than a bot, each answer lands only after a short randomized wait sampled uniformly from a per-question-type range: 2-6s for word rounds, 3-8s for choice/dropdown/highlight, 4-10s for typed answers, gaps and input boxes, 5-12s for mixed slides, 6-15s for working formula, and 8-15s for audio (a listening floor; the page contract exposes no audio length). Pacing is on by default; `delay off` (or starting with `EP_HUMAN_DELAY=off`) restores the old **super** speeds, and `delay MIN-MAX` tunes the range.
+It reads each question, finds the answer from the pre-learned dictionary, and submits it. To read as a student working rather than a bot, each answer lands only after a short randomized wait sampled uniformly from a per-question-type range: 2-6s for word rounds (including the timed Dash sprint in the reconstruction, which shares this range by default), 3-8s for choice/dropdown/highlight, 4-10s for typed answers, gaps and input boxes, 5-12s for mixed slides, 6-15s for working formula, and 8-15s for audio (a listening floor; the page contract exposes no audio length). Pacing is on by default; `delay off` (or starting with `EP_HUMAN_DELAY=off`) restores the old **super** speeds, and `delay MIN-MAX` tunes the range. On a timed Dash clock that wait is expected (unproved live ΓÇö the fixture never auto-ends and live expiry/scoring are uncaptured) to trade score for human-likeness, so `delay off` is the provisional Dash recommendation for maximum points (see the Dash section below).
 There are also bonus features like deleting popup modals when an answer is wrong to keep the speed up and learn
 from mistakes.
 
@@ -182,7 +182,7 @@ features, but it is a lot slower.)
 Note that the learned dictionary lives only in the running program's memory - restart the program and you'll need
 to press Refresh Words again for the task's word list.
 
-**Random Accuracy (off by default)**: Runs answer perfectly unless you opt in. When enabled, each run randomizes
+**Random Accuracy (off by default)**: Runs answer perfectly unless you opt in (the provisional Dash recommendation ΓÇö each Dash mistake is expected, unproved live, to burn sprint time/points). When enabled, each run randomizes
 a first-try target in the configured band (70-90% via `accuracy on`) and, with probability `1 - target`, submits a plausible-but-wrong answer first: a small typo
 for text/audio/lesson short-answer, or a neighboring distractor for single-choice. The mistake flows through the normal
 wrong-answer-modal / retry / Next path, so the run still completes with lower first-try accuracy. Semi-auto fills the
@@ -214,7 +214,7 @@ Upon starting, the program opens the browser and gets EP ready (including loggin
 
 *NOTE: due to how key combination detection works, the sequence you press the keys must be precise to trigger the
 functions; PRESS Alt, PRESS & RELEASE letter key, RELEASE Alt... If you release Alt before releasing the letter key,
-it won't be detected. (On macOS, pressing Option + a letter types the special characters ®/ß/å - those are accepted too.)*
+it won't be detected. (On macOS, pressing Option + a letter types the special characters ┬«/├ƒ/├Ñ - those are accepted too.)*
 
 
 ## Details
@@ -402,7 +402,23 @@ The [phase 2 stored-state review](research/assessment-question-state.md) separat
 
 The [phase 3 component-output review](research/assessment-component-output.md) maps repeated marking reads, storage/user-state fallbacks and state-creating output paths. Local poisoned-getter tests force Assessment mode on nine synthetic shell/lesson/audio/task fixture shapes; the detector refuses before reading answer, renderer or stored-state fields. No output helper is invoked and no Assessment support is enabled.
 
+## Dash (timed word-to-word sprint)
+
+Dash is a timed word-to-word sprint that reuses the classic translation loop. There is no live Dash DOM capture yet: entry URLs, timer markup, scoring and completion screens have not been recorded from an account. The fixture in scripts/mock-ep.js (/dash-task starter, /dash-task/play sprint) is therefore a provisional 2026-11-19 reconstruction, not captured markup. It reuses the audited classic selectors (#question-text, input#answer-text, div.baseLanguage/div.targetLanguage, the wrong-answer modal div[uib-modal-window] + td#correct-answer-field, button.exit-button/button.continue-button) and adds the smallest plausible timed chrome: a visible countdown (.dash-timer), a score readout (.dash-score) and a results interstitial (.dash-results) that keeps the same exit control. DIR in index.js records that audit date; if a live capture disagrees, the selectors and the reconstruction must be updated and re-audited. npm run smoke covers the Dash fixture (refresh, answer, advance, completion-exit) and scripts/dash-test.js covers detection plus a real-CLI sprint run.
+
+Supported Dash flow (as reconstructed):
+
+- Entry: open the Dash entry with its word lists visible, then refresh to learn div.baseLanguage/div.targetLanguage. Refresh reports the entry count. When no lists are found it reports `Word Lists Refreshed. 0 entries` and warns that each blind guess burns clock on a timed sprint, instead of silently mistyping; do not start the sprint until the lists are visible.
+- Round: the same #question-text question is looked up in the refreshed dictionary and typed into input#answer-text, then submitted with Enter. A wrong answer shows the same correction modal and learns the same way as an untimed task.
+- Timer: the sprint shows a .dash-timer countdown and a .dash-score. The countdown is informational in the fixture (it never auto-ends the run); the run ends by answering every round. The 15s ADVANCE_TIMEOUT and the default 2-6s human wait were tuned for untimed tasks, so a slow network plus full pacing can cost sprint points. That tradeoff is explicit, not hidden.
+- Pacing: Dash shares the classic text 2-6s range by default in the reconstruction. No Dash-specific range is introduced. `delay off` (super speed) is expected ΓÇö but unproved live, since the fixture never auto-ends and live expiry/scoring are uncaptured ΓÇö to maximise points; `delay MIN-MAX` already covers a faster-but-paced sprint (e.g. `delay 0.5-1`). The interactive `delay` report and help name this provisional Dash rule.
+- Accuracy: perfect (the default) is the provisional Dash recommendation ΓÇö each intentional mistake is expected (unproved live) to burn sprint time/points and possible leaderboard impact. When accuracy is enabled, an intentional typo still flows through the normal wrong-answer-modal retry path so the run completes. The run log reports Dash sprint detected once per run with the pacing note and whether accuracy is perfect or enabled.
+- Completion: the sprint ends like an untimed task (visible button.exit-button/button.continue-button) with the provisional .dash-results interstitial (Dash complete: N/N) shown alongside the same exit control. Either visible control proves completion; the run clicks exit and reports completed.
+
+What is still unproved live: the Dash entry URLs, whether every Dash entry shows word lists or draws from a pool/leaderboard seed, the real timer selector/duration/expiry behavior, wrong-answer behavior in Dash (same modal or instant advance), the real completion/results/leaderboard markup and buttons, scoring/penalty/teacher visibility, whether 15s + 2-6s leaves headroom on a real clock, and whether the timed competitive mode carries stricter rate/behavior checks. Live proof covers the classic word-to-word translation task only; Dash coverage is the reconstruction plus the fixture runs above. Re-verify against a sanitised live Dash capture before treating any of the above as live proof.
+
 ## Known limitations
+
 
 - Ordinary lesson text and number boxes have the narrow source-derived contract above and synthetic fixture coverage only. No live number-box detection, filling or grading is proved; other long/rich, gaps-textbox and manual/assessment variants remain unsupported, apart from the user-authored Reflection fill-only path above.
 

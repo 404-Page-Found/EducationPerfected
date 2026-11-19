@@ -27,6 +27,7 @@ const { collectSelfMarkDiagnostics } = require('./lib/self-mark-diagnostics');
 const { guardClassicEnter } = require('./lib/classic-enter');
 const { boxMatchesAnswer } = require('./lib/answer-normalize');
 const {captureSelectionBaseline,inspectSelectionModal,advanceSelectionSection}=require('./lib/selection-modal');
+const { DASH_TIMER_CSS, DASH_SCORE_CSS, DASH_RESULTS_CSS, DASH_PACING_NOTE, DASH_ACCURACY_NOTE, DASH_EMPTY_WORDLIST_NOTE, detectDashInPage } = require('./lib/dash');
 
 // ===== Credentials ===== //
 // Credentials are never stored in this (or any other tracked) file. They are read at
@@ -457,6 +458,11 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
         // markup that puts these ids on a <td> (other dialogs reuse them on divs/spans).
         // The modal's fields start as "&nbsp;" placeholders and are filled by the
         // answer-feedback formatter, which is what the readiness check below waits for.
+        // Dash (issue #237, 2026-11-19): no live Dash DOM capture exists. The classic
+        // #question-text / input#answer-text pair is shared with the Dash sprint by
+        // belief (README claim), not by capture; the timer/score/results selectors
+        // below are provisional for the /dash-task reconstruction in scripts/mock-ep.js
+        // and must be re-audited against a sanitised live Dash capture.
         modal_question_css: 'td#question-field',
         modal_correct_answer_css: 'td#correct-answer-field',
         modal_user_answered_css: 'td#users-answer-field',
@@ -465,8 +471,22 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
         // task page: <span id="question-text"> inside #question-block (audio tasks use a
         // span with the same id under .voice-speaker; they are unsupported anyway)
+        // Dash shares this pair (unverified live); the Dash timer/scores below are the
+        // only Dash-specific selectors. See lib/dash.js for the pacing/accuracy decision.
         question_css: '#question-text',
         answer_box_css: 'input#answer-text',
+        // Dash (timed sprint, issues #230/#237): believed to reuse every classic task
+        // selector above. Audited 2026-11-19 against the SYNTHETIC fixture in
+        // scripts/mock-ep.js (/dash-task) only - no live Dash capture exists yet,
+        // so this audit pins the assumption, not the live markup. The timer/score/
+        // results selectors below are fixture-invented (lib/dash.js): the timer is
+        // used to warn when a timed run starts with an empty word list and to note
+        // the sprint; it never drives answering. The fixture exposes both
+        // .dash-timer and #dash-timer (likewise score/results) so either selector
+        // resolves.
+        dash_timer_css: DASH_TIMER_CSS,
+        dash_score_css: DASH_SCORE_CSS,
+        dash_results_css: DASH_RESULTS_CSS,
 
         // task page: Smart Lesson/Assessment and audio-task shapes. Audited against
         // the live app (Italian Smart Lesson + Listening/Dictation, 2026-10-30);
@@ -484,8 +504,6 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
         // to warn when a timed run starts with an empty word list; it never
         // drives answering. The live round's real markup is captured by the
         // read-only inspect-dash command (lib/dash-diagnostics.js).
-        dash_timer_css: '#dash-timer',
-
         continue_button_css: 'button#continue-button',
 
         // non-blocking feedback toast (injected by this script, not part of EP)
@@ -1115,15 +1133,39 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             async function refreshWords() {
                 const base = await wordList(DIR.baseList_css);
                 const target = await wordList(DIR.targetList_css);
+                // Dash-only guidance must not leak into classic tasks: the empty
+                // and mismatch alerts are shared by both starters, so detect a
+                // Dash starter (URL plus provisional markers) before appending
+                // timed-sprint wording.
+                let isDashStarter = false;
+                try {
+                    const url = page.url();
+                    isDashStarter = typeof url === 'string' && url.toLowerCase().includes('dash');
+                } catch { /* keep generic on URL failure */ }
+                if (!isDashStarter) {
+                    try {
+                        const found = await page.evaluate(detectDashInPage, DIR.dash_timer_css, DIR.dash_results_css);
+                        isDashStarter = !!(found && found.isDash);
+                    } catch { /* keep generic on evaluate failure */ }
+                }
+                if (!isDashStarter) {
+                    try {
+                        isDashStarter = await page.evaluate(() => !!document.querySelector('.dash-info'));
+                    } catch { /* keep generic on evaluate failure */ }
+                }
 
                 if (base.length !== target.length) {
-                    const mismatch = `Word Lists Not Refreshed: ${base.length} base vs ${target.length} target entries; lists do not line up, so pairing them would teach wrong answers.`;
+                    const baseMsg = `Word Lists Not Refreshed: ${base.length} base vs ${target.length} target entries; lists do not line up, so pairing them would teach wrong answers.`;
+                    const mismatch = isDashStarter
+                        ? `${baseMsg} On a timed Dash sprint a mismatched pairing also burns clock; fix the lists before starting the sprint.`
+                        : `${baseMsg} Fix the lists before starting the task.`;
                     console.warn(mismatch);
                     await alert(mismatch);
                     return;
                 }
                 if (base.length === 0) {
-                    const empty = 'Word Lists Refreshed. 0 entries: no word lists found. Press Refresh Words on the task-starter page with the word lists visible.';
+                    const baseMsg = 'Word Lists Refreshed. 0 entries: no word lists found. Press Refresh Words on the task-starter page with the word lists visible.';
+                    const empty = isDashStarter ? `${baseMsg} ${DASH_EMPTY_WORDLIST_NOTE}` : baseMsg;
                     console.warn(empty);
                     await alert(empty);
                     return;
@@ -2033,13 +2075,44 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // A generic Continue/modal is not proof that the task ended. Status
             // uses a narrower signal than legacy navigation: no question plus
             // a visible exit control, while this run still intends to answer.
+            // Dash (issue #237): the timed sprint ends the same way (exit/continue),
+            // with a provisional results interstitial (.dash-results) that keeps the
+            // same exit control. Either visible control proves completion; the
+            // results screen alone is also accepted so a leaderboard interstitial
+            // without a separate exit button still ends the run.
             async function taskCompletionProven() {
                 if (!TOGGLE || await detectQuestion(page) !== null) return false;
-                const exitVisible = await page.evaluate(css => {
-                    const button = document.querySelector(css);
-                    return !!button && !button.hidden && (button.offsetParent !== null || button.getClientRects().length > 0);
-                }, DIR.exit_button_css).catch(() => false);
-                return TOGGLE && exitVisible;
+                const proven = await page.evaluate((exitCss, resultsCss) => {
+                    const shown = (css) => {
+                        const button = document.querySelector(css);
+                        return !!button && !button.hidden && (button.offsetParent !== null || button.getClientRects().length > 0);
+                    };
+                    return shown(exitCss) || shown(resultsCss);
+                }, DIR.exit_button_css, DIR.dash_results_css).catch(() => false);
+                return TOGGLE && proven;
+            }
+
+            // Dash sprint notice (issue #237): the classic pair is shared by belief,
+            // so call it out once per run instead of mistyping silently. Reports the
+            // timer presence, the shared text 2-6s pacing decision (provisional delay
+            // off recommendation, live scoring unproved) and the expected accuracy
+            // cost (a Dash mistake is expected to burn sprint time/points).
+            // Runs inside the answer loop; never throws and never stops the run.
+            let dashNoted = false;
+            async function noteDashOnce() {
+                if (dashNoted) return;
+                let dash = null;
+                try {
+                    dash = await page.evaluate(detectDashInPage, DIR.dash_timer_css, DIR.dash_results_css);
+                } catch { return; }
+                if (!dash || !dash.isDash) return;
+                dashNoted = true;
+                console.log(`Dash sprint detected (timer visible: ${dash.timerVisible ? 'yes' : 'no'}). ${DASH_PACING_NOTE}`);
+                if (accuracyRun && accuracyRun.enabled !== false && accuracyConfig && accuracyConfig.enabled) {
+                    console.log(`Accuracy ${accuracyRun.target}% is on for this Dash sprint. ${DASH_ACCURACY_NOTE}`);
+                } else {
+                    console.log(`Accuracy is perfect for this Dash sprint (recommended). ${DASH_ACCURACY_NOTE}`);
+                }
             }
 
             /**
@@ -2055,6 +2128,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 lastSubmitted = null;
                 typedSubmissionsByKey.clear();
                 futileStop = false;  // a manual restart after a futility stop gets a fresh bounded run
+                dashNoted = false;  // per-run Dash guidance: a second start must log the sprint notice again
                 startAccuracyRun();
                 console.log("answerLoop entered.");
 
@@ -2172,13 +2246,13 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                             // is not a slide gap) prove completion. An existence check
                             // here used to "complete" the task mid-lesson and click a
                             // hidden exit button.
-                            const controlsVisible = await page.evaluate((exitCss, contCss) => {
+                            const controlsVisible = await page.evaluate((exitCss, contCss, resultsCss) => {
                                 const shown = (css) => {
                                     const el = document.querySelector(css);
                                     return !!el && !el.hidden && (el.offsetParent !== null || el.getClientRects().length > 0);
                                 };
-                                return shown(exitCss) || shown(contCss);
-                            }, DIR.exit_button_css, DIR.exit_continue_button_css).catch(() => false);
+                                return shown(exitCss) || shown(contCss) || shown(resultsCss);
+                            }, DIR.exit_button_css, DIR.exit_continue_button_css, DIR.dash_results_css).catch(() => false);
                             completePolls = controlsVisible ? completePolls + 1 : 0;
                             complete = completePolls >= 2;
                             if (complete) break;
@@ -2196,14 +2270,32 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                             if (complete && TOGGLE) {
                                 const proven = await taskCompletionProven();
                                 if (!TOGGLE) break;
-                                const exited = await page.evaluate((exitCss, contCss) => {
-                                    const button = document.querySelector(exitCss) || document.querySelector(contCss);
-                                    if (!button) return false;
+                                const completion = await page.evaluate((exitCss, contCss, resultsCss) => {
+                                    const shown = (css) => {
+                                        const el = document.querySelector(css);
+                                        return !!el && !el.hidden && (el.offsetParent !== null || el.getClientRects().length > 0);
+                                    };
+                                    const exitEl = document.querySelector(exitCss);
+                                    const contEl = document.querySelector(contCss);
+                                    const resultsEl = document.querySelector(resultsCss);
+                                    const button = exitEl || contEl || resultsEl;
+                                    if (!button) return { clicked: false, resultsVisible: shown(resultsCss) };
+                                    // The Dash results interstitial is a div, not a button: a
+                                    // results-only finish has no control to click, but the
+                                    // visible results proof alone still completes the sprint.
+                                    if (button.tagName !== 'BUTTON') {
+                                        const fallback = exitEl || contEl;
+                                        if (fallback && fallback.tagName === 'BUTTON') {
+                                            fallback.click();
+                                            return { clicked: true, resultsVisible: shown(resultsCss) };
+                                        }
+                                        return { clicked: false, resultsVisible: shown(resultsCss) };
+                                    }
                                     button.click();
-                                    return true;
-                                }, DIR.exit_button_css, DIR.exit_continue_button_css).catch(() => false);
-                                if (exited && proven && TOGGLE) runReason = 'completed';
-                                console.log(exited ? 'Clicked the task exit/continue button.' : 'The completion controls vanished; stopping the run.');
+                                    return { clicked: true, resultsVisible: shown(resultsCss) };
+                                }, DIR.exit_button_css, DIR.exit_continue_button_css, DIR.dash_results_css).catch(() => ({ clicked: false, resultsVisible: false }));
+                                if (proven && TOGGLE && (completion.clicked || completion.resultsVisible)) runReason = 'completed';
+                                console.log(completion.clicked ? 'Clicked the task exit/continue button.' : (completion.resultsVisible ? 'Dash results interstitial confirms sprint completion; no exit control to click.' : 'The completion controls vanished; stopping the run.'));
                             }
                             break;
                         }
@@ -2213,6 +2305,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         if (!await handleNonTextRound(descriptor)) break;
                         continue;
                     }
+                    await noteDashOnce();
                     let question = descriptor.text;
                     // EP swaps the question element's text asynchronously after starting a
                     // round; reads taken mid-swap pick up the word EP WAS asking, not the
@@ -2755,7 +2848,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             if (dropdownSubmitOnce) controls.inspectDropdowns = () => require('./lib/dropdown-diagnostics').collectDropdownDiagnostics(page,{definitionsOnly:true});
             // Human pacing control (issue #221): no action reports state, on/off
             // toggle the wait, MIN-MAX (seconds) overrides every per-type range,
-            // reset restores the per-type ranges.
+            // reset restores the per-type ranges. Dash (issue #237) shares the
+            // text 2-6s range in the reconstruction; delay off is the provisional
+            // Dash recommendation (live scoring unproved).
             controls.delay = action => {
                 if (action === 'on') humanDelay.setEnabled(true);
                 else if (action === 'off') humanDelay.setEnabled(false);
@@ -2766,7 +2861,8 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     humanDelay.setOverride(range[0], range[1]);
                 }
                 const state = humanDelay.describe();
-                return { delay: state.enabled ? (state.override ? `${state.override[0] / 1000}-${state.override[1] / 1000}s (custom)` : 'per-question-type ranges: ' + summarizeRanges()) : 'off (super speed)' };
+                const base = state.enabled ? (state.override ? `${state.override[0] / 1000}-${state.override[1] / 1000}s (custom)` : 'per-question-type ranges: ' + summarizeRanges()) : 'off (super speed)';
+                return { delay: `${base}. ${DASH_PACING_NOTE}` };
             };
             browser.on('disconnected', () => { controls.browserClosed(); onBrowserDisconnected(); });
 

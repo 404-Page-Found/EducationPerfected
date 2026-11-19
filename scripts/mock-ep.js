@@ -7,9 +7,11 @@
 //   GET /task/play   question (#question-text), answer box (input#answer-text),
 //                    wrong-answer modal (uib-modal-window + td#question-field ...),
 //                    completion button (button.exit-button)
-//   GET /dash-task   Dash starter (same word lists, synthetic)
-//   GET /dash-task/play  Dash round: classic markup + invented timer/score
-//                    elements (#dash-timer, #dash-score); synthetic per #230
+//
+//   GET /dash-task   Dash starter (same word lists, synthetic per #230/#237)
+//   GET /dash-task/play  Dash round: classic markup + invented timer/score/
+//                    results elements (.dash-timer/.dash-score/.dash-results,
+//                    also addressable as #dash-timer/#dash-score); synthetic only
 //
 // The answers are the German words one..five; a wrong submission shows the
 // correction modal, a right one advances the round.
@@ -28,7 +30,7 @@ const WORDS = [
     ['two', 'zwei'],
     ['three', 'drei'],
     ['four', 'vier'],
-    ['five', 'fünf'],
+    ['five', 'f├╝nf'],
 ];
 
 const PAGE = (body) => `<!doctype html>
@@ -182,7 +184,8 @@ const dashStarterPage = PAGE(`
     <main>
         ${WORDS.map(([base]) => `<div class="baseLanguage"><span>${base}</span></div>`).join('')}
         ${WORDS.map(([, target]) => `<div class="targetLanguage"><span>${target}</span></div>`).join('')}
-        <button id="start-button-main" onclick="location.href='/dash-task/play'">Start Dash</button>
+        <div class="dash-info">Timed word-to-word sprint</div>
+        <button id="start-button-main" onclick="location.href='/dash-task/play'">Start</button>
     </main>`);
 
 const dashTaskPage = (start) => {
@@ -190,8 +193,9 @@ const dashTaskPage = (start) => {
     const round = WORDS.slice(clamped).map(([base, target]) => ({ question: base, answer: target }));
     return PAGE(`
     <main>
-        <div id="dash-timer" data-seconds="60">01:00</div>
-        <div id="dash-score">0</div>
+        <div id="dash-timer" class="dash-timer">60</div>
+        <div id="dash-score" class="dash-score">0</div>
+        <div id="dash-results" class="dash-results" hidden>Dash complete: ${round.length}/${round.length}</div>
         <table><tr>
             <td id="question-text">${round[0].question}</td>
             <td><input id="answer-text" autocomplete="off"></td>
@@ -199,28 +203,32 @@ const dashTaskPage = (start) => {
         <button class="exit-button" hidden onclick="location.href='/learning/dashboard'">Exit</button>
     </main>
     <script>
-        const rounds = ${JSON.stringify(round)};
+        const rounds = ${JSON.stringify(WORDS.slice(clamped).map(([base, target]) => ({ question: base, answer: target })))};
         const classicSelf = { model: { gameMode: 1, _currentQuestion: {} } };
         window.angular = { element: () => ({ scope: () => ({ self: classicSelf }) }) };
         let index = 0;
         let score = 0;
-        let seconds = 60;
+        let secondsLeft = 60;
         const question = document.getElementById('question-text');
         const box = document.getElementById('answer-text');
         const exit = document.querySelector('.exit-button');
-        const timer = document.getElementById('dash-timer');
-        const scoreEl = document.getElementById('dash-score');
-        const clock = setInterval(() => {
-            seconds = Math.max(0, seconds - 1);
-            timer.textContent = '00:' + String(seconds).padStart(2, '0');
-            if (seconds === 0) clearInterval(clock);
+        const timer = document.querySelector('.dash-timer');
+        const scoreEl = document.querySelector('.dash-score');
+        const results = document.querySelector('.dash-results');
+        const countdown = setInterval(() => {
+            secondsLeft = Math.max(0, secondsLeft - 1);
+            if (timer) timer.textContent = String(secondsLeft);
+            if (secondsLeft <= 0) clearInterval(countdown);
         }, 1000);
 
         function render() {
             if (index >= rounds.length) {
-                clearInterval(clock);
+                clearInterval(countdown);
+                if (timer) timer.textContent = String(secondsLeft);
+                if (scoreEl) scoreEl.textContent = String(score);
                 question.remove();
                 box.parentElement.innerHTML = '';
+                if (results) results.hidden = false;
                 exit.hidden = false;
                 return;
             }
@@ -253,8 +261,8 @@ const dashTaskPage = (start) => {
             event.preventDefault();
             const input = box.value;
             if (input.trim() === rounds[index].answer) {
-                score += 10;
-                scoreEl.textContent = String(score);
+                score += 1;
+                if (scoreEl) scoreEl.textContent = String(score);
                 index += 1;
                 render();
             } else {
@@ -660,7 +668,7 @@ function createServer() {
     });
 }
 
-module.exports = { createServer, WORDS, LESSON_ROUNDS, AUDIO_ROUNDS };
+module.exports = { createServer, WORDS, LESSON_ROUNDS, AUDIO_ROUNDS, dashStarterPage, dashTaskPage };
 
 if (require.main === module) {
     const server = createServer();
