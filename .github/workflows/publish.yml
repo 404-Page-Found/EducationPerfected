@@ -302,7 +302,7 @@ jobs:
           retention-days: 90
           if-no-files-found: error
       - name: Direct-download offline contracts
-        if: ${{ !cancelled() && github.event_name == 'release' }}
+        if: ${{ !cancelled() && github.event_name == 'release' && github.event.release.target_commitish == github.event.repository.default_branch }}
         run: npm run test:browser-download
       - name: Start virtual display for Linux local browser fixture
         if: runner.os == 'Linux'
