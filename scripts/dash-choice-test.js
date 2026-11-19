@@ -9,7 +9,9 @@ const puppeteer = require('puppeteer');
 const { createServer } = require('./mock-ep');
 const { readChoiceInPage } = require('../lib/choice-state');
 
-const STUB = (model) => `window.angular = { element: () => ({ scope: () => ({ self: { model: ${JSON.stringify(model)} } }) }) };`;
+// The model is passed as an evaluate argument, never interpolated into
+// evaluated source (CodeQL js/bad-code-sanitization).
+const installStub = (model) => { window.angular = { element: () => ({ scope: () => ({ self: { model } }) }) }; };
 const OPTION_TEXTS = ['alpha', 'bravo', 'charlie', 'delta'];
 const dom = (texts = OPTION_TEXTS, extra = '') => '<div class="multi-choice-component v-group single-select" role="radiogroup">'
     + texts.map(t => `<div class="mcq-preview-option" role="option"><div class="mcq-contents"><span>${t}</span></div></div>`).join('')
@@ -44,7 +46,7 @@ const MODEL = (q, modelOverrides = {}) => ({ gameMode: null, isDash: true, _curr
         await page.goto(origin + '/dash-task/quiz');
         const run = async (html, model, allowMix = false) => {
             await page.setContent(html);
-            await page.evaluate(STUB(model));
+            await page.evaluate(installStub, model);
             return page.evaluate(readChoiceInPage, null, null, allowMix);
         };
         const refuse = (descriptor, guard) => {
@@ -114,7 +116,7 @@ const MODEL = (q, modelOverrides = {}) => ({ gameMode: null, isDash: true, _curr
         const lessonRead = await handle2.evaluate(readChoiceInPage, { key: 'choice:99001:0' });
         assert.deepEqual(lessonRead, { visible: false, text: '' });
         await handle2.dispose();
-        await page.evaluate(STUB({ gameMode: 3, _currentQuestion: { contentID: 99001, questionIndex: 0 } }));
+        await page.evaluate(installStub, { gameMode: 3, _currentQuestion: { contentID: 99001, questionIndex: 0 } });
         const handle3 = await page.$('div.mcq-preview-option');
         const nonDashRead = await handle3.evaluate(readChoiceInPage, { key: 'choice:99001:0', dash: true });
         assert.deepEqual(nonDashRead, { visible: false, text: '' });
