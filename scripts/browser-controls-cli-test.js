@@ -6,7 +6,7 @@ const { installControlMenu } = require('../lib/browser-controls');
 (async () => {
     const { server, origin, child, wait, command, output, browser, page } = await createCliFixture();
     try {
-        const ready = () => page.waitForFunction(() => document.getElementById('educationperfected-controls')?.shadowRoot?.getElementById('live').textContent.includes('stopped'));
+        const ready = () => page.waitForFunction(() => document.getElementById('educationperfected-controls')?.shadowRoot?.getElementById('live').textContent.includes('Stopped'));
         const press = async (action, value, read = false) => {
             await page.evaluate(({ action, value, read }) => {
                 const root = document.getElementById('educationperfected-controls').shadowRoot;
@@ -18,6 +18,8 @@ const { installControlMenu } = require('../lib/browser-controls');
             await page.waitForFunction(() => !document.getElementById('educationperfected-controls').shadowRoot.getElementById('message').textContent.includes('Working...'));
         };
         const result = () => page.evaluate(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('result').textContent);
+        const raw = () => page.evaluate(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('raw').textContent);
+        const live = () => page.evaluate(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('live').textContent);
         const message = () => page.evaluate(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('message').textContent);
         await ready();
         await page.goto(origin + '/lesson'); await ready();
@@ -34,13 +36,19 @@ const { installControlMenu } = require('../lib/browser-controls');
         assert.equal(await page.evaluate(() => window.panelLeakedKeys), 0);
         await press('mode', 'semi'); assert.equal((await page.evaluate(() => window.epControl('status'))).mode, 'semi');
         await press('accuracy', '82'); assert.equal((await page.evaluate(() => window.epControl('status'))).accuracy.fixedTarget, 82);
-        await press('accuracy', 'bad'); assert.match(await message(), /Usage/);
+        await press('accuracy', 'bad'); assert.match(await message(), /^Couldn't apply accuracy: /, 'errors read as a sentence'); assert.match(await message(), /Usage/);
         await press('delay', 'on');
-        await press('delay', '1.5-4'); assert.match(await result(), /1.5-4s/);
+        await press('delay', '1.5-4'); assert.match(await result(), /^Pacing: waiting 1\.5-4s before each answer\.$/, 'pacing echo reads as a sentence');
+        assert.match(await raw(), /"delay": "1\.5-4s/, 'raw pacing echo stays under Technical details');
         await press('delay', 'off');
-        await press('status'); assert.match(await result(), /pacing/);
+        await press('status');
+        assert.match(await result(), /^Stopped\./m, 'status result leads with a readable state');
+        assert.match(await result(), /Pacing: /, 'status result explains pacing in words');
+        assert.ok(!(await result()).includes('"state"'), 'readable result hides raw JSON');
+        assert.match(await raw(), /"state": "stopped"/, 'raw JSON stays under Technical details');
+        assert.match(await live(), /Stopped\.\nSemi-auto mode: answers are filled in, you submit them\./, 'live banner reads as sentences');
         await command('accuracy off', '"enabled":false');
-        await page.waitForFunction(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('live').textContent.includes('accuracy 100%'));
+        await page.waitForFunction(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('live').textContent.includes('Accuracy: every answer goes in correct'));
         if (process.env.EP_PANEL_SCREENSHOT) {
             await page.setViewport({ width: 1100, height: 1000 });
             await page.evaluate(() => {

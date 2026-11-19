@@ -107,9 +107,12 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 
 The browser also has a collapsible **EducationPerfected** menu in the bottom-right
 corner. Expand it to start/stop, change mode, refresh words, set/read accuracy and
-pacing, or run read-only self-mark/Dash inspections. Its status stays in sync with
-the terminal and hotkeys. Collapse it when it covers task content; its inputs are
-isolated from EP's page controls. It is reinstalled once after each navigation.
+pacing, or run read-only self-mark/Dash inspections. Status and results read as
+plain sentences ("Running.", "Auto mode: answers are submitted for you.", "Pacing:
+waiting 2-6s before each answer."); the raw JSON sits under **Technical details**,
+except inspection captures, which stay raw for copying. Its status stays in sync
+with the terminal and hotkeys. Collapse it when it covers task content; its inputs
+are isolated from EP's page controls. It is reinstalled once after each navigation.
 The terminal still owns quit and any one-shot validation approvals.
 
 The legacy entrypoint (hotkeys and browser menu, without terminal commands) is still there: run `node index.js`, or double-click [start.cmd](start.cmd) (Windows) or [start.sh](start.sh) (Linux/Mac).
