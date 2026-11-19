@@ -34,6 +34,21 @@ const { installControlMenu } = require('../lib/browser-controls');
             root.getElementById('accuracy').dispatchEvent(new KeyboardEvent('keyup', { key: 's', altKey: true, bubbles: true, composed: true }));
         });
         assert.equal(await page.evaluate(() => window.panelLeakedKeys), 0);
+        // A first real header click expands the panel without re-anchoring it off screen.
+        await page.evaluate(() => { document.getElementById('educationperfected-controls').shadowRoot.querySelector('details').open = false; });
+        const summaryCenter = await page.evaluate(() => {
+            const rect = document.getElementById('educationperfected-controls').shadowRoot.querySelector('summary').getBoundingClientRect();
+            return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        });
+        await page.mouse.click(summaryCenter.x, summaryCenter.y);
+        await page.waitForFunction(() => document.getElementById('educationperfected-controls').shadowRoot.querySelector('details').open);
+        const placed = await page.evaluate(() => {
+            const host = document.getElementById('educationperfected-controls');
+            const rect = host.getBoundingClientRect();
+            return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, vw: window.innerWidth, vh: window.innerHeight, bottomAnchor: host.style.bottom };
+        });
+        assert.equal(placed.bottomAnchor, '12px', 'first expand keeps the bottom/right anchoring');
+        assert.ok(placed.top >= 0 && placed.left >= 0 && placed.bottom <= placed.vh && placed.right <= placed.vw, 'first expand keeps the panel fully on screen');
         await press('mode', 'semi'); assert.equal((await page.evaluate(() => window.epControl('status'))).mode, 'semi');
         await press('accuracy', '82'); assert.equal((await page.evaluate(() => window.epControl('status'))).accuracy.fixedTarget, 82);
         await press('accuracy', 'bad'); assert.match(await message(), /^Couldn't apply accuracy: /, 'errors read as a sentence'); assert.match(await message(), /Usage/);
