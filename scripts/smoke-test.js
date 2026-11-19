@@ -153,6 +153,7 @@ async function testDashSprint(page, origin) {
     check('Dash: $eval reads the shared question');
     const timer = await page.$eval('.dash-timer', el => ({ text: el.textContent, hidden: el.hidden }));
     assert.ok(timer && !timer.hidden && timer.text.trim() !== '', 'Dash timer must be visible during the sprint');
+    const timerStart = timer.text.trim();
     assert.equal(await page.$eval('.dash-score', el => el.textContent), '0');
     check('Dash: timer countdown and score readout are present');
     // Wrong answer still shows the shared correction modal on Dash.
@@ -160,7 +161,9 @@ async function testDashSprint(page, origin) {
     await page.keyboard.press('Enter');
     await page.waitForSelector('[uib-modal-window=modal-window]', { timeout: 2000 });
     assert.equal(await page.$eval('#correct-answer-field', el => el.textContent), 'eins');
-    check('Dash: wrong answer shows the shared correction modal');
+    // A wrong sprint answer must not increment the timed score.
+    assert.equal(await page.$eval('.dash-score', el => el.textContent), '0', 'Dash score stays 0 after a wrong answer');
+    check('Dash: wrong answer shows the shared correction modal without scoring');
     const continued = await page.evaluate(css => {
         const button = document.querySelector(css);
         if (!button) return false;
@@ -172,6 +175,16 @@ async function testDashSprint(page, origin) {
     await page.waitForFunction(() => document.querySelectorAll('[uib-modal-window]').length === 0, { timeout: 2000 });
     check('Dash: correction modal dismisses via Continue');
     await page.waitForFunction(expected => document.querySelector('#question-text').textContent === expected, { timeout: 2000 }, WORDS[1][0]);
+    // The sprint clock must tick while the run answers: a frozen timer would
+    // still pass the presence check above, so require a decrement.
+    await page.waitForFunction(start => {
+        const el = document.querySelector('.dash-timer');
+        return el && el.textContent.trim() !== start;
+    }, { timeout: 4000 }, timerStart);
+    const timerAfter = await page.$eval('.dash-timer', el => el.textContent.trim());
+    assert.ok(parseInt(timerAfter, 10) < parseInt(timerStart, 10), `Dash timer must decrement during the sprint, got ${timerStart} -> ${timerAfter}`);
+    check(`Dash: timer decrements during the sprint (${timerStart} -> ${timerAfter})`);
+    let expectedScore = 0;
     for (const [base, answer] of WORDS.slice(1)) {
         const last = base === WORDS[WORDS.length - 1][0];
         assert.equal(await question(), base);
@@ -185,8 +198,10 @@ async function testDashSprint(page, origin) {
             return questionEl !== null && questionEl.textContent !== '';
         }, { timeout: 2000 }, last).then(() => true).catch(() => false);
         assert.ok(advanced, last ? 'Dash: last round reaches the results state' : 'Dash: round "' + answer + '" advances');
+        expectedScore += 1;
+        assert.equal(await page.$eval('.dash-score', el => el.textContent), String(expectedScore), `Dash score must be ${expectedScore} after correct answer "${answer}"`);
     }
-    check('Dash: typed answers advance all ' + WORDS.length + ' sprint rounds');
+    check('Dash: typed answers advance all ' + WORDS.length + ' sprint rounds with scoring');
     assert.equal(await boxValue(), null);
     await page.waitForSelector('.dash-results:not([hidden])', { timeout: 2000 });
     const resultsText = await page.$eval('.dash-results', el => el.textContent);

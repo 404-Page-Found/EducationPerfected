@@ -1104,15 +1104,39 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             async function refreshWords() {
                 const base = await wordList(DIR.baseList_css);
                 const target = await wordList(DIR.targetList_css);
+                // Dash-only guidance must not leak into classic tasks: the empty
+                // and mismatch alerts are shared by both starters, so detect a
+                // Dash starter (URL plus provisional markers) before appending
+                // timed-sprint wording.
+                let isDashStarter = false;
+                try {
+                    const url = page.url();
+                    isDashStarter = typeof url === 'string' && url.toLowerCase().includes('dash');
+                } catch { /* keep generic on URL failure */ }
+                if (!isDashStarter) {
+                    try {
+                        const found = await page.evaluate(detectDashInPage, DIR.dash_timer_css, DIR.dash_results_css);
+                        isDashStarter = !!(found && found.isDash);
+                    } catch { /* keep generic on evaluate failure */ }
+                }
+                if (!isDashStarter) {
+                    try {
+                        isDashStarter = await page.evaluate(() => !!document.querySelector('.dash-info'));
+                    } catch { /* keep generic on evaluate failure */ }
+                }
 
                 if (base.length !== target.length) {
-                    const mismatch = `Word Lists Not Refreshed: ${base.length} base vs ${target.length} target entries; lists do not line up, so pairing them would teach wrong answers. On a timed Dash sprint a mismatched pairing also burns clock; fix the lists before starting the sprint.`;
+                    const baseMsg = `Word Lists Not Refreshed: ${base.length} base vs ${target.length} target entries; lists do not line up, so pairing them would teach wrong answers.`;
+                    const mismatch = isDashStarter
+                        ? `${baseMsg} On a timed Dash sprint a mismatched pairing also burns clock; fix the lists before starting the sprint.`
+                        : `${baseMsg} Fix the lists before starting the task.`;
                     console.warn(mismatch);
                     await alert(mismatch);
                     return;
                 }
                 if (base.length === 0) {
-                    const empty = `Word Lists Refreshed. 0 entries: no word lists found. Press Refresh Words on the task-starter page with the word lists visible. ${DASH_EMPTY_WORDLIST_NOTE}`;
+                    const baseMsg = 'Word Lists Refreshed. 0 entries: no word lists found. Press Refresh Words on the task-starter page with the word lists visible.';
+                    const empty = isDashStarter ? `${baseMsg} ${DASH_EMPTY_WORDLIST_NOTE}` : baseMsg;
                     console.warn(empty);
                     await alert(empty);
                     return;
@@ -2034,8 +2058,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
             // Dash sprint notice (issue #237): the classic pair is shared by belief,
             // so call it out once per run instead of mistyping silently. Reports the
-            // timer presence, the shared text 2-6s pacing decision (delay off for max
-            // score) and the accuracy cost (a Dash mistake burns sprint time/points).
+            // timer presence, the shared text 2-6s pacing decision (provisional delay
+            // off recommendation, live scoring unproved) and the expected accuracy
+            // cost (a Dash mistake is expected to burn sprint time/points).
             // Runs inside the answer loop; never throws and never stops the run.
             let dashNoted = false;
             async function noteDashOnce() {
@@ -2067,6 +2092,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 lastSubmitted = null;
                 typedSubmissionsByKey.clear();
                 futileStop = false;  // a manual restart after a futility stop gets a fresh bounded run
+                dashNoted = false;  // per-run Dash guidance: a second start must log the sprint notice again
                 startAccuracyRun();
                 console.log("answerLoop entered.");
 
@@ -2201,22 +2227,32 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                             if (complete && TOGGLE) {
                                 const proven = await taskCompletionProven();
                                 if (!TOGGLE) break;
-                                const exited = await page.evaluate((exitCss, contCss, resultsCss) => {
-                                    const button = document.querySelector(exitCss) || document.querySelector(contCss) || document.querySelector(resultsCss);
-                                    if (!button) return false;
-                                    // The Dash results interstitial is a div, not a button: only
-                                    // click it when it is the exit path (fallback lookup).
+                                const completion = await page.evaluate((exitCss, contCss, resultsCss) => {
+                                    const shown = (css) => {
+                                        const el = document.querySelector(css);
+                                        return !!el && !el.hidden && (el.offsetParent !== null || el.getClientRects().length > 0);
+                                    };
+                                    const exitEl = document.querySelector(exitCss);
+                                    const contEl = document.querySelector(contCss);
+                                    const resultsEl = document.querySelector(resultsCss);
+                                    const button = exitEl || contEl || resultsEl;
+                                    if (!button) return { clicked: false, resultsVisible: shown(resultsCss) };
+                                    // The Dash results interstitial is a div, not a button: a
+                                    // results-only finish has no control to click, but the
+                                    // visible results proof alone still completes the sprint.
                                     if (button.tagName !== 'BUTTON') {
-                                        const fallback = document.querySelector(exitCss) || document.querySelector(contCss);
-                                        if (!fallback) return false;
-                                        fallback.click();
-                                        return true;
+                                        const fallback = exitEl || contEl;
+                                        if (fallback && fallback.tagName === 'BUTTON') {
+                                            fallback.click();
+                                            return { clicked: true, resultsVisible: shown(resultsCss) };
+                                        }
+                                        return { clicked: false, resultsVisible: shown(resultsCss) };
                                     }
                                     button.click();
-                                    return true;
-                                }, DIR.exit_button_css, DIR.exit_continue_button_css, DIR.dash_results_css).catch(() => false);
-                                if (exited && proven && TOGGLE) runReason = 'completed';
-                                console.log(exited ? 'Clicked the task exit/continue button.' : 'The completion controls vanished; stopping the run.');
+                                    return { clicked: true, resultsVisible: shown(resultsCss) };
+                                }, DIR.exit_button_css, DIR.exit_continue_button_css, DIR.dash_results_css).catch(() => ({ clicked: false, resultsVisible: false }));
+                                if (proven && TOGGLE && (completion.clicked || completion.resultsVisible)) runReason = 'completed';
+                                console.log(completion.clicked ? 'Clicked the task exit/continue button.' : (completion.resultsVisible ? 'Dash results interstitial confirms sprint completion; no exit control to click.' : 'The completion controls vanished; stopping the run.'));
                             }
                             break;
                         }
@@ -2765,7 +2801,8 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // Human pacing control (issue #221): no action reports state, on/off
             // toggle the wait, MIN-MAX (seconds) overrides every per-type range,
             // reset restores the per-type ranges. Dash (issue #237) shares the
-            // text 2-6s range; delay off is recommended for max Dash score.
+            // text 2-6s range in the reconstruction; delay off is the provisional
+            // Dash recommendation (live scoring unproved).
             controls.delay = action => {
                 if (action === 'on') humanDelay.setEnabled(true);
                 else if (action === 'off') humanDelay.setEnabled(false);

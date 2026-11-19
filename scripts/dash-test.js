@@ -33,6 +33,7 @@ const { cleanupTestProcess } = require('./test-process-cleanup');
   const server = createServer();
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
+  try {
   let browser;
   try {
     browser = await puppeteer.launch({ headless: 'shell', defaultViewport: null, handleSIGINT: false });
@@ -89,7 +90,17 @@ const { cleanupTestProcess } = require('./test-process-cleanup');
       await wait(() => output().includes('Dash sprint detected'));
       assert.ok(output().includes('text 2-6s'), 'Dash pacing note must name the shared text range');
       assert.ok(output().includes('perfect for this Dash sprint'), 'default perfect Dash accuracy note expected');
-      await wait(() => output().includes('answerLoop Exited.'), 15000);
+      // `status completed` alone only proves the shared exit control was
+      // visible: taskCompletionProven() accepts exit without results. Require
+      // the provisional results interstitial before the exit click navigates
+      // the page to the dashboard.
+      await page.waitForFunction(() => {
+        const el = document.querySelector('.dash-results');
+        return !!el && !el.hidden && el.textContent.includes('Dash complete');
+      }, { timeout: 15000 });
+      assert.ok(await isDashCompletion(page), 'Dash results interstitial must be visible at sprint end');
+      console.log('  ok  Dash results interstitial appears before exit');
+      await wait(() => output().includes('answerLoop Exited.'));
       await command('status', '"state":"completed"');
       // Completion proves both the shared exit control and the provisional
       // results interstitial: the run clicked exit after the results showed.
@@ -100,7 +111,6 @@ const { cleanupTestProcess } = require('./test-process-cleanup');
       try { cleanupTestProcess(child); } catch {}
       cliServer.close();
     }
-    server.close();
   }
 
   // Empty-list rule: no word lists reports loudly with the Dash timed cost,
@@ -112,6 +122,9 @@ const { cleanupTestProcess } = require('./test-process-cleanup');
   console.log('  ok  Dash empty-list guidance names the timed cost');
 
   console.log('Dash: shared selectors, timer/score/results fixture, detection, real-CLI sprint completion PASS. Synthetic only.');
+  } finally {
+    server.close();
+  }
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;
