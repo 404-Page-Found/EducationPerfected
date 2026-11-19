@@ -1,11 +1,12 @@
 # EducationPerfected
 
 #### A JavaScript program that automatically answers Education Perfect language questions at **super** speeds.
-Works for word-to-word (translation) tasks, which have been run end-to-end against the live Education Perfect service. Dash (timed sprint) multi-choice rounds are answered in auto mode: a live Dash run on 19 November 2026 plus a read-only structural capture of the real round ground that support (fixture-tested only - not yet live-verified end to end; see the Dash section below). It also supports audio tasks (Listening and Dictation) and multiple-choice questions in auto-marked Smart Lessons: the live site was inspected to confirm the question markup and answer state. On 30 October 2026, the actual program also passed bounded live checks for Listening, Dictation and single-choice: one accepted submission per mode, then stopped. No full task or lesson was completed. Local fixtures ([scripts/handler-test.js](scripts/handler-test.js)) cover multi-round and refusal behavior; those are not full-task live proof.
-Multi-select choices additionally have source-derived synthetic coverage for explicit auto-marked cached renderers, not live multi-select proof. Guarded ordinary dropdowns have synthetic Linux coverage plus one bounded live F4 popup submission that EP marked correct before the page advanced; broader live selection and acceptance proof remains limited. Unsupported Smart Lesson question types are detected and reported, not guessed at. Short-answer lesson questions are handled too, but that shape hasn't been verified against the live site yet.
+
+It automates word-to-word (translation) tasks, audio tasks (Listening and Dictation) and multiple-choice questions in auto-marked Smart Lessons and Dash (timed sprint) multi-choice rounds on [Education Perfect](https://www.educationperfect.com/). The question types and their limits are listed in [Supported question types](#supported-question-types).
+
+**Live verification:** the word-to-word task flow has been run end-to-end against the live Education Perfect service. Other question types have only bounded live checks or synthetic coverage, and Dash has not been answered live. The dated evidence is in the [changelog](CHANGELOG.md#live-verification-log).
 
 ![example image](result.png)
-
 
 ## Status
 
@@ -14,50 +15,27 @@ Multi-select choices additionally have source-derived synthetic coverage for exp
 
 The original was started by [akioweh](https://github.com/akioweh) and is now **[archived](https://github.com/akioweh/EducationPerfected)**. This repo is a loving continuation of that work.
 
-The original's README used to claim its status was: **_CURRECT STATUS: ALL intended features functional._**  
-_*Last time they checked... which was... two years ago???*_  
-That has since been re-verified here: **the program has been run against the live Education Perfect service and confirmed working** for word-to-word tasks. Dash multi-choice rounds are supported from a live structural capture, fixture-tested only (see the Dash section). Don't assume it stays working forever, though - EP can still change.
+The original's README used to claim its status was: **_CORRECT STATUS: ALL intended features functional._**  
+_*Last time they checked... which was... two years ago???*_
 
-- This repo's development program is **V2026** (package version `2026.11.16`), not a published packaged release: an independent JavaScript ([node.js](https://nodejs.org/)) program that uses the [Puppeteer](https://github.com/puppeteer/puppeteer) library to drive a web browser around.
-- As of the latest updates, the anti-cheat workaround no longer trips anti-cheat detection.
-- The program has been run against the live Education Perfect service and confirmed working for word-to-word tasks; Dash multi-choice rounds are supported from a live structural capture, fixture-tested only (see the Dash section).
+- This repo's development program is **V2026** (package version `2026.11.16`, published as release [v2026.11.16](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.16)). It is an independent JavaScript ([node.js](https://nodejs.org/)) program that uses the [Puppeteer](https://github.com/puppeteer/puppeteer) library to drive a web browser.
+- The anti-cheat workaround no longer trips anti-cheat detection, as of the latest updates. EP can still change, so don't assume it stays working.
 - The task-page and wrong-answer-modal selectors were checked against what EP's live bundles currently ship, and an end-to-end run through a real task on the live service confirmed the markup reading was correct.
+- Release, signing and rights status: see [release/README.md](release/README.md) and [release/license-and-rights.md](release/license-and-rights.md).
 
 ## Introduction
-This project started as a way to automate tasks on [Education Perfect](https://www.educationperfect.com/) 
-which teachers use to set students (of various ages) homework... and one of those students happened to be me.
-As a perfectionist myself, I set out to perfect Education Perfect - that's how EducationPerfected was born.  
-The main goal/target were and still are language tasks that require you to translate words/phrases from one language
-to another.  
-Of course, there are also tasks in the same format but with audio involved. _Those used to be out of reach;
-they are supported now (see below)._ 
 
-The obvious approach was to write a simple userscript in JavaScript that gets injected into the browser 
-debugger console. This is the classic method to perform simple automation in browsers. This method is simple, 
-cross-platform, and required minimal skill to install & run the script - it was very easy and universal.  
-_This was [V1](V1_Archive) of this project._  
-It worked great, and notably, at **super** speeds. However, after a long while, Education Perfect released 
-anti-cheat features that partially disabled the userscript.
+This project started as a way to automate tasks on [Education Perfect](https://www.educationperfect.com/), which teachers use to set students homework. One of those students was me. The main target was language tasks that ask you to translate words or phrases.
 
-To circumvent this, the script needed more control over the web page and must not run in the page debugger console.  
-_The independent program started as V2 and now continues in V2026 development:_
-**At the current stage**, it's an independent JavaScript ([node.js](https://nodejs.org/)) program that uses the 
-[Puppeteer](https://github.com/puppeteer/puppeteer) library to carry out web-browser automation. The goal is the same
-as V1 and the functionality is largely the same. Unfortunately, the standalone structure does make installation slightly 
-more complicated, but it is currently the only way to enable full anti-cheat bypass.  
-Either way, I have provided detailed instructions for installation and usage below.
+The first approach was a simple userscript pasted into the browser debugger console ([V1](V1_Archive)). It ran at **super** speeds until Education Perfect added anti-cheat features that partly disabled it. To get around that, the script needed more control over the page and could no longer run from the console. The program started as V2 and continues as V2026. Its installation is more involved, but it is currently the only way to get the full anti-cheat bypass.
 
-A snapshot of V2 at version **v2.2.0** is frozen in [V2_Archive/](V2_Archive), alongside the
-[V1](V1_Archive) snapshot. The live root codebase continues as **V2026**, skipping V3 as a release name.
-All fixes and new work happen here; the copy in [V2_Archive](V2_Archive) stays read-only
-(see [V2_Archive/README.md](V2_Archive/README.md) for exactly what was frozen).
-This version name does not mean the packaged CLI has shipped; its release gates still apply.
-
+A snapshot of V2 at version **v2.2.0** is frozen in [V2_Archive/](V2_Archive), alongside the [V1](V1_Archive) snapshot (see [V2_Archive/README.md](V2_Archive/README.md) for what was frozen). The live root codebase continues as **V2026**, skipping V3 as a release name. The version name does not mean the packaged CLI has shipped; its release gates still apply.
 
 ## Installation
+
 ### Installer (recommended)
 
-Installers will be available with **v2026.11.16**; no V2026 packaged release is published yet. The [Publish workflow](.github/workflows/publish.yml) attaches them to the release. The gates in the sections below still apply.
+Installers are published with **[v2026.11.16](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.16)** (15 November 2026); the [Publish workflow](.github/workflows/publish.yml) attaches them to the release. The gates in [release/README.md](release/README.md) still apply.
 
 The installer is the same on every platform; pick yours:
 
@@ -81,44 +59,37 @@ The installer is the same on every platform; pick yours:
 
 **Other ways to install:**
 - **Install scripts:** download `install.ps1` (Windows) or `install.sh` (macOS/Linux) from the release. After checking the script, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1` in PowerShell (bypass applies only to that process) or `sh install.sh` in a terminal. Follow the script's PATH instructions.
-- **npm:** run `npm install -g --allow-scripts=educationperfected educationperfected` (requires Node.js). The `--allow-scripts` opt-in is needed on npm 12+, which otherwise blocks the package's postinstall; the postinstall downloads the platform binary from the matching GitHub release and verifies it against that release's `SHA256SUMS`.
+- **npm:** run `npm install -g --allow-scripts=educationperfected educationperfected` (requires Node.js). The `--allow-scripts` opt-in is needed on npm 12+; the postinstall downloads the platform binary and verifies it against the release's `SHA256SUMS`. See [npm/educationperfected/README.md](npm/educationperfected/README.md) for the npm package.
 
 After any of these, run `educationperfected setup`, then `educationperfected`. The install scripts and npm package verify the binary download against the release's `SHA256SUMS`; check manual downloads against it yourself. Raw platform binaries are also included for advanced use. On macOS/Linux, run `chmod +x <filename>` first; on macOS, remove quarantine with `xattr -d com.apple.quarantine <filename>` if blocked. Run the raw file by its path instead of `educationperfected` (for example, `.\educationperfected-windows-x64.exe setup` or `./educationperfected-macos-arm64 setup`).
 
 ### From source (advanced)
 
 Use this route to run the source directly; it needs Node.js and the full repository.
-1. download the full source ZIP of the `main` branch (on [the repo page](https://github.com/404-Page-Found/EducationPerfected): **Code -> Download ZIP**) and extract it into a new folder - the program needs the whole tree ([index.js](index.js) loads the [lib/](lib/) folder and the CLI loads [packaging/](packaging/)), so copying out only some files fails with `Cannot find module './lib/...'`
-2. install [node.js](https://nodejs.org/) - version **22.12 or newer** for running the source program (that's what the pinned Puppeteer requires). Building a standalone development executable requires **Node 22.23.4 exactly**, as explained below.
-3. open Command Prompt/Terminal **in the folder where `index.js` is located** (right click -> open in terminal or use the `cd` command to change the directory)
-4. install the dependencies with `npm ci` in your opened Command Prompt/Terminal window
-5. set your **Education Perfect credentials** as environment variables - the program will use them for auto-login  
-   - **Windows (Command Prompt):** `set EP_EMAIL=you@example.com` then `set EP_PASSWORD=your-password`  
-   - **Windows (PowerShell):** `$env:EP_EMAIL='you@example.com'; $env:EP_PASSWORD='your-password'`  
-   - **Linux/macOS (Terminal):** `export EP_EMAIL='you@example.com' EP_PASSWORD='your-password'`  
-6. dropdowns in the normal run always use the guarded F4 native-popup path; no environment variable is needed. This path handles one or more dropdowns in order and submits each fully verified question automatically in auto mode. There is no Home/ArrowDown fallback.
 
+1. Download the full source ZIP of the `main` branch (**Code -> Download ZIP** on [the repo page](https://github.com/404-Page-Found/EducationPerfected)) and extract it into a new folder. The program needs the whole tree: [index.js](index.js) loads the [lib/](lib/) folder and the CLI loads [packaging/](packaging/), so copying only some files fails with `Cannot find module './lib/...'`.
+2. Install [node.js](https://nodejs.org/), version **22.12 or newer** for running the source (the pinned Puppeteer requires it). Building a standalone development executable requires **Node 22.23.4 exactly**; see the [developer guide](docs/developer-guide.md).
+3. Open Command Prompt/Terminal **in the folder where `index.js` is located**.
+4. Install the dependencies with `npm ci`.
+5. Optionally set your **Education Perfect credentials** as environment variables for auto-login:
+   - **Windows (Command Prompt):** `set EP_EMAIL=you@example.com` then `set EP_PASSWORD=your-password`
+   - **Windows (PowerShell):** `$env:EP_EMAIL='you@example.com'; $env:EP_PASSWORD='your-password'`
+   - **Linux/macOS (Terminal):** `export EP_EMAIL='you@example.com' EP_PASSWORD='your-password'`
 
-_*The starter scripts run `npm ci` for you the first time if `node_modules` is missing, so double-clicking is enough. `npm ci` installs exactly what [package-lock.json](package-lock.json) records, preserving the tested lockfile._  
-_*To enable auto-login, set **both** `EP_EMAIL` and `EP_PASSWORD` before running the script (and keep
-the credential values out of the source file). Forgot to set them? No worries - the browser still opens and you can
-log in manually. If the terminal then asks for your credentials, you can also just ignore it and sign in in the
-browser: a login that completes there cancels the prompt by itself (school SSO, Google, Microsoft or Clever too).
-Keep credentials out of the source file by using the environment variables above._  
-*_Auto-login only fills in EP's own username/password form. If you sign in through your school account (SSO), Google,
-Microsoft or Clever, log in manually in the browser window; the script never touches those flows or the reCAPTCHA
-on EP's login page._
+   Set **both** variables, and keep credential values out of source files. Saved-login storage for the source build is in [CLI credential setup](docs/developer-guide.md#cli-credential-setup-source-build).
+6. Dropdowns in the normal run always use the guarded F4 native-popup path; no environment variable is needed. This path handles one or more dropdowns in order and submits each fully verified question automatically in auto mode. There is no Home/ArrowDown fallback.
 
+_The starter scripts run `npm ci` for you the first time if `node_modules` is missing, so double-clicking is enough. `npm ci` installs exactly what [package-lock.json](package-lock.json) records._
 
-*NOTE: `npm ci` normally downloads a compatible Chrome browser automatically (via Puppeteer's install script). If the first run complains that it can't find a browser, open up Terminal in the same folder and run 
-`npx puppeteer browsers install chrome` to download it manually. If your npm is configured not to run install scripts (for example npm 12's `allowScripts` gate), the download is skipped and this step is required.*
+_Forgot to set the credentials? The browser still opens and you can log in manually. If the terminal asks for your credentials, you can ignore it and sign in in the browser: a login that completes there cancels the prompt by itself._
 
+_Auto-login only fills in EP's own username/password form. If you sign in through school SSO, Google, Microsoft or Clever, log in manually in the browser window. The script never touches those flows or the reCAPTCHA on EP's login page._
 
+_NOTE: `npm ci` normally downloads a compatible Chrome browser automatically (via Puppeteer's install script). If the first run can't find a browser, run `npx puppeteer browsers install chrome` in the same folder. If your npm does not run install scripts (for example npm 12's `allowScripts` gate), that download is skipped and this step is required._
 
-## Usage
-### Running the script
+## Quick start
 
-For a Windows installer-based installation, start **EducationPerfected** from the Start menu (recommended; the installer registers it there). On any installer-based installation you can also run `educationperfected` in a terminal. For a source installation, open a terminal in the folder where `index.js` is located, run `npm ci` once, then:
+For a Windows installer-based installation, start **EducationPerfected** from the Start menu. On any installer-based installation you can run `educationperfected` in a terminal. For a source installation, open a terminal in the folder where `index.js` is located, run `npm ci` once, then:
 
     npm run cli
 
@@ -127,14 +98,22 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 - `start` - start auto-answering; `stop` - stop it
 - `mode auto` - answer and submit automatically (default); `mode semi` - fill answers but leave submitting to you
 - `accuracy` - show accuracy config, per-run target and first-try stats; `accuracy <n|min-max|off|on>` - set accuracy when stopped (e.g. `accuracy 82`, `accuracy 70-90`, `accuracy off`)
-- `delay` - show the human-paced wait before each submission (Dash shares the text 2-6s range in the reconstruction; `delay off` is expected ΓÇö unproved live ΓÇö to maximise Dash score); `delay off` - restore super speed (provisional Dash recommendation; live timing unproved); `delay on` - re-enable; `delay MIN-MAX` - override the wait range in seconds (e.g. `delay 2-6`); `delay reset` - restore the per-question-type ranges
+- `delay` - show the human-paced wait before each submission; `delay off` - restore super speed; `delay on` - re-enable; `delay MIN-MAX` - set the wait range in seconds (e.g. `delay 2-6`); `delay reset` - restore the per-question-type ranges
 - `refresh` - learn the answers from a task starter page's word lists (once per new task)
 - `status` - show current status (including accuracy target)
 - `inspect-self-mark` - read-only capture of a self-mark (Reflection) page
 - `inspect-dash` - read-only capture of a Dash round's structure (used for shapes the Dash answerer refuses)
 - `quit` - close the CLI
 
-Random accuracy is OFF by default: runs answer perfectly (the provisional Dash recommendation ΓÇö each Dash mistake is expected, unproved live, to burn sprint time/points). Turn it on to simulate a real student: each `start` then picks a first-try target in the configured band and occasionally submits a small human-like mistake (typo for text/audio, neighboring distractor for single-choice) before the normal wrong-answer-modal / retry / Next flow completes the run. Other lesson surfaces stay perfect to preserve their fail-closed proofs. Startup flags and env enable and tune the simulation (installer command shown; for a source checkout pass the same option to `npm run cli`, e.g. `npm run cli -- --accuracy 82`):
+The legacy hotkey-only program is still there: run `node index.js`, or double-click [start.cmd](start.cmd) (Windows) or [start.sh](start.sh) (Linux/Mac).
+
+You can close the browser window or the popped-up terminal window whenever you are done. If you run into weird behavior, try restarting the program.
+
+### Random accuracy (off by default)
+
+Runs answer perfectly unless you opt in. When enabled, each `start` picks a first-try target in the configured band (70-90% via `accuracy on`) and, with probability `1 - target`, submits a plausible-but-wrong answer first: a small typo for text/audio, or a neighboring distractor for single-choice. The mistake flows through the normal wrong-answer-modal / retry / Next path, so the run still completes with lower first-try accuracy. Other lesson surfaces stay perfect to preserve their fail-closed completion proofs. The provisional Dash recommendation is perfect answers, because each Dash mistake is expected, unproved live, to burn sprint time and points.
+
+Startup flags and env enable and tune the simulation (installer command shown; for a source checkout pass the same option to `npm run cli`, e.g. `npm run cli -- --accuracy 82`):
 
     educationperfected --accuracy 82      # or -a 82
     educationperfected --accuracy-range 70-90   # or -r 70-90
@@ -150,456 +129,95 @@ The same settings exist as a top-level subcommand (applies to this invocation on
 
 `--no-mistakes` is an alias for `--perfect` (100%). Env: `EP_ACCURACY=82`, `EP_ACCURACY_RANGE=70-90`, `EP_PERFECT=0` (enable the default band), `EP_PERFECT=1` (force perfect). `status` shows the active target and first-try stats; the run log reports `Accuracy target X%` at start and a summary at exit.
 
-The legacy hotkey-only program is still there if you want it: run `node index.js`, or double-click [start.cmd](start.cmd) (Windows) or [start.sh](start.sh) (Linux/Mac).
+## How it behaves
 
-You can close the browser window or the popped-up terminal window whenever you are done.  
-If you run into weird behavior, try restarting the program.
+When you run the script, it should:
+- Open a new browser window with no user data, so you log in to EP manually, or set both `EP_EMAIL` and `EP_PASSWORD` for auto-login.
+- Load EP's login page. It is no longer served from `app.educationperfect.com`: that address redirects to EP's identity provider (`iam.educationperfect.com`), where the same username/password fields live.
+- Load EP's home page, with all auto-answer functionality loaded in the background.
+- Log in for you if you provided credentials (username/password only; SSO, Google, Microsoft, Clever and any CAPTCHA must be completed by hand).
+- Cancel the terminal credential prompt by itself when the login completes in the browser first, so signing in by hand needs no terminal interaction, and answering the prompt after a completed login can no longer crash the run.
 
-### Dependencies
-The program has four runtime dependencies, pinned in [package.json](package.json) and locked (with their own dependencies) in [package-lock.json](package-lock.json): [Puppeteer](https://github.com/puppeteer/puppeteer) **25.16.0** with `@puppeteer/browsers` **3.2.6** drives and downloads the browser (each Puppeteer version pairs with a Chrome build - Chrome 156 for this one), `@napi-rs/keyring` **2.1.2** handles the optional saved login in the OS credential store, and `modern-tar` **0.8.6** unpacks the downloaded browser archives. Install with `npm ci`, or just use one of the starter scripts, which run it for you when needed. To bump Puppeteer, change the version in `package.json`, run `npm install`, and commit the updated lockfile.
-
-That version was exercised by a local smoke test ([scripts/smoke-test.js](scripts/smoke-test.js)) against a mock EP site ([scripts/mock-ep.js](scripts/mock-ep.js)) covering the Puppeteer calls this program makes: login form fill and submit, reading the word lists, typing and submitting answers, reading and dismissing the wrong-answer modal, and the completion screen, plus the Dash sprint fixture (/dash-task, /dash-task/play: shared word lists, shared question/answer pair, timer/score/results, refresh/answer/advance/completion-exit). Run it yourself with `npm run smoke` (use `SMOKE_HEADFUL=1` to watch a visible window, or `SMOKE_EXECUTABLE_PATH`/`SMOKE_BROWSER_URL` to target a browser you already have).  
-The Smart Lesson and audio handlers have their own end-to-end test ([scripts/handler-test.js](scripts/handler-test.js), run it with `npm run test:handlers`). It drives the program's real answer loop against local fixtures ([scripts/mock-ep.js](scripts/mock-ep.js)) that were built from notes taken while inspecting the live site (a multiple-choice lesson slide and an audio task, sanitised of account data) - they are reconstructions, not recorded sessions.  
-The interactive CLI groundwork has a separate local regression command: `npm run test:phase3`. It runs shared-control unit tests, startup-failure tests for all three entrypoints with both invalid-URL and connection-refused scenarios, startup and legacy-entrypoint SIGINT/SIGTERM cleanup, pending-launch cancellation feedback, the CLI browser fixture, and stop-during-completion-proof coverage. Run `node scripts/cli-test.js --signal` and `node scripts/cli-test.js --external-close` for signal and external-browser-close cases. These are local fixtures, not live-service or cross-platform release certification. Only the Windows taskkill path resolver has unit coverage; the cleanup itself has not been executed on Windows.
-*This smoke test proves the dependency setup works, including a synthetic Dash fixture. An end-to-end run against EP's live service (not just the mock) has since confirmed the word-to-word task flow works as expected (Dash is not supported yet, see Known limitations) - though the live site can still change, so re-verify if you suspect breakage.*
-
-### Features
-**Start Answering**: There's one main function - automatically answer questions when you're doing a task.  
-It reads each question, finds the answer from the pre-learned dictionary, and submits it. To read as a student working rather than a bot, each answer lands only after a short randomized wait sampled uniformly from a per-question-type range: 2-6s for word rounds (including the timed Dash sprint in the reconstruction, which shares this range by default), 3-8s for choice/dropdown/highlight, 4-10s for typed answers, gaps and input boxes, 5-12s for mixed slides, 6-15s for working formula, and 8-15s for audio (a listening floor; the page contract exposes no audio length). Pacing is on by default; `delay off` (or starting with `EP_HUMAN_DELAY=off`) restores the old **super** speeds, and `delay MIN-MAX` tunes the range. On a timed Dash clock that wait is expected (unproved live ΓÇö the fixture never auto-ends and live expiry/scoring are uncaptured) to trade score for human-likeness, so `delay off` is the provisional Dash recommendation for maximum points (see the Dash section below).
-There are also bonus features like deleting popup modals when an answer is wrong to keep the speed up and learn
-from mistakes.
-
-**Toggle Mode**: There are (currently) two "modes" of auto-answer: fully-auto and semi-auto.  
-Fully-auto will blast through the task at **super** speeds once initiated, without intervention. Semi-auto will type the 
-answer in for you, but leave pressing the enter key/submit button to you, so you can control how fast and when it 
-answers. (Useful if your teacher checks how long you spend on tasks.)
-
-**Refresh Words**: There's also a supplementary action to learn the answers from the word lists present at the task starter
-pages. (Where the words and translations are laid out.)  
-This function must be manually triggered for each new task with new words, otherwise you will get a lot of questions
-wrong when the program doesn't know the answers. (It will learn all of them eventually, thanks to error-correction
-features, but it is a lot slower.)
-Note that the learned dictionary lives only in the running program's memory - restart the program and you'll need
-to press Refresh Words again for the task's word list.
-
-**Random Accuracy (off by default)**: Runs answer perfectly unless you opt in (the provisional Dash recommendation ΓÇö each Dash mistake is expected, unproved live, to burn sprint time/points). When enabled, each run randomizes
-a first-try target in the configured band (70-90% via `accuracy on`) and, with probability `1 - target`, submits a plausible-but-wrong answer first: a small typo
-for text/audio/lesson short-answer, or a neighboring distractor for single-choice. The mistake flows through the normal
-wrong-answer-modal / retry / Next path, so the run still completes with lower first-try accuracy. Semi-auto fills the
-correct answer (no intentional mistakes) and other lesson surfaces (gaps, multi-select, textboxes, dropdowns, highlight,
-etc.) stay perfect to preserve their fail-closed completion proofs. Tune with `--accuracy <n>`, `--accuracy-range <min-max>`,
-`--perfect`/`--no-mistakes`, env `EP_ACCURACY`/`EP_ACCURACY_RANGE`/`EP_PERFECT`, or the interactive `accuracy` command when stopped.
-
-All three functions (**Start Answering**, **Toggle Mode**, and **Refresh Words**) are triggered by the CLI commands above
-(`start`/`stop`, `mode auto`/`mode semi`, `refresh`) or by the keyboard shortcuts outlined below.
-
-### Hotkeys
-
-Upon starting, the program opens the browser and gets EP ready (including logging in if credentials are set) - but it does not begin auto-answering until you tell it to.  
-**The same functions are also triggered via *hotkeys/keybindings*, in the CLI and the legacy program alike:**
-
-- **Refresh Words -> <kbd>Opt/Alt</kbd> + <kbd>R</kbd>:**  
-  *To be used on task-starter page with list of words and translations*  
-  Confirms with a small toast at the top of the page - including how many entries were scraped (and a warning if the two word lists didn't line up).
-
-- **Mode Toggle -> <kbd>Opt/Alt</kbd> + <kbd>A</kbd>:**  
-  *Can be used whenever*  
-  Can toggle answering mode on-the-fly even with Auto Answering active.  
-  Confirms with a toast on the page which mode is now active.
-
-- **Start Answering -> <kbd>Opt/Alt</kbd> + <kbd>S</kbd>:**  
-  *To be used on a running task's page (after clicking start)*  
-  The Auto Answering can be stopped by pressing the same hotkey again.  
-  No Alerts because it is obvious when it is running.
-
-*NOTE: due to how key combination detection works, the sequence you press the keys must be precise to trigger the
-functions; PRESS Alt, PRESS & RELEASE letter key, RELEASE Alt... If you release Alt before releasing the letter key,
-it won't be detected. (On macOS, pressing Option + a letter types the special characters ┬«/├ƒ/├Ñ - those are accepted too.)*
-
-
-## Details
-### Expected behavior
-When you run the script, it should:  
-* Open a new browser window (that does not have any user data, so you log in to EP manually - or set both the `EP_EMAIL` and `EP_PASSWORD` environment variables for auto-login);  
-* Load EP's login page. It is no longer served from `app.educationperfect.com`: that address redirects to EP's identity provider (`iam.educationperfect.com`), where the same username/password fields live;  
-* Load EP home page;  
-* All auto-answer functionality is loaded in the background, ready to be used whenever;  
-* Log in for you if you provided your credentials (username/password only - SSO, Google, Microsoft, Clever and any CAPTCHA must be completed by hand);  
-* Cancel the terminal credential prompt by itself when the login completes in the browser first - so signing in by hand requires no terminal interaction at all, and answering the prompt after a completed login can no longer crash the run.  
-
-Then, you can:  
-* Log in manually if you _really_ want to (why?);
-* Navigate through or use EP as normal - the hotkeys keep working across page loads (they get re-installed on every new page);  
-* At appropriate pages (task starter, task page), use the hotkeys to answer questions.
+The hotkeys keep working across page loads (they are re-installed on every new page). At the task starter or task page, use the hotkeys to answer questions.
 
 When auto-answering is triggered, it should:
-* Immediately start grinding through the task at several questions per second - each answer is typed out as real keystrokes and only submitted once the answer box is verified to contain it
-* Stop when it finishes the task
-* Stop when you press the same hotkeys again
-* Quickly _delete_ the popup modals should it get any questions wrong
-* Retry the occasional slow round instead of aborting the whole task
+- Grind through the task at several questions per second. Each answer is typed out as real keystrokes and only submitted once the answer box is verified to contain it.
+- Stop when it finishes the task, or when you press the same hotkey again.
+- Delete the popup modals should it get any questions wrong.
+- Retry the occasional slow round instead of aborting the whole task.
 
-The program also keeps an eye on itself: if the page gets stuck in a state it can't make progress from (question text that never settles, an answer box that keeps vanishing, rounds that never advance), it stops the run and logs the reason in the terminal instead of hanging around or submitting garbage. Press the Start Answering hotkey again to start a fresh run.
+The program also watches itself. If the page gets stuck in a state it can't progress from (question text that never settles, an answer box that keeps vanishing, rounds that never advance), it stops the run and logs the reason in the terminal, instead of hanging or submitting garbage. Press Start Answering again to start a fresh run.
 
-_NOTE: If you close the terminal window that pops up when you run the script, the browser window will close too_
+_NOTE: If you close the terminal window that pops up when you run the script, the browser window closes too._
 
-### Feature-Explanation
+The full expected-behaviour text and feature notes (speed trade-off, self-learning, word parsing) are in [docs/question-types.md](docs/question-types.md#runtime-behaviour-full-text).
 
-- **Full Speed Auto Answer:**  
-  The speed is a deliberate trade-off: answers are typed as real keystrokes, spaced out and verified against the answer box before submission, because EP's own input handling garbles faster-but-fragile approaches ("I speak" used to land as "I I sI speakeakat").
+## Features
 
-- **Self-Learning/Error Correction:**  
-  When an error is made (due to bad question/answer parsing, lag, or missing word list), the script handles the popup and extracts the correct answer information to stop making the same mistake again (hopefully).  
-  The incorrect answer popup has a normal delay of 3 seconds before you can close it, but that's slow, so it instead gets deleted :P
+- **Start Answering:** automatically answers the question on the page from the pre-learned dictionary and submits it. To read as a student working rather than a bot, each answer lands after a short randomized wait from a per-question-type range (2-6s for word rounds, 3-8s for choice/dropdown/highlight, 4-10s for typed answers, gaps and input boxes, 5-12s for mixed slides, 6-15s for working formula, 8-15s for audio). `delay off` (or `EP_HUMAN_DELAY=off`) restores super speed. The waits are tuned for untimed tasks; see [Dash](docs/question-types.md#dash-timed-word-to-word-sprint).
+- **Full speed trade-off:** answers are typed as real keystrokes, spaced out and verified against the answer box before submission, because EP's own input handling garbles faster-but-fragile approaches ("I speak" used to land as "I I sI speakeakat").
+- **Toggle Mode:** fully-auto blasts through the task once started; semi-auto types the answer but leaves pressing enter/submit to you. Semi-auto is useful if your teacher checks how long you spend on tasks.
+- **Refresh Words:** learns the answers from the word lists on the task starter page (where the words and translations are laid out). Trigger it for each new task; otherwise questions with unknown answers are wrong until error-correction learns them. The learned dictionary lives only in the running program's memory, so after a restart press Refresh Words again.
+- **Self-learning / error correction:** when an error is made, the script handles the popup, extracts the correct answer, and avoids repeating the mistake. The wrong-answer popup has a normal 3-second delay before it can be closed, so it is deleted instead.
+- **Smart-ish word parsing:** questions are matched to answers despite EP's inconsistent formatting. Most edge cases are handled, and self-learning covers many of the rest. Extreme cases (such as commas with repeated words, or displayed and expected answers that disagree) can still be answered incorrectly.
 
-- **Smart-ish Word Parsing:**  
-  A big source of incorrect answers is when no answer is found due to unsatisfactory matching (of the question to an answer).  
-  Education perfect is annoying in the sense of having horrendous formatting standards. The entries on the word list can 
-  be displayed differently as a question (and there are many unique edge cases).  The script handles *most* of these 
-  edge cases, and for those that still fail to match, the self-learning function will take care of that in *most* of the 
-  remaining scenarios. There are still extreme cases of very bad formatting (such as commas with repeated words and 
-  blatant disparities between displayed answer and expected answer) where a question may not get correctly answered. 
+## Hotkeys
 
+Upon starting, the program opens the browser and gets EP ready (including logging in if credentials are set), but it does not begin auto-answering until you tell it to. The same functions are triggered by hotkeys in the CLI and the legacy program:
 
-## Plain block single-choice source contract
+- **Refresh Words -> <kbd>Opt/Alt</kbd> + <kbd>R</kbd>:** on a task-starter page with the word list. Confirms with a toast, including how many entries were scraped (and a warning if the two word lists didn't line up).
+- **Mode Toggle -> <kbd>Opt/Alt</kbd> + <kbd>A</kbd>:** works at any time, even while auto-answering. Confirms which mode is now active.
+- **Start Answering -> <kbd>Opt/Alt</kbd> + <kbd>S</kbd>:** on a running task's page. Press it again to stop.
 
-A narrow additional path handles single-choice options whose entire raw and resolved templates are a supported multiline `[block` wrapper with plain inner text and a standalone closing `]`. It does not remove arbitrary bracket sections. Each choice must already have a unique cached component/state/option/preview/DOM association, a renderer template equal to its resolved option, and rendered inner text equal to the supported plain body. All correct options must be displayed. Images, formulae, nested directives, mixed wrappers/plain options, editable fields and unknown block attributes stop unanswered.
+*NOTE: key combinations must be pressed in sequence: PRESS Alt, PRESS & RELEASE the letter key, RELEASE Alt. If you release Alt before the letter key, the combination isn't detected. (On macOS, Option + R/A/S types `®`, `å` or `ß`; those combinations are accepted too.)*
 
-Source: [EP public chunk 606](https://mfe-student-app.educationperfect.com/main/mfe-hashed-assets-606-c22c0eb5e341ef24b769.js), checked 5 November 2026. `TemplateParser` opens a format block on its own line, renders inner paragraphs and closes on a line starting with `]`. This handler intentionally accepts only a standalone `]`, a narrower contract. `AdvancedRenderer.identifiedComponents` is a read-only getter returning `parser.identifiedComponents`; this path reads the existing own parser/index data instead of invoking that getter or creating a renderer. It preserves the existing exact raw/resolved template and marking signature checks before selection and at click time. The final check and trusted click are not atomic against page or user changes.
+## Supported question types
 
-Two user-run, read-only aggregate checks on a failing plain-text slide established that raw correct text was erased by multiline bracket stripping, and the cached index lookup encountered the inherited getter. They did not establish the exact private template grammar or complete cached association. This implementation uses invented source-derived fixtures, not captured account data. No live selection, submission, grading or whole-lesson completion has been verified for this new path; a different bracket shape remains unsupported. Existing plain choices and strict formula choices retain their separate contracts.
+| Question type | Status | Details |
+| --- | --- | --- |
+| Word-to-word translation tasks | Run end-to-end against the live service | [question types](docs/question-types.md) |
+| Listening and Dictation (audio) | Bounded live checks; answered from data EP ships to the browser | [audio contract](docs/question-types.md#assigned-vocabulary-audio-contract) |
+| Smart Lesson multiple-choice (single-choice) | Bounded live check in auto-marked activities | [single-choice contract](docs/question-types.md#plain-block-single-choice-source-contract) |
+| Multi-select | Synthetic coverage only | [contract](docs/question-types.md#multi-select-source-contract) |
+| Drag-and-drop fill-in-the-gaps | Narrow source contract; synthetic coverage plus the 5/6 November one-question live validations | [contract](docs/question-types.md#drag-and-drop-fill-in-the-gaps-contract) |
+| Ordinary lesson dropdowns | Guarded; synthetic coverage plus one bounded live submission | [contract](docs/question-types.md#ordinary-lesson-dropdown-source-contract) |
+| Text and number boxes | Narrow source contract; synthetic coverage | [contract](docs/question-types.md#ordinary-lesson-text-and-number-box-source-contract) |
+| Highlight (click the correct tokens) | Narrow source contract; synthetic coverage | [contract](docs/question-types.md#highlight-source-contract) |
+| Reflection / self-mark pages | Fills the user's own text only; submission and self-marking stay with the user | [contract](docs/question-types.md#reflection-and-self-mark-pages-114) |
+| Short-answer lesson questions | Answered the same way; not live-verified yet | [known limitations](docs/question-types.md#known-limitations-full-text) |
+| Dash (timed sprint) multi-choice rounds | Answered from the live-captured round shape; fixture-tested only, not yet live-verified end to end | [Dash](docs/question-types.md#dash-timed-word-to-word-sprint) |
+| Matching, ordering, image-based and other manual or assessment questions | Detected and reported, not answered | [assessment boundary](docs/question-types.md#assessment-source-boundary) |
 
-## Multi-select source contract
-
-The multi-select fixture (`scripts/multi-choice-fixture.js`, served at `/lesson-multi` by the local mock) is invented and sanitized, derived from EP's public renderer bundle, not captured from an actual account or live multi-select slide. Source retrieved 4 November 2026: [chunk 606](https://mfe-student-app.educationperfect.com/main/mfe-hashed-assets-606-c22c0eb5e341ef24b769.js).
-
-- `MultiChoiceComponent.createQuestionVisualElement` uses `role="group"`, the `multi-select` class and checkbox previews. `MCQPreviewOption.select` toggles selection and updates `isSelected`, checkbox state and `aria-selected`.
-- `onOptionSelected` records IDs from `originalMultiChoiceOptions`. `selectAndReturnOptions` may display only a subset based on `CorrectDisplayed`/`TotalDisplayed`; the correct target is therefore the resolved **displayed** set, not every raw `Correct` value or a DOM position.
-- The handler reads only existing cached objects. It requires one exact component, resolved metadata/original/displayed/preview identities, unique templates, matching renderers and complete selection state. It never calls EP's internal selection/marking methods, creates a renderer or changes answer data. Trusted DOM clicks are checked after each selection. An ineffective or uncertain click stops without retry.
-- Both automatic and semi-auto selection use the same checks. Semi-auto does not submit or advance. Automatic mode submits exactly once only after the selected set matches the current correct set; existing keyed advance checks apply. Selection is re-read after Submit handle retrieval and immediately before the trusted click. This is not an atomic lock against concurrent page or user input after that final read. An uncertain Submit click stops without retry. This is not general assessment support.
-
-## One-question multi-select selection validation
-
-`node bin/validate-multi-select.js` opens an exclusive stopped session. After fresh approval for one named initially empty auto-marked Smart Lesson multi-select question, `select once` consumes the process attempt before inspection, uses the existing guarded handler with submission disabled, verifies the exact DOM/native/ARIA/cached answer set, and stops. Browser answering hotkeys and ordinary start/mode/refresh commands cannot run the answer loop. Refusal, cancellation, partial/uncertain input and success all consume the attempt, including after page changes. No Submit, Next, clearing, prefilled-answer correction or retry is exposed by this helper. A process restart is not approval to try again.
-
-Selecting can save or grade even without Submit. Stop cannot undo a click already dispatched; the final read and click are not atomic against page/user changes. `selected-only` proves the exact selected set was verified, not acceptance, saving, points or full-lesson completion. Synthetic Linux browser and real-program CLI proof only, no live multi-select proof. The existing textbox equivalent is `node bin/validate-textbox-fill.js`; it is also one consumed fill-only attempt and requires its own named-question approval.
-
-## Drag-and-drop fill-in-the-gaps contract
-
-A narrow handler supports one explicitly auto-marked Smart Lesson `FILL_IN_GAPS_COMPONENT` with `InputType === 2`, initially empty gaps and plain-text options. Exact correct alternatives and repeated exact labels are supported when a complete assignment of separate displayed source tiles exists across all DOM-ordered gaps. Deterministic distinct-tile matching retains the first available DOM copies for repeated identical labels, including the filled prefix; each filled gap must retain that exact source index and the corresponding used-tile state. Padded look-alikes, insufficient copies, reused source indexes, missing exact correct displayed labels, textbox variants, prefilled/stored answers, missing cached state and mixed-component slides stop unanswered; the proven presentation-only companions (`SOUND_COMPONENT`, `ANNOTATED_TEXT_COMPONENT` - no input; each marking output is a constant payload independent of any response, chunk606-checked 19 November 2026) are admitted. A `SCRATCH_PAD_COMPONENT` companion is admitted only when its cached runtime component proves it unmarked under EP's own loose check (`marked == MARKED` fails; scratch-pad type, matching id, exactly one entry); its interactive canvas is left untouched and a marked or unverifiable pad still stops the slide. Repeated-label support has synthetic browser and real-program CLI coverage, plus the one-question live validation described below. This is not general matching or assessment support.
-
-Source: [EP public chunk 606](https://mfe-student-app.educationperfect.com/main/mfe-hashed-assets-606-c22c0eb5e341ef24b769.js), retrieved 4 November 2026. The handler reads resolved cached gap IDs, correct options, displayed gaps, source items and inline renderer identities. EP's own keyboard accessibility path puts a source option into the next empty gap in DOM order. The handler uses trusted Enter events on those source elements, not internal EP selection/marking methods, generated renderers or guessed drag coordinates. It checks the full answer prefix and cached identities after every input, then the exact final set and associated Submit button before one click. An uncertain input stops without retry. Semi-auto fills only and leaves submission to the user. It never clicks Next on the same question key.
-
-`scripts/gaps-fixture.js` and `/lesson-gaps` are invented, sanitized, source-derived fixtures, not captured live questions. Local tests cover DOM/metadata order differences, undisplayed gaps, trusted inputs, exact one-submit behavior, the real program loop, refusal and stale-state controls.
-
-Live validation is limited to these user-run, separately approved attempts:
-- On 5 November 2026, the user reported `EP_FILL_ONCE {"status":"filled-only"}` on one practice question, then manually clicked Submit and reported `Correct`. This was fill-only automation with manual submission.
-- On 6 November 2026, using revision `6d5d3e544a40f01e076464dd9c2e5959fa1ad3bf`, the user ran the one-attempt fill-and-Submit validator on one practice question with repeated exact tile labels. The terminal reported `EP_SUBMIT_ONCE {"status":"submitted-once"}`; the page advanced to the next question, and the user confirmed the submitted question showed as correct. The terminal result proves dispatch, while correctness is user-reported; an exact points amount and a result screenshot were not verified.
-
-The second result supports filling, one automated Submit and acceptance for that one repeated-label question only. It does not prove full-lesson completion, every gaps question, cross-platform compatibility or support for the next question's dropdowns. Each approval was consumed by its attempt. The final state read and trusted input/click cannot be atomic against concurrent page or user input; an uncertain result must not be retried without fresh approval.
-
-## Dropdown refusal diagnostics
-
-The validator prints `Dropdown validator build: dropdown-diagnostics-v2` at startup. If that line is absent, download a fresh source ZIP and install dependencies again before using these diagnostics. A refusal still consumes the attempt. Do not run `submit once` again without fresh approval.
-
-The dropdown validator also offers `inspect`: a read-only diagnostic command available only while stopped. It does not start answering, consume the one-shot attempt, reset a consumed attempt, select an option or submit. Open the target question, type `inspect`, send the complete `EP_DROPDOWN_INSPECT` line privately, then `quit`. Do not use `submit once` merely to collect evidence. This inspection command is exclusive to the dropdown validation session, not normal answering modes.
-
-For `definition-type-id-or-marking`, diagnostics include only allowlisted typed scalar fields: raw definition type/id/Marked, cached component id/marked/render mode, cached metadata type/id/Marked, lesson mode and section auto-marking. Missing/null/string/number remain distinct. Safe identifier strings are bounded to eighty ASCII identifier characters; arbitrary strings are redacted to type/length. The new `inspect` output omits DOM option text/values and selection entirely; existing refusal DOM diagnostics below still include displayed options. Raw definition objects and model answer flags are never serialized. Failed-field flags describe the own-data snapshot, not accessor results. This accepts only matching raw/metadata numeric 0 or 1 with runtime marked 1; no acceptance rule is loosened by the diagnostic.
-
-An initial `requires-supported-empty-dropdowns` refusal now includes bounded, read-only `diagnostics` in the same `EP_DROPDOWN_ONCE` line. It reports the first failed detector guard, each inspected frame's index/main-frame status, question-container presence, question-select state, question-option text/value/selection, counts of out-of-question selects (no text or values), and open shadow-host count. This can distinguish missing selectors, other frames, cached/DOM mismatch, raw metadata mismatch, and unsupported defaults. A supported-but-prefilled detector reports `filled` flags rather than treating blank appearance as proof. Only the main document remains eligible for answering; diagnostics never switch the answer target to a frame or shadow root.
-
-A selection-stage refusal additionally reports `selectionDiagnostic` with a fixed phase/guard, zero-based dropdown index (or null before targeting), and count of key dispatch calls that returned. It uses the current selection or settlement read, with no separate diagnostic read or extra input. Settlement may poll read-only as described below. It distinguishes preflight/baseline, target/focus, Home/ArrowDown, F4 popup-open, popup ArrowDown/Enter and final-verification failures, including DOM/cache mismatch. The ordinary handler also names submit-target and post-selection phases; those may occur after selection or Submit. It contains no option text, answer value, identifier, URL or exception text. A returned key call is not proof that a selection landed; a throwing dispatch may already have delivered input. The attempt stays consumed and no retry is added.
-
-The report includes displayed option text and selected values only under `#ep-question-container`; unrelated selects are counted without text/values. Keep it private when sharing logs. It omits surrounding question/student text, URLs, cookies, model answer flags and raw Angular/model objects. Limits: eight frames, twenty selects per frame, fifty-one options per select, one hundred sixty characters per text/value; truncation and unavailable inspection are explicit. Open shadow roots are counted, not traversed. Collection stops waiting after two seconds or a stop request and starts no further frame evaluations; an already-started read may still finish remotely. Incomplete collection reports timeout/cancelled. A screenshot or generic refusal cannot prove whether an older ZIP was used or which contract failed; no broader accepted shape is inferred from those alone.
-
-Dropdown key settlement: after each returned native key, accept settlement only before a 200ms deadline in 25ms read-only intervals only while the complete valid pre-key native/cache state, identities, and focus remain unchanged. The expected next state must pass the full existing reader and exact indexes before any further key. A late read is rejected, not cancelled remotely; elapsed wall time can exceed the deadline while it finishes. No key is repeated. Other mismatches stop immediately; timeout consumes the attempt. This is synthetic-tested timing tolerance, not proof of a Windows cause or fix. On index/focus mismatch, selectionDiagnostic.nativeState contains bounded native actual/expected index arrays and the focused dropdown index (-1 if none), never option text. Deadline refusal may retain numeric state from a pending or late mismatching settlement read, or omit it after a late successful read. A late unsafe mismatch may be labelled key-state-did-not-settle rather than its earlier guard; it still stops without further input. A returned key call still does not prove OS delivery or grading.
-
-### Passive native-input trace and local Windows isolation
-
-The one-shot validator startup now prints `Native input: F4 popup + ArrowDown + Enter. Passive trace: popup-v2`. It presses F4 once per dropdown, then requires that select's `:open` state to become true before any navigation key. If the browser cannot report `:open`, or the popup does not verify open, it stops after F4 with no ArrowDown, Enter or Submit. Each popup ArrowDown is followed by a read-only `:open` check and a passive-trace check that no input/change event landed during popup navigation; Enter is sent only while the popup still verifies open and the trace is clean. It then requires popup close, the exact final index, full cached/native identity and focus before the one Submit. Targets before the starting index, unavailable trace state, early popup close, navigation input/change, uncertain close, mismatch or cancellation stop without retry. One bounded live attempt on 8 November 2026 returned `submitted-once`; EP marked it correct and advanced. This is still not broad live proof.
-
-The normal CLI always uses the F4 popup path. `EP_DROPDOWN_INPUT` no longer selects or restores a dropdown method. The path handles one or more dropdown questions in order, creates its own passive trace, and stops the whole question if any dropdown fails. In auto mode, after exact selection it rechecks the same question and its associated Submit target, then clicks that question's Submit once. On refusal, the CLI prints only the phase, zero-based dropdown index, returned key count, guard and dropdown count as a diagnostic. No F4-path failure falls back to Home/ArrowDown in the same question.
-
-On selection failure its `inputDiagnostic` includes a bounded passive trace, installed before the keys and removed afterward. It does not cancel events, write selection/value, dispatch synthetic events, repeat keys, open a picker or commit an answer. The original full reader, focus/identity checks, 200ms settlement deadline and permanently consumed attempt remain unchanged. Browser version is recorded as a fixed Chrome version string, not a full user-agent or URL.
-
-Only key events for the selected sequence and input/change events targeted at the original, validated native controls are retained. Schema 1 covers Home/ArrowDown for legacy synthetic fixtures and the EP-free local diagnostic only; schema 2 adds F4/Enter and a per-control `:open` boolean/null snapshot for the normal path and popup validator. No event text, option labels/values, answer metadata, identifiers or unrelated element content is read. Limit: 20 controls, first 64 events, bounded dropped count. Later key events can be omitted if earlier input/change events fill that capacity; the handler treats any dropped trace event as a failure and stops without Submit. Numeric encoding: event type 0 keydown / 1 keyup / 2 input / 3 change; key/code 0 Home / 1 ArrowDown / 2 F4 / 3 Enter / null otherwise; modifiers bits 1 Alt / 2 Control / 4 Meta / 8 Shift. Index -1 means no tracked focus; selected index outside -1..50 is null. Appearance 0 auto / 1 none / 2 base-select / 3 other; visibility 0 visible / 1 hidden / 2 other. Trust, document focus, popup-open state and cancellation flags are booleans; unsupported `:open` is null.
-
-Each event captures native indexes/focus immediately and again in a later task, with `completionPending` if that later task has not run before collection. `defaultPreventedAfterTask` can reveal later cancellation, but the index snapshot can already include subsequent events; it is not proof of the exact moment the native default action ran. Snapshot references remain the original controls if the site replaced them. Zero observed events does not distinguish routing failure from a listener earlier in propagation stopping delivery. These diagnostics can narrow a cause, not prove OS input delivery, correctness or grading.
-
-For an EP-free local check on the affected Windows computer, use the same fresh ZIP and dependencies, then PowerShell. The original closed-select check remains `npm run diagnose:dropdown:local`. The popup mechanism check is `npm run diagnose:dropdown:local -- --variant f4-popup` (or `--f4-popup`). Both deliberately use Puppeteer-managed Chrome, matching the EP validator launch, and ignore the fixture-only HANDLER_EXECUTABLE_PATH override. A headful browser opens an invented blank native select on an isolated page whose content policy blocks external resources. Do not select manually. Return to the terminal exactly as with the validator and enter `run` once.
-
-The legacy variant sends exactly Home then ArrowDown using ElementHandle.press. The F4 variant sends F4 once, verifies `:open`, sends one ArrowDown only if open, requires the popup to remain open and no input/change during navigation, then sends one Enter. It waits 200ms only to observe and prints `EP_LOCAL_NATIVE` with variant, platform/Node/browser version, native indexes, F4/open/navigation/commit fields and the same passive trace. A useful Windows popup result has `f4OpenState:true`, `openAfterArrow:true`, `navigationTraceAvailable:true`, `navigationCommitSeen:false`, `commitDispatched:true`, and `finalSelectedIndex:1`. If `f4OpenState` is false or null, no ArrowDown or Enter was sent; capture that line and do not run an EP attempt from a canceled or inconclusive local check. No EP URL, login, model, Submit, next question or retry is used.
-
-`node scripts/dropdown-native-local.js --headless` is the automated Linux smoke mode only, not Windows or headful proof. A local Windows result separates basic browser/platform key behavior from EP-specific interception; it does not itself authorize any new EP attempt. No Windows result or real cause is claimed yet.
-
-## Ordinary lesson dropdown source contract
-
-A narrow source-derived path supports initially blank native `DROPDOWN_COMPONENT` selects in explicitly auto-marked Smart Lessons. Every select must have one cached component, exact current metadata/original/shuffled option identities and DOM order, one correct displayed plain-text option, and agreement between a nonblank native selection and its cached selected option. Ambiguous normalized descriptions, prefilled controls, mixed component definitions, editable fields, disabled/multiple/listbox controls, unknown defaults, assessments and manual marking are refused. Empty defaults and EP's exact editor default-none sentinel (` < None > `) are accepted only with a visibly blank native selection; the cached selection must be absent, the actual selected blank option, or the actual empty/default-none default object. The sentinel is never allowed as an answer description. Static diagrams and formula text outside the controls do not supply answers and are not inferred from.
-
-Source: [EP public chunk 606](https://mfe-student-app.educationperfect.com/main/mfe-hashed-assets-606-c22c0eb5e341ef24b769.js), checked 6 November 2026, `DropDownComponent` and `DropDownComponentState`. The reader uses existing `_shuffledOptions` only, never the state-creating `shuffledOptions` getter, setters or marking methods. EP maps native change events by trimmed description. Boundary ASCII spaces are accepted only when every trimmed description is unique, the raw DOM textContent equals the cached raw description exactly, and the native option text equals its trim. Whitespace-only options, control/invisible/markup text, and ambiguous trim mappings still refuse. The same source shows the shuffled cache aliases and sorts `metadata.Options`, then may insert one synthetic blank into that array after the original options were copied. The reader compares raw definitions against that original copy, accepts only one exact leading injected blank, and retains complete DOM/cache and per-key identity checks. The v2 read-only report on 7 November identified all four raw/metadata Marked values as numeric 0 paired with runtime marked 1. The source editor creates Marked 0 and BaseComponent defaults runtime marked to enum 1. Both raw/metadata 0/0 and the existing 1/1 path require runtime marked 1, exact type/id/DOM/cache identity and explicit section auto-marking. All definitions must use the same raw/metadata generation (all 0/0 or all 1/1). Cross-definition mixtures, missing/string/null/2 and mismatched marking pairs refuse. This fix is source/live-inspection grounded and synthetic-tested, not a live selection/Submit acceptance result.
-
-The normal dropdown handler uses trusted F4 popup input for one or more dropdowns in order, checks popup state, native and cached selection, and stops without retry or fallback on uncertainty or cancellation. Any dropdown failure stops the whole question. **Popup navigation may still change EP state, even without Submit.** Semi-auto selects the final exact answers without Submit; auto rechecks the associated Submit target and clicks Submit once, never Next for the same question. No atomicity against concurrent page/user changes or cross-platform key behavior is claimed. Legacy Home/ArrowDown remains only in explicit synthetic regression fixtures and the EP-free local diagnostic, never the normal run or validator. One bounded live F4 popup attempt was marked correct and advanced; broader live dropdown selection, acceptance and full-lesson proof remain limited. Any further supervised one-question validation Submit needs fresh approval for one named question; the normal auto run submits verified questions without a terminal approval.
-
-## Ordinary lesson text and number box source contract
-
-A source-derived handler recognizes narrow ordinary `TEXT_BOX_COMPONENT` and `NUMBER_BOX_COMPONENT` fields in explicitly auto-marked Smart Lessons. It requires initially empty `input.text-box-component` or `input.number-box-component` fields, one cached component per field, exact component/state/DOM identities, valid uniform 0/1 definition `Marked` flags with matching metadata, runtime `marked === 1` per component, and nonempty accepted options. The current cached options must equal the metadata options; variable-resolved answer differences are refused in this first contract. It types the first supplied accepted option, not a guessed answer or a model answer inferred from lesson text. Number boxes additionally require finite numeric answer strings and matching EP rounding/error metadata (`NONE`/`DP`/`SF`, 0-15 places, `ABS`/`%` error). The selected cached option must pass the source-derived numeric marking check before filling; decimal-place metadata may format the stored option to EP's submitted precision, while significant-figure slides refuse when no stored option already matches the required format. Plus-signed significant-figure options and negative answers under percent error also refuse because EP's own helper behavior is unsafe there. Multiple boxes are filled in DOM order.
-
-Source checked 8 November 2026: [EP public chunk 606](https://mfe-student-app.educationperfect.com/main/mfe-hashed-assets-606-c22c0eb5e341ef24b769.js), `NewTextBoxComponent`, `NumberBoxComponent`, their ComponentState classes and `ComponentIndex`. EP's input events update the cached answer; Enter can submit, so this handler never types Enter. It uses trusted character input, checking the same question, renderer, options, field focus and exact answer prefix before and after each character. Changed or uncertain state stops without clearing, overwriting or retrying. In auto mode a number-box question rechecks the same question, the exact filled set and its associated Submit button after filling, then clicks its only Submit once. Semi-auto fills without Submit. The final input/click cannot be atomic against concurrent page or user input.
-
-Semi-auto fills only. Automatic mode rechecks the exact filled set and associated unique Submit button before one click, for textboxes and number boxes alike. Neither path clicks Next for that question. Missing controls, stored/prefilled answers, initial text, extra editable fields, mixed components (other than the proven presentation-only companions `SOUND_COMPONENT`/`ANNOTATED_TEXT_COMPONENT`, a runtime-proven unmarked `SCRATCH_PAD_COMPONENT` (unmarked under EP's own loose `marked == MARKED` check; its canvas left untouched) and a slide combining number boxes with dropdowns and/or text boxes, which the mixed dropdown+number-box handler answers when every surface meets its own contract with uniform marking), long/rich answers, fill-in-the-gaps textbox variants, maths editors, assessments and manually marked questions are not covered by this contract. Other input variants remain in the support queue, rather than being treated as equivalent inputs.
-
-When detection or a guarded fill/Submit state re-read rejects a text or number box slide, the CLI prints a sanitized refusal diagnostic with the guard name plus model, DOM, component and metadata booleans/counts. It does not include answers, component IDs, question text or other private lesson content.
-
-The definition-level checks name their failing guard: `component-count` (missing, empty or oversized definition list, missing renderer base, or a definition/box/base count mismatch), `component-types` (unlisted component type or invalid id), `component-ids` (duplicate ids), `component-marked` (a definition `Marked` value other than 0 or 1) and `mixed-definition-marking` (marked and unmarked definitions on one slide). Diagnostics add sanitized counts only; raw `Marked` values are never printed. On 8 November 2026 a live four-box auto-marked lesson slide reported all four definitions and metadata `Marked` 0 with every runtime component `marked` 1, all boxes visible and editable, and options present. Only detection ran live - no filling, grading or Submit. EP's source (chunk606, checked 8 November 2026) shows the runtime flag is authoritative for these components: `BaseComponent`'s constructor sets `marked` to MARKED unconditionally and no text/number-box path overrides it, `outputForMarking` reports that runtime flag, and `NumberBoxComponentState.mark` grades against the accepted options without consulting the definition flag. The contract therefore accepts definition/metadata `Marked` 0 or 1 when they agree and the runtime component is `marked === 1`, matching the dropdown contract's existing rule; invalid values, mixed-marking slides and runtime disagreement still refuse. The acceptance change is validated by synthetic fixtures and the real CLI on invented data, not by any live fill or Submit.
-
-Invented sanitized source-derived fixtures cover DOM/metadata order differences, trusted typing, semi-auto, one Submit, changed-state refusals and the normal CLI/Alt+S workflow. Live detection refusal lines informed this contract; no live ordinary lesson textbox or number-box filling, grading or full-lesson result has been verified.
-
-## One-question dropdown Submit validation
-
-`node bin/validate-dropdown.js` opens an exclusive stopped session. Only after fresh supervised approval for one named initially blank auto-marked Smart Lesson dropdown question, `submit once` consumes the process attempt before inspection. It uses the existing guarded dropdown handler with submission disabled, binds the final exact-set and Submit checks to the pre-input objects, dispatches at most one trusted Submit click, and returns without any answer loop, Next or following-question input. Browser answering hotkeys and ordinary start/mode/refresh commands cannot run the answer loop. Refusal, cancellation, partial/uncertain input and success consume the attempt across page changes. Restarting the process is not approval to try again.
-
-Use a fresh source checkout or matching source ZIP that includes this helper, not an older downloaded copy. Supported commands are `submit once`, `inspect` (read-only while stopped), `stop`, `status` and `quit`. The fixed `EP_DROPDOWN_ONCE` result line reports `submitted-once`, `refused`, `aborted` or `stopped`; failures may include a fixed reason. Never retry after any result.
-
-Home/ArrowDown visits intermediate wrong selections, which EP may save or grade even without Submit. Stop cannot undo a delivered key or click. Checks and input are not atomic against page/user changes. `submitted-once` means dispatch returned, not acceptance, correctness, points or completion. An uncertain dispatch may already have submitted and is never retried. One bounded live F4 popup attempt was marked correct and advanced; broader live dropdown proof remains limited. Keep the question visible and observe the result; do not navigate or select manually during the attempt.
-
-## Assigned vocabulary audio contract
-
-Assigned classic vocabulary Listening/Dictation can lack the Smart Lesson `sectionData.activityGroup.isAutoMarked` flag. The narrow additional allowance requires classic game mode 1, translation question type 0, explicit `isEPQuestion === false` and `isSpeakingMode === false`, translation mode 2 or 3, absent `sectionData`, vocabulary/translation activity/content types 1/1 and a positive safe-integer task ID. It does not set or infer `autoMarked = true`; explicit manual marking still wins.
-
-Source: [EP public chunk 171](https://mfe-student-app.educationperfect.com/main/mfe-hashed-assets-171-69df426caed962f89980.js), retrieved 4 November 2026. `ClassicGameController.submitAnswer` calls `markAnswerWithSecondChance` irrespective of assignment. Non-EP questions use `markAnswerLP`; only speaking sets its self-mark branch. `QUESTION_DEFAULT` otherwise grades using the answer validator. EP components and Smart Lessons/Assessments use other marking branches and do not inherit this allowance.
-
-A stopped, content-free field diagnostic confirmed that narrow assigned Listening shape, including one usable accepted answer. This is **not** a new live submission or full-task completion proof. Synthetic tests cover Listening and Dictation positives, malformed/unknown/EP/speaking/assessment/manual refusals and marking/task changes during typing. The context and accepted answer are rechecked before initial and retry submissions; any change stops before Enter. Task IDs stay inside the process and are never logged by this check. Existing unassigned self-test support is unchanged.
-
-## Highlight source contract
-
-A narrow handler supports one explicitly auto-marked Smart Lesson `HIGHLIGHT_COMPONENT` (click-the-correct-tokens questions). Source: [EP public chunk 606](https://mfe-student-app.educationperfect.com/main/mfe-hashed-assets-606-c22c0eb5e341ef24b769.js), retrieved 16 November 2026: `VirtualComponentParser.builderTypes.highlight`, `HighlightComponent` (question-mode visual element), `HighlightInput` (`span.highlight-token` tokens with ids `token-{uniqueID}-{index}` in DOM order; a trusted click toggles the token index in `userSelectedOptions` and its `highlighted` class; single-answer mode clears the rest), and `HighlightComponentState` (client-side `correct` compares the selected indexes with the shipped `metadata.CorrectOptions`). The handler requires the exact cached component/state/question-element/DOM identity chain, a runtime `marked` flag of MARKED with a valid definition flag, token count/id/order agreement, an initially empty selection with class agreement, and a nonempty unique in-range integer correct set. It clicks each correct token once, re-verifying the complete selection after every input, then submits once. Single-answer mode is supported only with exactly one correct token; stored/prefilled selections, mixed components, companion components other than the proven presentation-only ones (`SOUND_COMPONENT`, `ANNOTATED_TEXT_COMPONENT` - no input; each marking output is a constant payload independent of any response, chunk606-checked 19 November 2026) and runtime-proven unmarked scratch pads (`SCRATCH_PAD_COMPONENT`: unmarked under EP's own loose `marked == MARKED` check; scratch-pad type, matching id, exactly one entry; its interactive canvas left untouched, a marked or unverifiable pad still stops the slide), editable controls, malformed flags and out-of-range or duplicate token metadata stop unanswered. Semi-auto selects only and leaves submission to the user. This path has source-derived synthetic fixture coverage only - no live highlight slide has been captured or answered. This is not matching, ordering, image-question or assessment support.
-
-### Reflection and self-mark pages (#114)
-
-The normal CLI supports a narrow **fill-only** path for one empty `LONG_ANSWER_COMPONENT` in a self-marked Smart Lesson (`gameMode 3`, activity `isSelfMarked: true`, `isAutoMarked: false`). Read the question in the browser, enter your own single-line response at the terminal prompt, then type `yes` to approve that exact response for that question. No answer is generated and no model-answer feedback is copied. The terminal displays your response for review; don't enter secrets or personal information.
-
-Both auto and semi modes fill only, then stop the run. Review the response, submit it and self-mark it yourself in the browser. The program never clicks Submit, a warning override, a self-grade or Next for Reflection. The approval is one-use; stop, browser stop or quit cancels it. Existing work is never overwritten. Responses are limited to 2000 characters of plain single-line text; HTML, non-breaking spaces, control characters and directional controls are refused. Unsupported editor state or a change while waiting or typing stops without retry; a character already delivered cannot be undone automatically. EP's rich-text editor may apply input rules or typography changes (for example markdown-like prefixes, smart punctuation or non-breaking spaces). If the resulting text differs from the approved response, the program stops and leaves the partial response for you to inspect and edit manually; it does not repair or resume it.
-
-The cached renderer, component/state/input/editor chain and original DOM identity must agree before and after every character. Mixed slides, stored work, duplicate editors, modals, other input controls and Assessments remain refused. Source: [EP public chunk 606](https://mfe-student-app.educationperfect.com/main/mfe-hashed-assets-606-c22c0eb5e341ef24b769.js), checked 17 November 2026 (`LongAnswerComponent`, `LongAnswerComponentState`, `LongAnswerInput`). Fixtures are invented from that source and the read-only November 11 shape capture. Filling, submission and self-marking have **not** been verified on a live Reflection page. `inspect-self-mark` remains available read-only while stopped.
-
-## Assessment source boundary
-
-Assessments remain unsupported, and this program has never been run against a live Assessment attempt. The first safe slice is an explicit stop boundary from EP's public student source, not a guessed implementation.
-
-Source map from [`mfe-hashed-assets-171-69df426caed962f89980.js`](https://mfe-student-app.educationperfect.com/main/mfe-hashed-assets-171-69df426caed962f89980.js), checked 8 November 2026:
-
-- `GameMode` is `CLASSIC = 1`, `ASSESSMENT = 2`, `SMART_LESSON = 3`.
-- The student template mounts `game-assessment-action-bar`, `game-assessment-side-bar` and `game-assessment-navigation-controls` only when `game.model.gameMode == 2`.
-- `AssessmentGameController.startAutoSaveTimer()` stores the current answer every 10 seconds. Question navigation also submits/stores the current answer.
-- `submitAnswer` marks and stores the current question state. `submitAssessment` marks the whole attempt submitting, submits the current answer and then completes the attempt.
-- Assessment lockdown settings can enable focus/fullscreen tracking and persist focus or navigation events.
-
-The CLI treats the source-shaped Assessment controls as a content-free boundary: it stops before reading question answer state. If those controls are absent or have not mounted, the per-question `gameMode === 2` guards still refuse every supported question shape. Detection returns `assessment: true` with a refusal explaining the graded whole-attempt, autosave and focus-tracking risk. Synthetic tests prove zero clicks, text input, key presses and Submits across choice, dropdown, textbox, drag-and-drop gaps and multi-select fixtures. None of this is live-verified, and a live Assessment remains out of scope.
-
-The [12 November source-only lifecycle review](research/assessment-lifecycle.md) maps navigation, autosave, teacher/time events, early exit and asynchronous completion persistence. Local instrumented fixtures prove refusal adds no input or lifecycle calls, but cannot promise that EP stops its own queued saves. Assessment answering remains disabled.
-
-The [phase 2 stored-state review](research/assessment-question-state.md) separates answer edits from metadata saves and attempted status. An optional hash-pinned offline audit checks exact public client method text and grade definitions; the update matrix runs only the original model. It does not enable answering or prove server grading/saving.
-
-The [phase 3 component-output review](research/assessment-component-output.md) maps repeated marking reads, storage/user-state fallbacks and state-creating output paths. Local poisoned-getter tests force Assessment mode on nine synthetic shell/lesson/audio/task fixture shapes; the detector refuses before reading answer, renderer or stored-state fields. No output helper is invoked and no Assessment support is enabled.
-
-## Dash (timed word-to-word sprint)
-
-Dash is a timed word-to-word sprint on EP's quiz model (the classic game mode with the `isDash` flag, per EP's public client source). A live Dash run on 19 November 2026 plus a same-day read-only `EP_DASH_INSPECT` capture established the real round shape: one single-select multi-choice component (one option marked correct by a string `"true"` flag in the question state EP ships to the browser), options rendered as choice buttons, one Submit button, no classic question/answer-text markup. The capture found no timer element candidates; the real timer, scoring, expiry and completion markup remain uncaptured.
-
-Supported Dash flow (from the live capture; fixture-tested only, not yet live-verified end to end):
-
-- Round: on a confirmed Dash route (the page path includes `dash`) the run reads the round's multi-choice component from EP's own question state, selects the one option whose `Correct` flag is the string `"true"`, clicks the round's one Submit button once it enables, and waits for the next round. The auto-marking proof is client-side: EP's quiz page marks answers through its own marking manager (public chunk 171), the captured component carries the MARKED flag, and the correct-answer flags ship to the browser. Exactly one correct-marked option is required; zero or multiple correct options, multi-select, formula/block option templates, missing marking flags, companion answer components, foreign editable controls, a missing round identity or an unexpected game mode each stop the run with a named refusal instead of guessing. A Dash model on a page whose route is not a confirmed dash route also refuses by name.
-- Pacing: Dash rounds share the per-question-type human-paced wait before Submit (the choice 3-8s range) by default. On a timed clock that wait is expected (unproved live) to trade score for human-likeness, so `delay off` (super speed) is the provisional Dash recommendation for maximum points; `delay MIN-MAX` already covers a faster-but-paced sprint (e.g. `delay 0.5-1`).
-- Accuracy: perfect (the default) is the provisional Dash recommendation - each intentional mistake is expected (unproved live) to burn sprint time/points and possible leaderboard impact. When accuracy is enabled, a single-choice Dash round uses the same neighboring-distractor mistake path as Smart Lesson choice rounds; live wrong-answer behavior in Dash is uncaptured.
-- Completion: the sprint is expected to end like an untimed task (a visible exit/continue control proves completion). The real results/leaderboard markup is uncaptured.
-
-What is still unproved live: an actual end-to-end Dash sprint through the program (selection, Submit grading, round advance, wrong-answer behavior, timer expiry, scoring, the completion screen and any leaderboard/teacher visibility). Coverage is the live structural capture plus synthetic fixtures: `/dash-task/quiz` models the captured round shape and `scripts/dash-cli-test.js` drives the real CLI through it to completion; `/dash-task` and `/dash-task/play` keep the earlier classic-shaped reconstruction, retained only to exercise the timed-run empty-word-list warning (its timer/score/results selectors are fixture-invented). npm run smoke covers the classic-shaped fixture and scripts/dash-test.js covers detection plus a real-CLI sprint run on it. Re-verify against the next live Dash run before treating any of the above as live proof.
+Unsupported Smart Lesson question types are detected and reported, not guessed at.
 
 ## Known limitations
 
+- **Dash support is fixture-tested only.** Multi-choice rounds are answered from a live structural capture (19 November 2026; see [CHANGELOG](CHANGELOG.md#live-verification-log)); no end-to-end live Dash sprint has been run through the program yet, and other Dash layouts are refused by name. Run `inspect-dash` at a refused round and send the `EP_DASH_INSPECT` line to help extend support.
+- **Audio answers depend on EP's data.** Audio is answered from the data EP ships to the browser before submission. If that state goes missing, those tasks fail loudly rather than fall back to guessing. Self-test work still earns points and stays visible to teachers.
+- **Smart Lesson support is limited.** Only explicitly auto-marked activities are answered. Full-lesson completion and automated rejection handling are not proved live.
+- **Word-list parsing is best-effort.** Extreme formatting cases can still produce incorrect answers.
+- **The anti-cheat bypass may stop working** when the service changes.
 
-- Ordinary lesson text and number boxes have the narrow source-derived contract above and synthetic fixture coverage only. No live number-box detection, filling or grading is proved; other long/rich, gaps-textbox and manual/assessment variants remain unsupported, apart from the user-authored Reflection fill-only path above.
+The full text, with dates and citations, is in [docs/question-types.md](docs/question-types.md#known-limitations-full-text).
 
-- Formula-rich single-choice handling requires an existing cached renderer with unique exact metadata-to-DOM associations. Mixed formula/plain option sets, missing renderer state and ambiguous associations stop unanswered. Variable-resolved choices use the current cached metadata only when original/displayed option identities, preview marking and complete rendered templates agree; raw and resolved state are rechecked before selection. This path has synthetic browser coverage, not live equation-choice completion proof.
+## Contributing
 
-- **Smart Lesson support covers multiple-choice questions in auto-marked activities.** The question markup and the client-side answer state were verified against the live site; on 30 October 2026, the actual program passed one accepted select/submit/advance cycle, then stopped. Full-lesson completion and automated rejection handling remain unproved live. Local fixtures cover multi-round and refusal behavior. Short-answer lesson questions are answered the same way but haven't been live-verified yet. Multi-select is supported only with an explicit auto-marked activity and a complete cached renderer-to-option association: it uses the resolved displayed answer set, verifies checkbox/client selected-state agreement, requires aria-selected="true" for selected options and checks ARIA when present, and submits once. Missing/ambiguous/stale state stops without submission. Preselected wrong options are deselected; correct options are preserved. This path has source-derived synthetic coverage only, not a captured live multi-select slide or live submission proof. Hidden explanation/Next transitions remain unsupported for multi-select and stop rather than clicking. Matching, ordering, image-based questions, other drag-and-drop variants and other manually marked questions are detected and reported instead of answered. The narrow Reflection path above fills user-approved text only and leaves submission and self-marking to the user. Highlight (click-the-correct-tokens) questions in explicitly auto-marked Smart Lessons are supported under the narrow source contract below, with synthetic coverage only. The normal CLI's generic unsupported-slide report now includes a sanitized diagnostic limited to game mode, numeric question type, allow-listed component type codes/counts and broad visible-control counts; it never prints prompt, option or answer text, IDs, URLs, arbitrary class names or unlisted component strings. The narrow drag-and-drop fill-in-the-gaps contract above is separate.
-- **Audio tasks (Listening/Dictation) are answered from the data EP ships to the browser before submission** (that state, and the audio markup, were verified against the live site; the actual program passed one accepted type/submit/advance cycle for each of Listening and Dictation on 30 October 2026, then stopped; full-task completion and automated rejection handling remain unproved live. Local fixtures cover multi-round completion, bounded rejection and refusal when accepted-answer state is missing, empty or unusable). If EP stops shipping that state, those tasks fail loudly rather than fall back to guessing. List audio tasks ship no marking flag at all (confirmed on a live Listening task, 2026-10-30), so audio is answered only when EP's auto-marking flag is explicitly true or `sectionData` is absent and the task is positively identified as a self-test vocabulary list (unassigned, list and translation content type); assigned classic vocabulary audio has a separate source-grounded allowance described above; all other assigned tasks without explicit auto-marking confirmation and unknown contexts stop and report instead. That identification rests on field values EP ships, not on a documented guarantee, and it carries two known unknowns: an assessment launched in a way that produces the same null-task/no-section-data shape is not proven impossible, and self-test work still earns points and stays visible to teachers either way. Dictation shares the pipeline but wasn't separately re-inspected for these fields.
-- **Dash (timed sprint) multi-choice rounds are answered from the live-captured shape, fixture-tested only.** A live Dash run on 19 November 2026 plus a same-day read-only `EP_DASH_INSPECT` capture established the round: one single-select multi-choice component on EP's quiz model (`isDash` flag set, captured `gameMode` null), one string `"true"` correct flag, one Submit button. The program answers exactly that confirmed shape on a dash route and refuses every deviation by name (see the Dash section); a Dash model off a dash route refuses too. No end-to-end live Dash sprint has been run through the program yet: Submit grading, round advance, wrong-answer behavior, timer expiry, scoring and the completion screen remain unproved live. Other Dash layouts (typed, audio, mixed slides) are refused by name. The synthetic fixtures: `/dash-task` keeps the classic-shaped page that exercises the timed-run empty-word-list warning, and `/dash-task/quiz` models the captured quiz shape ([scripts/mock-ep.js](scripts/mock-ep.js), audited 2026-11-19), with CLI coverage in [scripts/dash-cli-test.js](scripts/dash-cli-test.js), reader coverage in [scripts/dash-choice-test.js](scripts/dash-choice-test.js) and capture coverage in [scripts/dash-diagnostics-test.js](scripts/dash-diagnostics-test.js). If a live Dash round is refused, type `inspect-dash` with the CLI stopped at the round and send the `EP_DASH_INSPECT` line: it is a read-only capture of fixed structural fields, never question or answer text.
-- The answer parser handles *most* word-list formatting edge cases, but extreme cases may still result in incorrect answers; the self-learning error-correction feature helps, but doesn't cover every scenario.
-- The anti-cheat bypass depends on how Education Perfect's anti-cheat features behave, and might stop working when the service changes.
+Contributions are welcome: new features, bug fixes, anti-cheat bypass, or documentation. Read [CONTRIBUTING.md](CONTRIBUTING.md) first. Developer, build, and validation notes are in the [developer guide](docs/developer-guide.md).
 
 ## Future plans
-This is a purely hobby-driven project. This means I don't guarantee consistent development or continued maintenance of
-this program. Everything depends on my own plans and interests. In any case, any existing resources here will remain
-public and accessible indefinitely.  
-In any case, you're very welcome to contribute to this project! Contributions can be new features, bug
-fixes, anti-cheat bypass, or even just fixing typos and documentation. I have to specifically thank 
-[Garv](https://github.com/garv-shah) for discovering the exploit that made V1 fully-auto answer possible.
 
-TODO list? or never-DO list? no one knows :P
+This is a purely hobby-driven project, so consistent development and maintenance are not guaranteed. Existing resources here remain public and accessible.
+
 - Auto navigation between tasks (temporarily achieved with script+.js during V1)
 - Dedicated anti-cheat bypass features
 - Even better answer parsing
 
-A dedicated desktop app is a planned phase of this repository - tracked in [issue #8](https://github.com/404-Page-Found/EducationPerfected/issues/8), after the packaged CLI.
+A dedicated desktop app is a planned phase of this repository, tracked in [issue #8](https://github.com/404-Page-Found/EducationPerfected/issues/8), after the packaged CLI. Thanks to [Garv](https://github.com/garv-shah) for discovering the exploit that made V1 fully-auto answer possible.
 
+## Release, licensing, and disclaimer
 
-## License and rights status
-
-The [MIT license](LICENSE) is the continuation's chosen license for contributions
-whose rights holders have authorized that grant. The collective copyright line
-credits contributors; it does not claim sole authorship or permission on their
-behalf. Existing third-party rights and notices remain in force.
-
-akioweh's permission applies only to code he authored and owns. Other author
-names in git history are not assumed to be his aliases. It does not cover
-Garv, JoshAtticus, qubixal or other contributors' code, and those permissions
-remain unresolved. Adding this scoped license and package reference does not clear
-those rights or authorize distribution of the entire repository or bundled
-browser. Release rights checks remain unchanged.
-
-This license does not grant permission to use Education Perfect's services or
-access them automatically. Service use may be subject to
-[Education Perfect's terms of service](https://www.educationperfect.com/).
-
-Please read the [detailed disclaimer](docs/disclaimer.md) before use: automating
-schoolwork can breach school or service rules, and may be detected, marked
-wrong, or acted on. Students who choose to use this product do so at their own
-responsibility, and it is not recommended to use it for homework tasks.
-The software is provided as-is, at your own risk.
-
-
-## CLI credential setup (source build)
-
-Run `educationperfected setup` for first-time installation (or `node bin/cli.js setup` from source). It asks before downloading pinned Chrome from Google, verifies the archive checksum, reuses an existing verified cache, then offers credential setup. Email and password stay visible while you type. Leave the email empty to skip saving. It never opens EP or answers a question. `check-credentials` checks the native saved login without printing it; `forget-credentials` removes the app's login. `help`/`-h`/`--help` shows commands; `version`/`-v`/`--version` prints 2026.11.16. Legacy credential/update/uninstall flags are refused with a subcommand hint, before any runtime/store/download action.
-
-The native store uses Windows Credential Manager, macOS Keychain, or Linux Secret Service. On Linux, an unlocked Secret Service session (for example GNOME Keyring or KWallet) is required; there is no plaintext or nonpersistent kernel-keyring fallback. If the store is unavailable, ordinary browser/manual login still works. Never put a password in a command argument.
-
-A saved login is read as one versioned record. Existing environment-variable and optional legacy keytar inputs are retained for source-build compatibility. Setup does not delete older legacy-keytar entries. `forget-credentials` removes only the new record, so older inputs may still supply a login.
-
-This is source-build work, not a packaged release. Native disposable tests now cover Linux x64/ARM64 private-store CRUD, Windows x64 source-worker CRUD and SEA visible-input setup, cancellation, raw byte3 interruption, health-read and deletion, plus Mac ARM64/Intel source CRUD and packaged setup/health-read/delete. Mac exact packaged values and normal saved-login use remain unproved; see `release/native-validation.md`. Browser bundling, native module extraction, signing/distribution and five-target release checks must pass before claiming standalone support. Run `npm run test:store` for isolated adapter/setup contract tests; those tests never access a real credential store.
-
-## Standalone development builder prerequisite
-
-All three SEA development builders (`build:linux-dev`, `build:windows-dev` and `build:macos-dev`) require **Node 22.23.4 exactly** on the matching native host. This is narrower than the `package.json` engine range (`>=22.12.0`), which describes source-program installation and runtime requirements, not the SEA builder matrix. The builder copies the current Node executable and includes the checked-in Node 22.23.4 runtime LICENSE and bundled-component notices. A different Node version fails with `Node runtime notice version mismatch` before archive, bundle or native executable generation; do not remove that check to build with another version. Supporting another builder version needs matching reviewed runtime notices and native validation first. No other Node builder version is currently supported by these commands.
-
-## Linux x64/ARM64 standalone development build
-
-`npm run build:linux-dev` creates `build/linux-<arch>/educationperfected` (`x64` or `arm64`, matching the native build host) using the current Node executable, pinned JavaScript tooling, native keyring module, and the full Chrome for Testing already installed by Puppeteer. Run `npm run test:packaged` for local fixture checks. No live Education Perfect answers are submitted by these tests.
-
-This is an unsigned native glibc Linux x64/ARM64 development build, not a released artifact or a claim of support on the five target platforms. It extracts the native module and browser into a private temporary directory on each launch and checks the browser payload's build-time SHA256 before extracting it. Normal exit, setup interruption and pre-launch interruption remove that directory; removal briefly retries when a closing browser helper or scanner still holds a file, and any directory still left behind is marked cleanup-ready and swept on the next launch. SIGKILL, power loss or a crashed process can leave temporary files behind. Disk space and OS browser libraries are still required. macOS development builds have ad-hoc signature verification; certificate signing, notarization and Windows signature policy remain unproved.
-
-The build writes available third-party notices and an inventory of every installed production dependency beside the executable. Missing notice files are explicitly listed. Exact-version Puppeteer source licenses omitted from npm tarballs are recovered with checksum/source provenance; copying them is not legal clearance. Distribution remains blocked until notices, rights and native evidence are reviewed. Do not distribute a binary without its notices or before completing the project's rights/licensing review, browser redistribution review, signing and clean-machine/native-platform release checks. Existing contributions have no repository-wide license grant documented here. The local development build does not settle those release gates.
-Native-store test prerequisites: `npm run test:store` uses an inert adapter and needs only Node/dependencies. `npm run test:store:pty` uses Python 3's standard-library PTY support on Linux/macOS and preloads an inert store, so it cannot save a real login. `npm run test:store:integration` additionally needs Linux `dbus-run-session`, `gdbus` and `gnome-keyring-daemon`; it creates a fresh temporary HOME and private D-Bus session for synthetic native-store write/read/delete. No real user's keyring is used. These developer-test tools are not runtime prerequisites for the CLI.
-
-
-OS-delivered child-signal fixtures (`startup-signal-test`, `legacy-drain-signal-test` and `cli-test --signal`) are POSIX-only and explicitly report SKIP on Windows. Node's `child.kill()` force-terminates Windows children rather than delivering the console event these tests need. The platform-neutral run-control and pending-launch handler tests still run, but they do not certify Windows console shutdown. Native Windows console close/Ctrl+C and process cleanup remain required release checks.
-
-A Windows x64 development builder is available via `npm run build:windows-dev`. Its native browser/local CLI and corruption fixtures passed experimentally, and disposable Windows source-worker synthetic save/read/delete and SEA visible-input setup now pass with an independent exact source-store pair, fresh SEA valid-shape health read, unchanged source pair, deletion and cleanup. Empty-email/password cancellation and raw byte3 interruption at both armed setup prompts also pass without mutation or native deletion. The raw-input check is not OS console-event delivery or physical terminal-close proof. Browser-startup reliability, normal saved-login use, locked/unavailable-store behavior, real console events and clean-machine checks remain incomplete. See `release/native-validation.md`; this is not a release or a signed/unsigned distribution-policy decision.
-
-The Linux development package embeds the browser as a SEA asset with a checksum checked before unpacking. Full-size build and packaged CLI/integrity fixtures passed on a standard 16 GB Ubuntu 22.04 runner. Smaller-memory full-size injection was killed, so this is not a promise that every development machine can build it. Ubuntu 24.04 sandbox compatibility remains unresolved; the Ubuntu 22.04 pass does not clear that platform's prerequisites or the native release gates. No browser sandbox bypass is enabled.
-
-The SEA runtime maps the full embedded browser asset, verifies its checksum in a complete pass, and only then extracts it. It uses a read-only raw asset view with bounded stream chunks instead of copying the full archive into a Blob. Short synthetic workflow-command memory observations are recorded in `release/native-validation.md`; total process-tree peak and minimum supported RAM remain unproved.
-
-Native Ubuntu 22.04 x64 and ARM64 runners passed full SEA builds and the packaged mock CLI, checksum-corruption and startup-interruption fixtures. Current-source private Secret Service tests also passed native synthetic save/read/delete and packaged setup/delete verified by independent source reads. These runs do not prove normal answer-path credential use, a separate no-Node machine, platform signatures or distribution rights. Ubuntu 24.04 sandbox compatibility and a longer-term runner baseline remain open.
-
-
-Native macOS ARM64 and Intel development runs passed source controls, full SEA builds, ad-hoc signature verification, packaged local-mock browser controls and owned extraction cleanup. An isolated disposable runner keychain also passed source exact synthetic save/read/delete and packaged setup, fresh-process `--check-credentials`, deletion and independent source absence. This uses inherited runner HOME with verified owned User keychain selection and restoration, not a clean profile. Packaged health checks prove a valid parsed record, not its exact synthetic value or normal sign-in use. A source Node read of a packaged-created record timed out; its cause remains unproved and cross-executable read is not cleared. Historical Intel startup timing also remains unexplained despite later passes. See `release/native-validation.md` for exact evidence and remaining gates.
-
-### One-question fill-only validation
-
-`node bin/validate-gaps-fill.js` opens a separate stopped validation session. Use it only after approving a specific practice question for alteration. Filling may save a draft in EP even though this session never clicks Submit or Next.
-
-Open that approved question, then enter `fill once` in this validation terminal. It calls only the guarded gaps handler, with submission disabled, and stops after the exact filled set is verified or on the first mismatch. It does not enter the ordinary answering loop. The attempt is consumed before inspection; a failed, cancelled or successful attempt cannot be retried in the same process, even on a new question. Do not open another validation process as a retry without checking what changed and getting any needed approval.
-
-Only `fill once`, `stop`, `status` and `quit` are supported. Browser answering hotkeys are disabled in this session. `stop` drains an in-flight action; it cannot undo a key already delivered. `quit` closes the owned browser. `EP_FILL_ONCE` reports a fixed, content-free result: `filled-only` confirms filling was verified, not marking, submission or advance.
-
-Use a fresh source ZIP containing this entrypoint and its matching handler files. The earlier Console diagnostics contain their own reader and do not prove an old installed CLI has been updated. This is a developer validation path, not full lesson completion or packaged-release proof.
-
-### One-question automated Submit validation
-
-`node bin/validate-gaps-submit.js` is a separate, stopped validation session. It requires approval for one fresh, initially empty supported practice gaps question, including filling, one automated Submit and any result or points EP records. Do not use the previously filled or submitted question. No live run of this command has been verified.
-
-After opening only the approved question, enter `submit once` exactly once. The session consumes the attempt before inspection, uses the guarded fill-only operation, then rechecks the same question, exact filled set and associated Submit control before one trusted click. It returns immediately after that click. It never clicks Next, retries, answers another question or enters the ordinary answer loop. EP may automatically display the next question, an explanation or a completion screen after Submit.
-
-Only `submit once`, `stop`, `status` and `quit` are supported; browser answering hotkeys are disabled. A refusal, cancellation, uncertain input or completed attempt cannot be retried in the same process, even on a fresh question. Do not start a new process as a retry without checking what changed and getting any needed approval. `EP_SUBMIT_ONCE` reports a fixed, content-free result: `submitted-once` means the one click returned, not that EP accepted or graded the answer. An uncertain click reports `stopped` and may still have taken effect. Stop cannot undo an already dispatched key or click; shutdown may wait for an in-flight browser call.
-
-Use a fresh matching source ZIP, not the ordinary launcher or the fill-only command. Synthetic browser and real-program fixtures cover at-most-one Submit, no Next, no further answering after automatic advancement, permanent attempt consumption, cancellation and stale-state refusals. These are not live automated-submission or full-lesson proof.
-
-
-### One-question textbox fill-only validation
-
-`node bin/validate-textbox-fill.js` opens its own stopped browser. Open the specifically approved, initially empty ordinary auto-marked lesson textbox question there. `fill once` calls only the existing guarded textbox handler with submission disabled, then stops after exact filling is verified or at the first refusal, cancellation or uncertainty. It never intentionally clicks Submit or Next or enters the answering loop. Filling may still save or grade in EP; there is no promise that input has no effect beyond a visible draft.
-
-Only `fill once`, `stop`, `status` and `quit` are supported; answering hotkeys are disabled. One attempt is consumed before inspection, including refusal or cancellation, and cannot be retried even on a different question. A new process is not permission to retry. `EP_TEXTBOX_FILL_ONCE` `filled-only` confirms the handler's exact fill checkpoint, not saving, marking, grading, points or advancement. An interrupted or uncertain fill may leave partial input. `stop` cannot undo a delivered key, and shutdown may wait for in-flight browser work. Final read/input checks are not atomic against concurrent page or user changes.
-
-The ordinary textbox contract and exclusions above remain unchanged. Synthetic Linux browser and real-program fixtures cover this validation path, not live textbox or Windows compatibility. Use a fresh matching source ZIP. Each live question needs separate approval before typing `fill once`.
-
-### Read-only Reflection inspection (#114)
-
-The narrow user-authored Reflection fill-only path is described above. To inspect its component
-and control shapes without starting answering:
-
-1. Run `node bin/cli.js`, finish sign-in, and open the approved Reflection page.
-2. Leave the CLI inactive (stopped, completed or error state). Do not type `start` or press the answering hotkey.
-3. Type `inspect-self-mark` once. Paste the line beginning `EP_SELF_MARK_INSPECT`.
-4. Type `quit` when finished. Do not reveal answers or select a self-grade for this capture.
-
-The command reads structural metadata, control shapes and counts only. It does not type,
-click, focus, Submit, reveal answers, select a self-grade or advance the question.
-It reports recognized component codes and fixed metadata field shapes, not answer
-values, question text, arbitrary keys, classes, labels or IDs. Cached metadata
-accessors are skipped. Assessment mode and unconfirmed lesson modes stop before
-question-state reads. While inspection is pending, answering, mode changes and
-refresh are locked out. Waiting is bounded to two seconds; a remote read already
-in flight may finish later, but it has no write path. Existing answering guards
-are unchanged. A capture is not permission for live answering.
-
-
-### Dropdown Submit readiness
-
-Auto mode verifies the full exact dropdown answer set while waiting up to three
-seconds (or a shorter configured round timeout) for the associated Submit button
-to become available. EP's SkillsControls has a one-second new-question lock; a
-fast fill can finish before it unlocks. These probes never replay input, click,
-enable a button or bypass the terminal Submit approval. Each probe rechecks the
-original model, question key, renderer identities and exact selected answers.
-Multiple visible Submit buttons, any identity/answer drift, assessment mode and
-cancellation stop without Submit. A timeout reports `submit-readiness-timeout`
-with content-free visible/enabled Submit counts. The final button-identity and
-coverage checks and the no-retry rule after an uncertain click are unchanged.
-The one-shot validation helper still uses its existing single-read Submit gate.
-This is synthetic-test proof of the readiness path, not proof of the cause of
-every live `submit-button` refusal.
-
-### Selection dialogs at section boundaries
-
-Normal selection rounds (choice, gaps, dropdown, textbox and number-box) preserve dialogs after Submit. Content-free `Selection modal diagnostic` guards distinguish template family, baseline/model/current-section association, next-section fields and button readiness failures. For exactly bound source-shaped section completion only, automation clicks that dialog's Next Section button once. It never directly invokes controller methods, uses Enter, clicks a generic modal control, retries an uncertain click or navigates peer review. The dialog template scope may inherit its `self` as UI Bootstrap transclusion does; only bounded own data-property reads are used, not getters. Before input, the model, original section/question, next displayed section identity/ID/type/activityGroup, exact button binding, visibility, hit target and run cancellation are rechecked. After the click, read-only polling must prove the same model, the exact promised next section, a different valid question and no visible modal/backdrop. Fresh supported-question detection then permits normal per-round checks to resume. A stalled, dismissed, uncertain or wrong-section transition stops without another click. Unknown dialogs and final activity completion stay open and stop; no lesson-completion or grading claim is inferred from the dialog. This is source-derived synthetic coverage, not live EP proof.
-
-Unrecognized, ambiguous, hidden or unverified dialogs still stop. Diagnostics contain fixed family/guard names, counts and identity-match booleans only, never dialog/answer/question text, section names or raw IDs. Selection runs do not erase dialogs in normal loop cleanup, including when Stop lands after Submit but before the next modal poll. An explicit restart stays inert while a visible dialog or backdrop remains; once the user handles it, a new start uses normal fresh detection, not an inferred section-transition result. One-shot validation commands are unchanged. This is source-derived synthetic proof, not confirmation of which dialog appeared in a live run and not proof of the exact association failure in the reported stop.
-
-### Gaps with exact alternative labels
-
-A displayed gaps tile is usable only when its raw label is an exact member of that gap's resolved CorrectOptions. When multiple exact correct labels are displayed, deterministic distinct-tile matching assigns a complete set across all DOM-ordered gaps instead of refusing every alternative or choosing greedily. No spelling/case/punctuation normalization, generated answers or internal marking calls. Existing exact renderer, gap, tile and filled-prefix checks still apply. Missing exact candidates and insufficient distinct tiles stop with content-free gap-index/count diagnostics. Source-derived synthetic proof only; the live report did not distinguish these cases.
-
-### Plain-block paragraph choices
-
-EP's source renders separate template lines as adjacent paragraph nodes, without separator text nodes. Plain-block association accepts that exact paragraph shape (optionally inside the source's div wrappers), binding every template line in order to one paragraph (including an exact empty paragraph for a blank line) and retaining the existing cached option/template/marking/radio association. It does not join arbitrary layout, reorder paragraphs, strip markup or infer an answer. Unknown paragraph shapes and changed line text stop. Content-free render failures now distinguish unsupported descendants from text mismatch; text mismatches include template-line/paragraph counts. Source-derived fixtures only; the live report's exact shape remains unconfirmed.
-
-### Plain-block inline style tokens
-
-EP InlineTextElement consumes the style toggles `**`, `__`, `//` and `~~` rather than displaying them. Plain-block choices accept balanced occurrences of those exact tokens (including mixed styles and existing color spans) only with an exact source-shaped paragraph/span text association. Unknown descendants, missing/extra paragraphs, changed text, unbalanced toggles and style-token escapes stop. Highlight, sub/sup and heading syntax remain unsupported here. Render-text diagnostics add fixed token-family booleans, never option text or answer values, so a further mismatch can identify the still-unsupported family. The one-line/one-paragraph live failure did not include its template, so this fixes a source-proven formatting gap, not a confirmed cause of that exact report. No live EP validation.
-
-## Downloadable stable-release preparation
-
-A separate [downloadable release policy](release/downloadable-beta-policy.md) defines
-an unsigned executable candidate that does not bundle Chrome. It requires an interactive terminal on first
-run and asks before downloading a fixed Chrome for Testing version directly from Google,
-then retains it in a local cache. It needs internet for that first download and
-is not an offline all-in-one bundle. Stable version `2026.11.16` is being prepared without a prerelease suffix. It is not published or certified: five-target
-native validation, exact-artifact notices/integrity evidence and release approval
-remain required. Existing development builds that embed Chrome are not eligible
-for this publication path. Source ZIP use is unchanged: `npm ci`, then `npm run cli`.
-
-
-Packaged maintenance: see [runtime storage and uninstall](release/runtime-storage.md). `uninstall` requires typed confirmation (each item defaults to keeping it) and removes the saved login, app data and downloaded browsers only where ownership is safe, then removes the program itself the way it was installed: the Windows setup exe runs its own uninstaller, npm runs `npm uninstall -g`, `.deb`/`.rpm` run the package manager with sudo, `.pkg` removes its files and forgets the installer receipt, and installer scripts delete what they wrote. Every installer records what it created in `educationperfected-install.json` next to the executable; installs without a record are detected from their location and reported as inferred. On Windows a background helper finishes program removal after the CLI exits (a running program cannot delete itself) and writes a log. Close all other copies, including source CLI, and their Chrome windows first. Live/uncertain data or download locks are retained and removal is reported incomplete. `update` uses published stable GitHub Releases with verified checksums, a local confirmation and backup/rollback. Checksums detect corruption, not a compromised publisher; no release exists until separately approved.
+- **Licensing and rights:** the code is under the [MIT license](LICENSE). The scope note and rights status are in [release/license-and-rights.md](release/license-and-rights.md).
+- **Release status:** [release/README.md](release/README.md) indexes the release gates and native validation.
+- **Downloadable stable-release preparation:** see [release/README.md](release/README.md#downloadable-stable-release-preparation-moved-from-readme). The policy is in [release/downloadable-beta-policy.md](release/downloadable-beta-policy.md).
+- **Packaged maintenance:** see [runtime storage and uninstall](release/runtime-storage.md). `uninstall` requires typed confirmation and keeps each item unless you choose otherwise. `update` uses published stable GitHub Releases with verified checksums.
+- **Disclaimer:** read the [detailed disclaimer](docs/disclaimer.md) before use: automating schoolwork can breach school or service rules, and may be detected, marked wrong, or acted on. The software is provided as-is, at your own risk.
