@@ -68,16 +68,28 @@ const { installControlMenu } = require('../lib/browser-controls');
             const summary = root.querySelector('summary');
             const rect = summary.getBoundingClientRect();
             const start = { x: rect.left + 30, y: rect.top + 10 };
-            const fire = (target, type, x, y) => target.dispatchEvent(new PointerEvent(type, { bubbles: true, composed: true, clientX: x, clientY: y, button: 0, pointerId: 1 }));
-            fire(summary, 'pointerdown', start.x, start.y);
-            fire(window, 'pointermove', start.x - 1, start.y - 1); // below the 4px threshold: not a drag yet
-            fire(window, 'pointermove', start.x - 150, start.y - 120);
-            fire(window, 'pointerup', start.x - 150, start.y - 120);
+            const fire = (type, x, y) => summary.dispatchEvent(new PointerEvent(type, { bubbles: true, composed: true, clientX: x, clientY: y, button: 0, pointerId: 1 }));
+            fire('pointerdown', start.x, start.y);
+            fire('pointermove', start.x - 1, start.y - 1); // below the 4px threshold: not a drag yet
+            fire('pointermove', start.x - 150, start.y - 120);
+            fire('pointerup', start.x - 150, start.y - 120); // released over the panel, the real path
             summary.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true })); // the click every drag ends with
+            // A stale drag must not keep steering the panel after release (review regression).
+            fire('pointermove', start.x - 300, start.y - 300);
+            window.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: start.x - 300, clientY: start.y - 300, pointerId: 1 }));
         });
         const afterDrag = await panelPos();
-        assert.ok(Math.abs(afterDrag.left - (beforeDrag.left - 150)) < 2 && Math.abs(afterDrag.top - (beforeDrag.top - 120)) < 2, 'drag moves the panel with the pointer');
+        assert.ok(Math.abs(afterDrag.left - (beforeDrag.left - 150)) < 2 && Math.abs(afterDrag.top - (beforeDrag.top - 120)) < 2, 'drag moves the panel with the pointer and stops at release');
         assert.equal(await page.evaluate(() => document.getElementById('educationperfected-controls').shadowRoot.querySelector('details').open), true, 'the click ending a drag does not toggle the panel');
+        await page.evaluate(() => {
+            const root = document.getElementById('educationperfected-controls').shadowRoot;
+            root.querySelector('summary').dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }));
+        });
+        assert.equal(await page.evaluate(() => document.getElementById('educationperfected-controls').shadowRoot.querySelector('details').open), false, 'the next genuine header click toggles the panel');
+        await page.evaluate(() => {
+            const root = document.getElementById('educationperfected-controls').shadowRoot;
+            root.querySelector('summary').dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }));
+        });
         await page.goto(origin + '/app'); await ready();
         const restored = await panelPos();
         assert.ok(Math.abs(restored.left - afterDrag.left) < 2 && Math.abs(restored.top - afterDrag.top) < 2, 'panel position persists across navigation');
