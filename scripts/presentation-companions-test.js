@@ -70,6 +70,11 @@ const SCRATCH_PAD = { ComponentTypeCode: 'SCRATCH_PAD_COMPONENT', ComponentID: '
         await addTextboxCompanion(LONG_ANSWER, { type: 'long-answer', isInput: true, id: 'la-1' });
         assert.equal((await detectQuestion(page)).kind, 'unsupported', 'textbox with long-answer companion did not refuse');
 
+        const probePad = (fixtureName) => (component) => page.evaluate(({ g, c }) => {
+            const f = window[g];
+            f.q.questionDef.Components.push({ ComponentTypeCode: 'SCRATCH_PAD_COMPONENT', ComponentID: 'pad-1', Marked: 0 });
+            if (c !== null) f.q.cachedRenderers[1].identifiedComponents.baseComponents['pad-1'] = Array.isArray(c) ? c : [c];
+        }, { g: fixtureName, c: component });
         // scratch pad: admitted only when the cached runtime component proves
         // the pad is unmarked under EP's own loose check (marked == MARKED):
         // unmarked pads emit a constant NOT_MARKED 0/0/0 marking payload, marked
@@ -95,17 +100,16 @@ const SCRATCH_PAD = { ComponentTypeCode: 'SCRATCH_PAD_COMPONENT', ComponentID: '
         const gapsPad = await detectQuestion(page);
         assert.equal(gapsPad.kind, 'unsupported', 'gaps with unverifiable scratch pad did not refuse');
         assert.match(gapsPad.reason, /unsupported accompanying component: SCRATCH_PAD_COMPONENT/);
+        await setupGaps(); await probePad('gapsFixture')({ type: 'scratch-pad', marked: 0, id: 'pad-1' });
+        assert.equal((await detectQuestion(page)).kind, 'gaps', 'gaps with runtime-proven unmarked scratch pad refused');
+        await setupGaps(); await probePad('gapsFixture')({ type: 'scratch-pad', marked: 1, id: 'pad-1' });
+        assert.equal((await detectQuestion(page)).kind, 'unsupported', 'gaps with marked scratch pad did not refuse');
 
         // pad admission/refusal across every other single-surface reader:
         // runtime-proven unmarked admits, marked refuses, ambiguous two-entry
         // refuses, missing runtime entry refuses
         const UNMARKED = { type: 'scratch-pad', marked: 0, id: 'pad-1' };
         const MARKED = { type: 'scratch-pad', marked: 1, id: 'pad-1' };
-        const probePad = (fixtureName) => (component) => page.evaluate(({ g, c }) => {
-            const f = window[g];
-            f.q.questionDef.Components.push({ ComponentTypeCode: 'SCRATCH_PAD_COMPONENT', ComponentID: 'pad-1', Marked: 0 });
-            if (c !== null) f.q.cachedRenderers[1].identifiedComponents.baseComponents['pad-1'] = Array.isArray(c) ? c : [c];
-        }, { g: fixtureName, c: component });
         const probe = async (label, setupFn, fixtureName, admitKind) => {
             const pad = probePad(fixtureName);
             await setupFn(); await pad(UNMARKED);
