@@ -401,9 +401,12 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
     // Validation one-shot sessions stay perfect: precise fill-only proofs
     // must never inject mistakes.
     const validationFlags = Boolean(gapsFillOnly || choiceSelectOnly || gapsSubmitOnce || textboxFillOnly || dropdownSubmitOnce || multiSelectOnly);
+    const { readConfig, writeConfig } = require('./lib/app-config');
+    // Fixtures and one-shot validators never read or change personal settings.
+    const savedConfig = TEST_BOOT || validationFlags ? { version: 1 } : readConfig();
     let accuracyConfig;
     try {
-        accuracyConfig = require('./lib/accuracy').resolveAccuracyConfig({ cli: accuracy || {}, env: process.env });
+        accuracyConfig = require('./lib/accuracy').resolveAccuracyConfig({ cli: accuracy || {}, env: process.env, config: savedConfig.accuracy });
     } catch (e) {
         console.error(String(e.message || e));
         throw e;
@@ -866,7 +869,13 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             };
             // Human pacing (issue #221): one randomized wait per answered
             // question before its guarded submission, on by default.
-            const humanDelay = createHumanDelay();
+            const humanDelay = createHumanDelay({ config: savedConfig.delay });
+            const persistSetting = (name, value) => {
+                if (TEST_BOOT || validationFlags) return;
+                savedConfig[name] = value;
+                try { writeConfig(savedConfig); }
+                catch { console.warn('Settings changed for this session, but could not be saved. Check app storage permissions.'); }
+            };
             const pendingReflectionCancellers = new Set();
             const onReflectionRequestCancel = cancel => {
                 pendingReflectionCancellers.add(cancel);
@@ -2845,6 +2854,13 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 }
                 throw new Error('Usage: accuracy [n|min-max|off|on] (e.g. accuracy 82, accuracy 70-90, accuracy off).');
             };
+            const updateAccuracy = controls.setAccuracy;
+            controls.setAccuracy = async raw => {
+                const result = await updateAccuracy(raw);
+                const text = String(raw ?? '').trim().toLowerCase();
+                if (text && !['show', 'status'].includes(text)) persistSetting('accuracy', accuracyConfig);
+                return result;
+            };
             if (dropdownSubmitOnce) controls.inspectDropdowns = () => require('./lib/dropdown-diagnostics').collectDropdownDiagnostics(page,{definitionsOnly:true});
             // Human pacing control (issue #221): no action reports state, on/off
             // toggle the wait, MIN-MAX (seconds) overrides every per-type range,
@@ -2861,6 +2877,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     humanDelay.setOverride(range[0], range[1]);
                 }
                 const state = humanDelay.describe();
+                if (action) persistSetting('delay', state);
                 const base = state.enabled ? (state.override ? `${state.override[0] / 1000}-${state.override[1] / 1000}s (custom)` : 'per-question-type ranges: ' + summarizeRanges()) : 'off (super speed)';
                 return { delay: `${base}. ${DASH_PACING_NOTE}` };
             };

@@ -27,14 +27,24 @@ Windows Credential Manager remains unchanged: service EducationPerfected,
 account login-v1. No plaintext credential file is introduced. Chrome/Windows
 AppContainer data under LocalAppData/Packages is outside this app-owned root
 and cannot be moved by changing the Puppeteer profile directory. There is no
-persistent app answer database/config/log added by this change. Terminal output
+persistent answer database/log added by this change. Interactive accuracy and delay
+settings are stored in `config.json` at the app root, for source and packaged runs.
+The version-1 file contains only validated accuracy/pacing preferences, never
+credentials. Missing, corrupt, unknown-version or unreadable files use defaults.
+Writes use a private `0600` temporary file and an atomic rename; write failures
+leave the current session working and print a warning. Startup precedence is
+CLI accuracy flags > environment variables > saved settings > built-in defaults.
+Flags and environment changes apply only to that invocation; interactive changes
+are saved. Test and validation-only sessions do not read or write personal settings.
+Terminal output
 and OS/browser internal housekeeping remain separate.
 
 Directories are checked as real non-symlink directories and removals are bounded
 to recognized run entries. These checks assume no hostile same-user writer racing
 path operations; they are not a new OS security boundary or Windows ACL proof.
 Synthetic fixtures do not establish Windows cleanup or clean-machine evidence.
-Source `npm run cli` storage is unchanged; this is the packaged bootstrap policy.
+Source `npm run cli` shares only the settings file; runtime leases remain a
+packaged bootstrap policy.
 
 After bootstrap hands signals to launchProgram, graceful startup Ctrl+C/TERM/HUP
 reports browser closure to bootstrap only
@@ -52,7 +62,10 @@ a browser. `help` and `version`, including -h/--help and -v/--version, return
 before runtime/store initialization. Old credential/update/uninstall --flags
 are refused with a hint and exit1, not silently accepted.
 
-`uninstall` requires an interactive typed confirmation. Close every other app
+`uninstall` requires an interactive typed confirmation. Its app-data choice removes
+the known `config.json` preferences file; keeping app data keeps those settings.
+An unexpected directory or symlink at that path is retained and reported incomplete.
+Close every other app
 copy, including source CLI and its browser, first. It removes only the app's
 native OS credential-store record, not legacy keytar records. A maintenance lock blocks
 new packaged runtime allocation while uninstall scans/deletes; stale maintenance
