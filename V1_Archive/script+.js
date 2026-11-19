@@ -247,7 +247,7 @@ async function completeSubject() {
 
 const epHome = () => {return Boolean(window.location.href.match(/^https?:\/\/app.educationperfect.com\/app\/#\/dashboard\/$/gi))};
 const subjectHome = () => {return Boolean(window.location.href.match(/^https?:\/\/app.educationperfect.com\/app\/#\/dashboard\/(?!(tasks|competitions|history)\b)\b\w+\/$/gi))};
-const subjectBrowser = () => {return Boolean(window.location.href.match(/^https?:\/\/app.educationperfect.com\/app\/#\/dashboard\/(?!(tasks|competitions|history)\b)\b\w+\/content\//gi))};
+const subjectBrowser = () => {return Boolean(window.location.href.match(/^https?:\/\/app\.educationperfect\.com\/app\/#\/dashboard\/(?!(tasks|competitions|history)\b)\b\w+\/content\//gi))};
 
 (async function () {
     document.addEventListener('keydown', async (event) => {
