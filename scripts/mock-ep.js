@@ -273,56 +273,109 @@ const dashTaskPage = (start) => {
     </script>`);
 };
 
-// Issue #230 Dash round, modelled from EP's public chunk 171 (QuizModel:
-// gameMode CLASSIC, isDash true; see research/dash-source-map.md) and the
-// 2026-11-19 live run, which proved the round renders a visible multi-choice
-// component (the CLI stopped at the choice reader's mode guard). STILL
-// SYNTHETIC: the round's real question state (options, Correct flags, timer,
-// scoring, completion) has never been captured live; that is what the
-// read-only inspect-dash command collects on Page's next Dash run.
+// Issue #230 Dash rounds, modelled from the 2026-11-19 live EP_DASH_INSPECT
+// capture (sanitised): QuizModel with gameMode null, isDash true, no
+// sectionData, selectedActivity {_taskID set, _activityType 6,
+// _contentType 0}; a valid contentID/questionIndex, questionType 6,
+// translationMode 4, validAnswers empty; exactly one MULTICHOICE_COMPONENT
+// (AllowMultiSelect false, Marked 1, four options, exactly one Correct
+// string "true"); one visible radiogroup of four .mcq-preview-option, one
+// button.submit-button, a hidden .exit-button and no #question-text,
+// input#answer-text or .voice-speaker. The select/submit/advance/completion
+// cycle below is fixture behavior, not live-verified EP behavior; the
+// #dash-timer div remains fixture-invented (the capture found no timer
+// candidates). /quiz-round serves the same page off the dash route so the
+// unconfirmed-route refusal is covered end to end.
+const DASH_QUIZ_ROUNDS = [
+    { contentID: 99001, questionIndex: 0, options: ['private-option-1a', 'private-option-1b', 'private-option-1c', 'private-option-1d'], correct: 'private-option-1b' },
+    { contentID: 99002, questionIndex: 1, options: ['private-option-2a', 'private-option-2b', 'private-option-2c', 'private-option-2d'], correct: 'private-option-2d' },
+    { contentID: 99003, questionIndex: 2, options: ['private-option-3a', 'private-option-3b', 'private-option-3c', 'private-option-3d'], correct: 'private-option-3a' },
+];
 const dashQuizPage = PAGE(`
     <main>
         <div id="dash-timer" data-seconds="60">01:00</div>
         <div class="quiz-score">0</div>
-        <div class="multi-choice-component v-group single-select" role="radiogroup">
-            <div class="mcq-preview-option" role="option"><div class="mcq-contents"><span>private-option-1</span></div></div>
-            <div class="mcq-preview-option" role="option"><div class="mcq-contents"><span>private-option-2</span></div></div>
-            <div class="mcq-preview-option" role="option"><div class="mcq-contents"><span>private-option-3</span></div></div>
-            <div class="mcq-preview-option" role="option"><div class="mcq-contents"><span>private-option-4</span></div></div>
-        </div>
-        <button class="submit-button nice-button positive-green">Submit</button>
+        <div class="multi-choice-component v-group single-select" role="radiogroup"></div>
+        <button class="submit-button nice-button positive-green" disabled>Submit</button>
         <button class="exit-button" hidden onclick="location.href='/learning/dashboard'">Exit</button>
     </main>
     <script>
+        const rounds = ${JSON.stringify(DASH_QUIZ_ROUNDS)};
         const dashSelf = { model: {
-            gameMode: 1,
+            gameMode: null,
             isDash: true,
-            contentSource: { selectedActivity: { _taskID: null, _activityType: 1, _contentType: 1 } },
-            _currentQuestion: {
-                contentID: 99001,
-                questionIndex: 0,
-                questionType: 0,
+            contentSource: { selectedActivity: { _taskID: 41001, _activityType: 6, _contentType: 0 } },
+            _currentQuestion: null,
+        } };
+        window.angular = { element: () => ({ scope: () => ({ self: dashSelf }) }) };
+        let index = 0;
+        let score = 0;
+        const group = document.querySelector('.multi-choice-component');
+        const submit = document.querySelector('.submit-button');
+        const exit = document.querySelector('.exit-button');
+        const scoreEl = document.querySelector('.quiz-score');
+
+        function render() {
+            if (index >= rounds.length) {
+                dashSelf.model._currentQuestion = null;
+                group.remove();
+                submit.remove();
+                exit.hidden = false;
+                return;
+            }
+            const round = rounds[index];
+            dashSelf.model._currentQuestion = {
+                contentID: round.contentID,
+                questionIndex: round.questionIndex,
+                questionType: 6,
+                translationMode: 4,
+                validAnswers: [],
                 questionDef: {
                     Components: [{
                         ComponentTypeCode: 'MULTICHOICE_COMPONENT',
                         AllowMultiSelect: false,
                         Marked: 1,
                         PrivateKey: 'private-component-value',
-                        Options: [
-                            { Correct: 'false', Hint: 'private-hint-1' },
-                            { Correct: 'true', Hint: 'private-hint-2' },
-                            { Correct: 'false', Hint: 'private-hint-3' },
-                            { Correct: 'false', Hint: 'private-hint-4' },
-                        ],
+                        Options: round.options.map(t => ({
+                            TextTemplate: t,
+                            Correct: t === round.correct ? 'true' : 'false',
+                            Hint: 'private-hint',
+                        })),
                     }],
                 },
-            },
-        } };
-        window.angular = { element: () => ({ scope: () => ({ self: dashSelf }) }) };
-        // A throwing accessor on an unlisted field proves the capture reads
-        // only own data properties of the fields it names.
-        Object.defineProperty(dashSelf.model._currentQuestion, 'Answers',
-            { get() { throw new Error('accessor-must-not-run'); } });
+            };
+            // A throwing accessor on an unlisted field proves readers and the
+            // capture touch only own data properties of the fields they name.
+            Object.defineProperty(dashSelf.model._currentQuestion, 'Answers',
+                { get() { throw new Error('accessor-must-not-run'); } });
+            group.innerHTML = '';
+            round.options.forEach((text) => {
+                const option = document.createElement('div');
+                option.className = 'mcq-preview-option';
+                option.setAttribute('role', 'option');
+                option.innerHTML = '<div class="mcq-contents"><span>' + text + '</span></div>';
+                option.addEventListener('click', () => {
+                    group.querySelectorAll('.mcq-preview-option').forEach(o => o.removeAttribute('aria-selected'));
+                    option.setAttribute('aria-selected', 'true');
+                    submit.disabled = false;
+                });
+                group.appendChild(option);
+            });
+            submit.disabled = true;
+        }
+
+        submit.addEventListener('click', () => {
+            const selected = group.querySelector('.mcq-preview-option[aria-selected="true"]');
+            if (!selected) return;
+            if (selected.textContent.trim() === rounds[index].correct) {
+                score += 1;
+                scoreEl.textContent = String(score);
+            }
+            index += 1;
+            render();
+        });
+
+        render();
     </script>`);
 
 // ---------------------------------------------------------------------------
@@ -588,6 +641,9 @@ function createServer() {
             return send(dashTaskPage(start));
         }
         if (url.pathname === '/dash-task/quiz') return send(dashQuizPage);
+        // Same Dash round OFF the dash route: the model says isDash but the
+        // route is unconfirmed, so the run must refuse by name.
+        if (url.pathname === '/quiz-round') return send(dashQuizPage);
         if (url.pathname === '/lesson') return send(lessonPage(false));
         if (url.pathname === '/lesson-dropdown') {
             const count = Number.parseInt(url.searchParams.get('count') || '5', 10) || 5;
