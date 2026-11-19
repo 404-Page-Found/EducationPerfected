@@ -3,21 +3,12 @@ if (process.platform === 'win32' && process.argv.includes('--signal')) {
     process.exit(0);
 }
 const assert = require('node:assert/strict');
-const { createServer } = require('./mock-ep');
 const { cleanupTestProcess } = require('./test-process-cleanup');
-const { bootCli, fixtureLogin } = require('./cli-test-harness');
+const { createCliFixture } = require('./cli-test-harness');
 
 (async () => {
-    const server = createServer();
-    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-    const origin = `http://127.0.0.1:${server.address().port}`;
-    const { child, wait, command, output } = bootCli(origin);
-    let browser;
+    const { server, origin, child, wait, command, output, browser, page } = await createCliFixture();
     try {
-        const login = await fixtureLogin(wait, output);
-        browser = login.browser;
-        const page = login.page;
-        await wait(() => output().includes('Commands: start'));
         await page.goto(origin + '/lesson');
         await command('mode semi', '"mode":"semi"');
         await command('start', '"state":"running"');

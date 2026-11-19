@@ -1,0 +1,80 @@
+// Offline real-program browser panel test, no live EP account or service.
+const assert = require('node:assert/strict');
+const { cleanupTestProcess } = require('./test-process-cleanup');
+const { createCliFixture } = require('./cli-test-harness');
+const { installControlMenu } = require('../lib/browser-controls');
+(async () => {
+    const { server, origin, child, wait, command, output, browser, page } = await createCliFixture();
+    try {
+        const ready = () => page.waitForFunction(() => document.getElementById('educationperfected-controls')?.shadowRoot?.getElementById('live').textContent.includes('stopped'));
+        const press = async (action, value, read = false) => {
+            await page.evaluate(({ action, value, read }) => {
+                const root = document.getElementById('educationperfected-controls').shadowRoot;
+                const field = root.getElementById(action);
+                if (field && value !== undefined) field.value = value;
+                const buttons = [...root.querySelectorAll('button')];
+                buttons.find(button => button.dataset.action === action && Boolean(button.dataset.read) === read).click();
+            }, { action, value, read });
+            await page.waitForFunction(() => !document.getElementById('educationperfected-controls').shadowRoot.getElementById('message').textContent.includes('Working...'));
+        };
+        const result = () => page.evaluate(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('result').textContent);
+        const message = () => page.evaluate(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('message').textContent);
+        await ready();
+        await page.goto(origin + '/lesson'); await ready();
+        await page.evaluate(installControlMenu);
+        assert.equal(await page.$$eval('ep-control-menu', elements => elements.length), 1);
+        assert.equal(await page.$$eval('ep-control-menu input, ep-control-menu button', elements => elements.length), 0, 'EP selectors cannot reach shadow controls');
+        await page.evaluate(() => {
+            const root = document.getElementById('educationperfected-controls').shadowRoot;
+            root.querySelector('details').open = true;
+            window.panelLeakedKeys = 0;
+            document.addEventListener('keyup', () => { window.panelLeakedKeys += 1; });
+            root.getElementById('accuracy').dispatchEvent(new KeyboardEvent('keyup', { key: 's', altKey: true, bubbles: true, composed: true }));
+        });
+        assert.equal(await page.evaluate(() => window.panelLeakedKeys), 0);
+        await press('mode', 'semi'); assert.equal((await page.evaluate(() => window.epControl('status'))).mode, 'semi');
+        await press('accuracy', '82'); assert.equal((await page.evaluate(() => window.epControl('status'))).accuracy.fixedTarget, 82);
+        await press('accuracy', 'bad'); assert.match(await message(), /Usage/);
+        await press('delay', 'on');
+        await press('delay', '1.5-4'); assert.match(await result(), /1.5-4s/);
+        await press('delay', 'off');
+        await press('status'); assert.match(await result(), /pacing/);
+        await command('accuracy off', '"enabled":false');
+        await page.waitForFunction(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('live').textContent.includes('accuracy 100%'));
+        if (process.env.EP_PANEL_SCREENSHOT) {
+            await page.setViewport({ width: 1100, height: 1000 });
+            await page.evaluate(() => {
+                const root = document.getElementById('educationperfected-controls').shadowRoot;
+                root.getElementById('accuracy').value = '';
+                root.getElementById('delay').value = '';
+            });
+            await page.screenshot({ path: process.env.EP_PANEL_SCREENSHOT });
+        }
+        await press('start');
+        console.log('Panel start completed');
+        assert.equal((await page.evaluate(() => window.epControl('status'))).state, 'running');
+        await press('mode', 'auto'); assert.match(await message(), /Stop/);
+        await press('refresh'); assert.match(await message(), /Stop/);
+        await press('accuracy', '80'); assert.match(await message(), /Stop/);
+        await press('stop'); console.log('Panel stop completed'); assert.equal((await page.evaluate(() => window.epControl('status'))).state, 'stopped');
+        for (const route of ['/lesson', '/app', '/lesson']) {
+            await page.goto(origin + route); await ready(); console.log('Panel navigation', route);
+            assert.equal(await page.$$eval('ep-control-menu', elements => elements.length), 1);
+            const iframe = await page.evaluateHandle(() => {
+                const iframe = document.createElement('iframe'); document.body.appendChild(iframe); return iframe;
+            });
+            const frame = await iframe.contentFrame();
+            await frame.evaluate(installControlMenu);
+            assert.equal(await frame.$$eval('ep-control-menu', elements => elements.length), 0);
+        }
+        await command('quit', '"state":"closed"');
+        console.log('Browser panel real-program fixture: shared status/actions, guards, keyboard isolation, Shadow DOM, top-frame-only navigation/idempotence pass.');
+    } catch (error) {
+        console.error(error, output());
+        throw error;
+    } finally {
+        if (browser) browser.disconnect();
+        try { cleanupTestProcess(child); } catch {}
+        server.closeAllConnections(); server.close();
+    }
+})().catch(error => { console.error(error); process.exitCode = 1; });

@@ -2806,7 +2806,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // Issue #222: expose accuracy in status and allow tuning when stopped.
             // Validation sessions stay perfect and reject accuracy changes.
             const baseStatus = controls.status.bind(controls);
-            controls.status = () => ({ ...baseStatus(), accuracy: accuracyStatus() });
+            controls.status = () => ({ ...baseStatus(), accuracy: accuracyStatus(), pacing: humanDelay.describe() });
             controls.setAccuracy = async raw => {
                 if (validationOnly) throw new Error('Validation session is fixed to one-shot only.');
                 const text = String(raw ?? '').trim().toLowerCase();
@@ -2882,6 +2882,16 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 return { delay: `${base}. ${DASH_PACING_NOTE}` };
             };
             browser.on('disconnected', () => { controls.browserClosed(); onBrowserDisconnected(); });
+
+            const { createBrowserControl, installControlMenu } = require('./lib/browser-controls');
+            await page.exposeFunction('epControl', createBrowserControl({
+                controls,
+                validationOnly,
+                restartNeeded: () => controls.status().state === 'running' && !TOGGLE,
+                notify: notifyControl,
+            }));
+            await page.evaluateOnNewDocument(installControlMenu);
+            await page.evaluate(installControlMenu);
 
             // Expose API functions to the page (for hotkey event listeners to call).
             // These bindings live on the browser context, not on the document, so they
