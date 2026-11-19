@@ -31,4 +31,4 @@ Every pull request gets an independent review of its exact head commit and must 
 
 ## License and rights
 
-Read the scope note at the top of `LICENSE` and the "License and rights status" section of `README.md` before contributing. The MIT grant covers only contributions whose copyright holders authorized it; other contributors' rights are unresolved. The owner's decision to proceed despite that is recorded as `project-rights-owner-risk-decision` in `release/downloadable-beta-policy.md`; it is explicitly not legal clearance. Third-party components keep their own licenses and notices.
+Read the scope note at the top of `LICENSE` and [license and rights status](release/license-and-rights.md) before contributing. The MIT grant covers only contributions whose copyright holders authorized it; other contributors' rights are unresolved. The owner's decision to proceed despite that is recorded as `project-rights-owner-risk-decision` in `release/downloadable-beta-policy.md`; it is explicitly not legal clearance. Third-party components keep their own licenses and notices.

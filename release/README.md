@@ -11,3 +11,20 @@ Global gates: project contribution rights, browser redistribution, dependency no
 The checkout must be clean, including source hidden by local/global Git excludes. Only generated `node_modules/`, `build/` and `release/evidence.json` are allowed as untracked paths. Git environment overrides are removed and Git is invoked only at `/usr/bin/git` (Linux/macOS) or `C:\Program Files\Git\cmd\git.exe` (Windows). Nonstandard installations fail closed; this does not certify native Windows/macOS lanes. Evidence references must be HTTPS URLs without URL userinfo or existing files (symlinks are followed) named by an absolute path or `./` path relative to the checkout. Paths may be outside the checkout; HTTPS query strings may contain credentials, so do not put secrets in evidence references. HTTPS reachability, report contents and reviewer identity are still out-of-band checks. The builder must use the same clean commit; the checker cannot prevent source edits after it returns.
 
 The development notice set includes the exact pinned Node.js 22.23.4 source LICENSE and bundled-component notices, with checked-in source URL and SHA-256 provenance. The builder refuses a different runtime version or changed notice bytes. Version matching is not proof that a custom or vendor-patched Node executable has identical components or licensing; final runtime provenance and notice completeness still require review before distribution.
+
+## Downloadable stable-release preparation (moved from README)
+
+
+A separate [downloadable release policy](downloadable-beta-policy.md) defines
+an unsigned executable candidate that does not bundle Chrome. It requires an interactive terminal on first
+run and asks before downloading a fixed Chrome for Testing version directly from Google,
+then retains it in a local cache. It needs internet for that first download and
+is not an offline all-in-one bundle. Stable version `2026.11.16` is being prepared without a prerelease suffix. It is not published or certified: five-target
+native validation, exact-artifact notices/integrity evidence and release approval
+
+## Packaged maintenance (moved from README)
+
+for this publication path. Source ZIP use is unchanged: `npm ci`, then `npm run cli`.
+
+
+Packaged maintenance: see [runtime storage and uninstall](runtime-storage.md). `uninstall` requires typed confirmation (each item defaults to keeping it) and removes the saved login, app data and downloaded browsers only where ownership is safe, then removes the program itself the way it was installed: the Windows setup exe runs its own uninstaller, npm runs `npm uninstall -g`, `.deb`/`.rpm` run the package manager with sudo, `.pkg` removes its files and forgets the installer receipt, and installer scripts delete what they wrote. Every installer records what it created in `educationperfected-install.json` next to the executable; installs without a record are detected from their location and reported as inferred. On Windows a background helper finishes program removal after the CLI exits (a running program cannot delete itself) and writes a log. Close all other copies, including source CLI, and their Chrome windows first. Live/uncertain data or download locks are retained and removal is reported incomplete. `update` uses published stable GitHub Releases with verified checksums, a local confirmation and backup/rollback. Checksums detect corruption, not a compromised publisher; no release exists until separately approved.

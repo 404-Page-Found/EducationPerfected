@@ -101,15 +101,15 @@ require it.
   School SSO, Google, Microsoft, Clever, and any CAPTCHA must be
   completed by hand; the program does not touch those flows.
 - Prefer environment variables or the OS credential store described in
-  the README. Keep credential values out of source files, screenshots,
+  [docs/developer-guide.md](developer-guide.md#cli-credential-setup-source-build). Keep credential values out of source files, screenshots,
   shared logs, and pasted diagnostics, and never put a password in a
   command argument.
 - Most refusal diagnostics are designed to stay content-free
   (counts, guard names, and shape flags rather than question, option,
   or answer text), but dropdown refusal output is an exception: it
   includes displayed option text, values, and selections, while the
-  read-only `inspect` command omits them (see the README's
-  "Dropdown refusal diagnostics"). Pasted terminal output can still
+  read-only `inspect` command omits them (see "Dropdown refusal
+  diagnostics" in [question-types.md](question-types.md)). Pasted terminal output can still
   reveal how and when automation was used. Share logs only with people
   you trust, and redact option text, values, selections, and anything
   sensitive first.
