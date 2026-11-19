@@ -102,11 +102,15 @@ require it.
   the README. Keep credential values out of source files, screenshots,
   shared logs, and pasted diagnostics, and never put a password in a
   command argument.
-- Diagnostics in this project are designed to stay content-free
+- Most refusal diagnostics are designed to stay content-free
   (counts, guard names, and shape flags rather than question, option,
-  or answer text), but pasted terminal output can still reveal how and
-  when automation was used. Share logs only with people you trust, and
-  redact anything sensitive first.
+  or answer text), but dropdown refusal output is an exception: it
+  includes displayed option text, values, and selections, while the
+  read-only `inspect` command omits them (see the README's
+  "Dropdown refusal diagnostics"). Pasted terminal output can still
+  reveal how and when automation was used. Share logs only with people
+  you trust, and redact option text, values, selections, and anything
+  sensitive first.
 
 ## 7. License and distribution limits
 
