@@ -60,6 +60,13 @@ const series=(items,run)=>items.reduce((previous,item)=>previous.then(()=>run(it
         const named=await detectQuestion(page);
         assert.deepEqual(named.diagnostic,{kind:'dropdown-refusal',guard:'definitions-select-count',domSelectCount:1,definitionCount:2,dropdownDefinitionCount:1,companionDefinitionCount:0,unsupportedDefinitionCount:1,unsupportedTypes:{FILE_UPLOADER_COMPONENT:1},unsupportedIsInput:{yes:1,no:0,unknown:0}});
         assert.doesNotMatch(JSON.stringify(named),/invented|Radius/i);
+        // A choice component beside dropdowns is named by fixed counts only (no option text, IDs or values).
+        await setup('annotated-text');await page.evaluate(()=>{const d=dropdownFixture.q.questionDef.Components[1];d.ComponentTypeCode='MULTICHOICE_COMPONENT';d.AllowMultiSelect=false;d.Marked=1;d.Options=[{TextTemplate:'PRIVATE OPTION'}];});
+        const choiceRefusal=await detectQuestion(page);
+        assert.equal(choiceRefusal.diagnostic.guard,'definitions-select-count');
+        assert.deepEqual(choiceRefusal.diagnostic.unsupportedTypes,{MULTICHOICE_COMPONENT:1});
+        assert.deepEqual(choiceRefusal.diagnostic.choiceSurface,{domGroups:0,domMultiSelectGroups:0,allowMultiSelect:{false:1},marked:{1:1},rendererEntries:{bound:1,ambiguous:0,missing:0},dropdownMarked:{1:1}});
+        assert.doesNotMatch(JSON.stringify(choiceRefusal),/PRIVATE|invented|Radius/i);
         // Replacing even an otherwise identical companion during input must stop.
         await series(['component','element','metadata','definition'],async change=>{
             await setup('annotated-text');const d=await detectQuestion(page);
