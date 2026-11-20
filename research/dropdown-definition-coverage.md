@@ -12,3 +12,7 @@ Offline evidence only: new synthetic fixtures reproduce the old exact guard with
 
 Source: https://mfe-student-app.educationperfect.com/main/mfe-hashed-assets-606-c22c0eb5e341ef24b769.js
 SHA256 e72b68b8c06508dbfdef365f2bb8edf23bc2085c077acb48c32c5f40a934352a
+
+## Update: unsupported definition types in the cardinality diagnostic
+
+Page's 2026-11-20 refusal showed one select, two definitions, one dropdown, zero companions and one unsupported definition, which could not say what the unsupported definition was. When `unsupportedDefinitionCount` is above zero the diagnostic now also carries `unsupportedTypes` (count per fixed-allowlist component type name, else `unlisted`) and `unsupportedIsInput` (counts of the cached renderer's `isInput` flag: yes, no, unknown). No IDs, text or values. Reaching this guard already implies no other visible editable control exists on the slide (the mixed-editable guard runs first). Diagnostic only; answering behaviour and admission rules are unchanged.
