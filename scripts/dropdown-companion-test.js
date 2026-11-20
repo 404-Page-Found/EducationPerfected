@@ -59,7 +59,7 @@ const series=(items,run)=>items.reduce((previous,item)=>previous.then(()=>run(it
         await setup('annotated-text');await page.evaluate(()=>{dropdownFixture.q.questionDef.Components[1].ComponentTypeCode='FILE_UPLOADER_COMPONENT';dropdownFixture.base['invented-companion'][0].isInput=true;});
         const named=await detectQuestion(page);
         assert.deepEqual(named.diagnostic,{kind:'dropdown-refusal',guard:'definitions-select-count',domSelectCount:1,definitionCount:2,dropdownDefinitionCount:1,companionDefinitionCount:0,unsupportedDefinitionCount:1,unsupportedTypes:{FILE_UPLOADER_COMPONENT:1},unsupportedIsInput:{yes:1,no:0,unknown:0}});
-        assert.doesNotMatch(JSON.stringify(named),/invented|Radius/);
+        assert.doesNotMatch(JSON.stringify(named),/invented|Radius/i);
         // Replacing even an otherwise identical companion during input must stop.
         await series(['component','element','metadata','definition'],async change=>{
             await setup('annotated-text');const d=await detectQuestion(page);
