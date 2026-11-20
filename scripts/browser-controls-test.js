@@ -20,25 +20,26 @@ const { createBrowserControl } = require('../lib/browser-controls');
     await call('mode', 'semi'); assert.equal(mode, 'semi');
     await call('refresh'); assert.equal(refreshes, 1);
     assert.deepEqual(await call('accuracy', '82'), { accuracy: '82' });
-    assert.deepEqual(await call('inspect-self-mark'), { self: true });
-    assert.deepEqual(await call('inspect-dash'), { dash: true });
+    await assert.rejects(call('inspect-self-mark'), /Unknown browser control/);
+    await assert.rejects(call('inspect-dash'), /Unknown browser control/);
+    await assert.rejects(call('inspect-components'), /Unknown browser control/);
     await assert.rejects(call('delay', 'bad'), /bad range/);
     await assert.rejects(call('close'), /Unknown browser control/);
     await assert.rejects(call('__proto__'), /Unknown browser control/);
     await call('start');
     await assert.rejects(call('mode', 'auto'), /Stop/);
     await assert.rejects(call('refresh'), /Stop/);
-    await assert.rejects(call('inspect-dash'), /Stop/);
+    await assert.rejects(call('inspect-dash'), /Unknown browser control/);
     restart = true;
     await call('start'); assert.equal(restarts, 1);
     restart = false;
     await call('stop');
     assert.equal(controls.status().state, 'stopped');
     const validation = createBrowserControl({ controls, validationOnly: true });
-    for (const [action, value] of [['start'], ['refresh'], ['mode', 'auto'], ['accuracy', '82'], ['delay', 'off']]) {
+    for (const [action, value] of [['start'], ['refresh'], ['mode', 'auto'], ['accuracy', '82'], ['delay', 'off'], ['inspect-dash']]) {
         await assert.rejects(validation(action, value), /Validation session/);
     }
     await validation('status'); await validation('accuracy'); await validation('delay');
-    await validation('inspect-self-mark'); await validation('inspect-dash'); await validation('stop');
+    await validation('stop');
     console.log('Browser control dispatch: parity, lifecycle guards, restart-after-drain, read-only validation and method allowlist pass.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

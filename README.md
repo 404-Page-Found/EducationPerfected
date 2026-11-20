@@ -110,9 +110,11 @@ The browser also has a collapsible **EducationPerfected** menu in the bottom-rig
 corner. A one-line status bar at the top keeps state, mode, accuracy and pacing in
 sync with the terminal and hotkeys; action results appear directly below it as
 plain sentences ("Running.", "Pacing: waiting 2-6s before each answer."), with the
-raw JSON under **Technical details** (inspection captures stay raw for copying).
-Below that are the controls: start/stop, change mode, refresh words, set/read
-accuracy and pacing, and read-only self-mark/Dash inspections. Drag it by its
+raw JSON under **Technical details**.
+Below that are the controls: start/stop, change mode, refresh words, and set/read
+accuracy and pacing. Read-only inspections (`inspect-self-mark`, `inspect-dash`,
+`inspect-components`) stay terminal-only developer commands and are not in the
+menu. Drag it by its
 header to move it anywhere on screen; the position is remembered across pages and
 it cannot be lost off-screen. Collapse it when it covers task content; its inputs
 are isolated from EP's page controls. It is reinstalled once after each navigation.
