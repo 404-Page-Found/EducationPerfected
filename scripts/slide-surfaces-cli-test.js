@@ -56,7 +56,13 @@ async function bootMixedCli() {
         assert.equal(output.includes('"kind":"slide-surfaces-refusal"'), true);
         assert.equal(output.includes('"guard":"mixed-definition-marking"'), true);
         assert.equal(output.includes('approval'), false);
-        assert.equal(['30', '7', 'Invented'].some(text => output.includes(text)), false);
+        // The CLI prints a one-line status JSON (state, accuracy, pacing ranges)
+        // after every command since #221/#227; its millisecond ranges can contain
+        // digit runs that collide with short answer tokens. That line is
+        // control-plane output, not diagnostic output, so the content-free
+        // answer-text check filters it out.
+        const diagnosticOutput = output.split('\n').filter(line => !line.startsWith('{"state":')).join('\n');
+        assert.equal(['30', '7', 'Invented'].some(text => diagnosticOutput.includes(text)), false);
         assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.inputs.length, multiFixture.clicks.length, dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [0, 0, 0, 0]);
         child.stdin.write('quit\n');
         await wait(() => child.exitCode !== null);
