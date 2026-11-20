@@ -1,6 +1,6 @@
 # Dash (timed sprint): source-only map
 
-Checked 19 November 2026. Scope: Education Perfect's public student client source and local synthetic fixtures only. No live Dash run was started by the program; the only live observation is Page's own run on 19 November 2026, which the program refused at the Smart Lesson mode guard (`Choice answering requires confirmed Smart Lesson practice mode; unknown modes are not supported`). That refusal is what this map explains.
+Checked 20 November 2026. Scope: Education Perfect's public student client source and local synthetic fixtures only. No live Dash run was started by the program; the only live observation is Page's own run on 19 November 2026, which the program refused at the Smart Lesson mode guard (`Choice answering requires confirmed Smart Lesson practice mode; unknown modes are not supported`). That refusal is what this map explains.
 
 Primary source: [public student chunk 171](https://mfe-student-app.educationperfect.com/main/mfe-hashed-assets-171-69df426caed962f89980.js), SHA-256 `d6cd2c7eb1d99610fd5369acf793b75a00762646f6a8e20cb6cea396f4f47722` (12,955,262 bytes) - the same snapshot the Assessment research pins. Named symbols below refer to that snapshot, not necessarily the bundle today's live app loads. Client code shows what the client calls, not what a server accepts.
 
@@ -42,6 +42,37 @@ completion/results screen, wrong-answer behavior, and whether any Dash round
 is typed-input rather than multi-choice (such rounds still refuse by name:
 `dash: true`).
 
+## What the 2026-11-20 typed capture added (#272, issue #273)
+
+Page's second sanitised `EP_DASH_INSPECT` capture (20 November 2026, filed as
+#272) recorded a typed Dash sprint round refused at the classic-text Dash
+guard:
+
+- Routing: path includes `dash`, not `quiz`; `gameMode` null, `isDash` true,
+  `sectionData` absent.
+- Question: valid `contentID`/`questionIndex`, `questionType` 0,
+  `translationMode` 0, `validAnswersCount` 1, `componentCount` null (no
+  question components).
+- DOM: one visible `#question-text`, one visible `input#answer-text`, zero
+  `.voice-speaker`, zero choice groups, one `button.submit-button`, one
+  `.exit-button`, and no timer element candidates (the real timer markup is
+  still uncaptured on both Dash layouts).
+
+This is the grounding capture for the narrow `dash-typed` reader
+(`lib/dash-typed-state.js`): the reader answers exactly this shape on a dash
+route from the shipped `validAnswers` entry and refuses every deviation by
+name (`renderer: dash-typed`), enforcing the route, section-data, game-mode,
+identity, question/translation modes, question flags, answer count, component
+count, speaker, choice-markup, Submit-control, exit-button and foreign-editable
+guards. The classic-text, audio and lesson-typed
+fallbacks still refuse other Dash shapes by name.
+
+Still unknown after both captures: the real timer markup and expiry behavior,
+scoring, the completion/results screen, typed wrong-answer behavior
+(modal-with-answer vs instant advance), and any audio, multi-select,
+mixed-surface or formula/block Dash variants (each still refuses by name
+pending its own capture).
+
 ## Synthetic evidence and its limits
 
 `scripts/mock-ep.js` `/dash-task/quiz` models the captured shape above
@@ -55,3 +86,14 @@ side-effect free, runs no accessors, and honors the assessment shell
 boundary. The fixtures reproduce the captured structure; select, submit,
 advance and completion behavior in them is fixture behavior, not
 live-verified EP behavior.
+
+`/dash-task/typed` (added for #273, modelled from the 20 November capture)
+reproduces the typed shape the same way: `gameMode: null`, `isDash: true`,
+`questionType` 0, `translationMode` 0, one `validAnswers` entry, no
+components, `#question-text` + `input#answer-text` with one Submit button and
+a fixture-invented timer. `scripts/dash-cli-test.js` drives the real CLI
+through it to completion (typing each round's shipped answer, no word-list
+lookup, no random probe) and proves `/typed-round` off the dash route refuses
+by name; `scripts/dash-typed-test.js` covers the reader's accepted shape and
+named refusals. Typing, grading, advance and completion in the fixture remain
+fixture behavior, not live-verified EP behavior.

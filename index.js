@@ -1256,7 +1256,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 // being typed: the detected question then belonged to an item different from
                 // the one graded, and every later occurrence of those words was mis-answered
                 // while "learning" wrote the wrong pairing back again.
-                if (!/^(audio|typed):/.test(question) && modalQuestion !== question) {
+                if (!/^(audio|typed|dash-typed):/.test(question) && modalQuestion !== question) {
                     console.warn(`Round skew: read question "${question}" but EP graded "${modalQuestion}". Learning only the graded pairing.`);
                 }
                 // EP just graded `answer` wrong for modalQuestion: that exact pairing must
@@ -1655,19 +1655,25 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             }
 
             /**
- * Plays one round of an audio (Listening/Dictation) or lesson short-answer question.
+ * Plays one round of an audio (Listening/Dictation), lesson short-answer, or
+ * Dash timed-sprint typed question (issue #273).
  * The accepted answers ship in EP's client-side question state (verified live
  * 2026-10-30 for Listening/Dictation; the lesson short-answer shape is
- * extrapolated, not live-verified), so the round is: type the first shipped
+ * extrapolated, not live-verified; the #272-captured Dash validAnswers shape
+ * was verified live 2026-11-20), so the round is: type the first shipped
  * answer EP hasn't rejected,
  * submit, wait for the item to change. No random probing - the answers come from
  * EP itself, so if every one is rejected the item is broken, not unknown, and the
  * run stops and reports instead of guessing (issue #32's fail-loudly rule).
- * @param {object} descriptor - audio/typed descriptor from detectQuestion
+ * Dash shares this path (no word-list lookup, no random probe: every blind
+ * guess burns sprint score, so a round with no usable shipped answer stops
+ * instead of mistyping) with the typed 4-10s human-paced range.
+ * @param {object} descriptor - audio/typed/dash-typed descriptor from detectQuestion
  * @returns {Promise<boolean>} False to stop the run, true to keep looping
  */
             async function handleTypedRound(descriptor) {
                 const key = descriptor.key;
+                const isDashTyped = descriptor.kind === 'dash-typed';
                 // Marking gate. Lesson short-answer is strict: the flag (captured
                 // as a real boolean on a Smart Lesson, 2026-10-30) must be
                 // explicitly true. List audio tasks ship no sectionData at all
@@ -1679,6 +1685,11 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 // detect-question.js; the no-teacher-marking-surface reading of
                 // that shape is a documented inference, not a proof). An explicit
                 // false, an assigned task, or any unknown context stops the run.
+                // Dash has no sectionData/activityGroup, so the Smart Lesson
+                // flag proof does not apply there; the proof is client-side
+                // instead (EP's quiz page marks through its own marking manager,
+                // public chunk 171, and the reader only accepts the captured
+                // isDash QuizModel shape).
                 if (descriptor.kind === 'audio') {
                     // the list allowance substitutes ONLY for the captured live
                     // shape: sectionData genuinely ABSENT. A present but
@@ -1694,8 +1705,12 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     }
                 } else if (descriptor.autoMarked !== true) {
                     const message = descriptor.autoMarked === false
-                        ? 'This lesson question is marked manually (self/peer/teacher), not auto-marked by EP; stopping instead of answering.'
-                        : 'EP did not confirm this lesson question is auto-marked (the marking field was missing or unreadable); stopping instead of answering.';
+                        ? isDashTyped
+                            ? 'This Dash sprint round is marked manually (self/peer/teacher), not auto-marked by EP; stopping instead of answering.'
+                            : 'This lesson question is marked manually (self/peer/teacher), not auto-marked by EP; stopping instead of answering.'
+                        : isDashTyped
+                            ? 'EP did not confirm this Dash sprint round is auto-marked (the marking field was missing or unreadable); stopping instead of answering.'
+                            : 'EP did not confirm this lesson question is auto-marked (the marking field was missing or unreadable); stopping instead of answering.';
                     console.error(message);
                     await alert(message);
                     return false;
@@ -1717,7 +1732,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 const correct = answers.find(a => !rejected.has(a));
                 if (correct === undefined) {
                     const message = answers.length === 0
-                        ? `This ${descriptor.kind === 'audio' ? 'audio' : 'lesson'} question ships no accepted answers to answer with (it may be manually marked); stopping instead of guessing.`
+                        ? isDashTyped
+                            ? `This Dash sprint round ships no accepted answers to answer with; stopping instead of guessing.`
+                            : `This ${descriptor.kind === 'audio' ? 'audio' : 'lesson'} question ships no accepted answers to answer with (it may be manually marked); stopping instead of guessing.`
                         : `EP rejected every shipped answer for ${key}; stopping instead of guessing.`;
                     console.error(message);
                     await alert(message);
@@ -1726,6 +1743,8 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 // Issue #222: occasional human-like typo on the FIRST submission only
                 // (auto mode). The retry for the same key always uses the correct
                 // answer, so an intentional mistake costs one modal then completes.
+                // On Dash a mistake is expected (unproved live) to burn sprint
+                // time/points; perfect stays the provisional recommendation.
                 // Policy/context checks below keep using `correct`; only the typed
                 // and submitted value may be the typo. The first-try stat is recorded
                 // only after a confirmed submission so vanished boxes or changed
@@ -1756,10 +1775,11 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 const contextUnchanged = async (current = undefined) => {
                     if (current === undefined) current = await detectQuestion(page);
                     return descriptor.kind === 'audio' ? audioPolicyUnchanged(descriptor, current, correct)
-                        : current?.kind === 'typed' && current.key === key && current.autoMarked === true && current.answers?.includes(correct);
+                        : current?.kind === descriptor.kind && current.key === key && current.autoMarked === true && current.answers?.includes(correct);
                 };
                 if (!await contextUnchanged()) return false;
-                console.log(`Answering ${descriptor.kind === 'audio' ? 'audio' : 'lesson'} question ${key} from EP's shipped answers.`);
+                if (isDashTyped) console.log(`Answering Dash typed round ${key} from EP's shipped answers.`);
+                else console.log(`Answering ${descriptor.kind === 'audio' ? 'audio' : 'lesson'} question ${key} from EP's shipped answers.`);
                 if (!await enterAnswer(submitAnswer, contextUnchanged)) {
                     // the box vanished mid-entry: a round transition; the next pass re-detects
                     console.log('Answer box vanished while answering; re-detecting the question.');
@@ -1782,7 +1802,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
                 // The paced wait (issue #221) runs BEFORE the final rechecks so
                 // the context and box-value guards still hold at Enter time.
-                if (ENTER) await humanDelay.beforeSubmit(descriptor.kind);
+                // Dash typed shares the typed 4-10s range; delay off stays the
+                // provisional max-score recommendation on a timed clock.
+                if (ENTER) await humanDelay.beforeSubmit(isDashTyped ? 'typed' : descriptor.kind);
                 // Recheck the actual value after scope detection, immediately
                 // before Enter. No submission slot is consumed by a lost box.
                 if (!await contextUnchanged()) return false;
@@ -1875,6 +1897,22 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 return TOGGLE;
             }
 
+            /**
+             * Plays one round of a Dash timed-sprint typed question (issue #273).
+             * Thin wrapper over the shared shipped-answer path: the #272-captured
+             * validAnswers shape reuses the classic typing/verify/submit mechanics
+             * bound to the Dash round key (fail-closed, no word-list lookup, no
+             * random probe). The marking gate, answer selection and pacing live
+             * in handleTypedRound's dash-typed branch; this wrapper only emits
+             * the once-per-run sprint notice.
+             * @param {object} descriptor - dash-typed descriptor from detectQuestion
+             * @returns {Promise<boolean>} False to stop the run, true to keep looping
+             */
+            async function handleDashTypedRound(descriptor) {
+                await noteDashOnce();
+                return handleTypedRound(descriptor);
+            }
+
             // The non-text question handlers, dispatched from answerQuestions by the
             // detected descriptor's kind (issue #33's QUESTION_HANDLERS). Detection is
             // deliberately shared per-round in detectQuestion: a round must be
@@ -1894,10 +1932,12 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 { type: 'workingformula', play: playSelectionDescriptorRound },
                 { type: 'audio', play: handleTypedRound },
                 { type: 'typed', play: handleTypedRound },
+                { type: 'dash-typed', play: handleDashTypedRound },
             ];
 
             /**
- * Plays one round of a non-text question (Smart Lesson slide or audio task).
+ * Plays one round of a non-text question (Smart Lesson slide, audio task
+ * or Dash typed round).
  * Every refusal path stops and reports rather than guessing (issue #33).
  * @param {object} descriptor - non-text descriptor from detectQuestion
  * @returns {Promise<boolean>} False to stop the run, true to keep looping
@@ -2059,22 +2099,40 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 return TOGGLE && proven;
             }
 
-            // Dash sprint notice (issue #237): the classic pair is shared by belief,
-            // so call it out once per run instead of mistyping silently. Reports the
-            // timer presence, the shared text 2-6s pacing decision (provisional delay
-            // off recommendation, live scoring unproved) and the expected accuracy
-            // cost (a Dash mistake is expected to burn sprint time/points).
+            // Dash sprint notice (issue #237): the typed Dash round shares the
+            // classic question/answer pair (captured 2026-11-20), so call it
+            // out once per run instead of mistyping silently. Reports the
+            // timer presence, the shared per-type pacing decision (provisional
+            // delay off recommendation, live scoring unproved) and the
+            // expected accuracy cost (a Dash mistake is expected to burn
+            // sprint time/points).
             // Runs inside the answer loop; never throws and never stops the run.
             let dashNoted = false;
             async function noteDashOnce() {
                 if (dashNoted) return;
-                let dash = null;
+                // Timer-first, model-fallback: both live captures found no timer
+                // candidates, so the `.dash-timer`/`.dash-results` selectors are
+                // fixture-invented. The captured Dash model (isDash on a dash
+                // route, via detectQuestion's `dash: true`) is the live signal;
+                // the timer flag only reports whether the fixture chrome shows.
+                let timerVisible = false;
+                let isDash = false;
                 try {
-                    dash = await page.evaluate(detectDashInPage, DIR.dash_timer_css, DIR.dash_results_css);
-                } catch { return; }
-                if (!dash || !dash.isDash) return;
+                    const dash = await page.evaluate(detectDashInPage, DIR.dash_timer_css, DIR.dash_results_css);
+                    if (dash && dash.isDash) {
+                        isDash = true;
+                        timerVisible = !!dash.timerVisible;
+                    }
+                } catch { /* fall through to the model check */ }
+                if (!isDash) {
+                    try {
+                        const descriptor = await detectQuestion(page);
+                        if (descriptor && descriptor.dash === true) isDash = true;
+                    } catch { return; }
+                }
+                if (!isDash) return;
                 dashNoted = true;
-                console.log(`Dash sprint detected (timer visible: ${dash.timerVisible ? 'yes' : 'no'}). ${DASH_PACING_NOTE}`);
+                console.log(`Dash sprint detected (timer visible: ${timerVisible ? 'yes' : 'no'}). ${DASH_PACING_NOTE}`);
                 if (accuracyRun && accuracyRun.enabled !== false && accuracyConfig && accuracyConfig.enabled) {
                     console.log(`Accuracy ${accuracyRun.target}% is on for this Dash sprint. ${DASH_ACCURACY_NOTE}`);
                 } else {

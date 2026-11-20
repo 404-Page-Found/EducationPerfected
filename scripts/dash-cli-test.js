@@ -12,6 +12,12 @@
 // in auto mode and completes it, and the read-only inspect-dash command still
 // captures the round's structure. The same page off the dash route
 // (/quiz-round) is unconfirmed and must refuse by name.
+// The /dash-task/typed page models the shape the 2026-11-20 live
+// EP_DASH_INSPECT capture showed (filed as #272, issue #273: typed round on
+// EP's QuizModel, questionType 0, translationMode 0, one validAnswers entry,
+// no components, #question-text + input#answer-text): the CLI types each
+// round's shipped answer and completes the sprint, with the same off-route
+// refusal coverage at /typed-round.
 // Synthetic only; never touches the live site.
 const { createServer } = require('./mock-ep');
 const { cleanupTestProcess } = require('./test-process-cleanup');
@@ -95,7 +101,64 @@ const { bootCli, fixtureLogin } = require('./cli-test-harness');
         }
         await command('status', '"state":"stopped"');
 
-        console.log('Dash: unknown-question timed run warns; refreshed timed run completes without the warning; captured quiz shape is answered to completion; off-route round refuses by name; inspect-dash captures sanitised PASS. Synthetic only.');
+        // The shape the 2026-11-20 live capture showed (typed round on EP's
+        // QuizModel, questionType 0, translationMode 0, one validAnswers
+        // entry): first the read-only capture reports the round's structure
+        // and stays sanitised (no question/answer text).
+        await page.goto(origin + '/dash-task/typed');
+        let typedOffset = output().length;
+        await command('inspect-dash', 'EP_DASH_INSPECT ');
+        const typedInspectLine = output().slice(typedOffset).split('\n')
+            .find(line => line.startsWith('EP_DASH_INSPECT '));
+        if (!typedInspectLine) throw new Error('inspect-dash produced no EP_DASH_INSPECT line on the typed round');
+        const typedCapture = JSON.parse(typedInspectLine.slice('EP_DASH_INSPECT '.length).trim());
+        if (typedCapture.guard !== 'captured' || typedCapture.gameMode !== null || typedCapture.isDash !== true) {
+            throw new Error('unexpected typed dash capture: ' + typedInspectLine);
+        }
+        if (typedCapture.question.questionType !== 0 || typedCapture.question.translationMode !== 0
+            || typedCapture.question.validAnswersCount !== 1 || typedCapture.question.componentCount !== null
+            || typedCapture.dom.questionText !== 1 || typedCapture.dom.answerText !== 1
+            || typedCapture.dom.choiceGroups !== 0 || typedCapture.dom.speaker !== 0) {
+            throw new Error('typed dash capture missed the #272 shape: ' + typedInspectLine);
+        }
+        // Sanitised capture: fixed structural fields only, never question or
+        // answer text. Quoted-value matching avoids the `componentCount` key
+        // tripping a bare `one` substring check.
+        for (const leaked of ['"one"', '"two"', '"three"', '"eins"', '"zwei"', '"drei"']) {
+            if (typedInspectLine.includes(leaked)) throw new Error('typed dash capture leaked fixture content');
+        }
+
+        // The same confirmed typed shape is then answered end to end in auto
+        // mode: every round is typed from EP's own shipped answers and the
+        // sprint completes.
+        typedOffset = output().length;
+        await command('start', '"state":"running"');
+        await wait(() => output().slice(typedOffset).includes('answerLoop Exited.'));
+        const typedOut = output().slice(typedOffset);
+        if ((typedOut.match(/Answering Dash typed round/g) || []).length !== 3) {
+            throw new Error('Dash typed rounds were not all answered: ' + typedOut);
+        }
+        await command('status', '"state":"completed"');
+
+        // The same typed page off the dash route is not a confirmed Dash
+        // round: the run must stop and name Dash instead of answering.
+        await page.goto(origin + '/typed-round');
+        typedOffset = output().length;
+        await command('start', '"state":"running"');
+        await wait(() => output().slice(typedOffset).includes('answerLoop Exited.'));
+        const typedOffRouteOut = output().slice(typedOffset);
+        if (!typedOffRouteOut.includes('Dash timed sprint round detected outside a confirmed dash route')) {
+            throw new Error('off-route typed Dash round did not refuse by name');
+        }
+        if (!typedOffRouteOut.includes('inspect-dash')) {
+            throw new Error('off-route typed refusal did not point at the inspect-dash capture');
+        }
+        if (typedOffRouteOut.includes('Answering Dash typed round')) {
+            throw new Error('off-route typed Dash round was answered');
+        }
+        await command('status', '"state":"stopped"');
+
+        console.log('Dash: unknown-question timed run warns; refreshed timed run completes without the warning; captured quiz shape is answered to completion; off-route round refuses by name; inspect-dash captures sanitised; captured typed shape is answered to completion with off-route refusal PASS. Synthetic only.');
     } finally {
         if (browser) await browser.close().catch(() => {});
         try { cleanupTestProcess(child); } catch { /* already gone */ }
