@@ -2263,13 +2263,29 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             let dashNoted = false;
             async function noteDashOnce() {
                 if (dashNoted) return;
-                let dash = null;
+                // Timer-first, model-fallback: both live captures found no timer
+                // candidates, so the `.dash-timer`/`.dash-results` selectors are
+                // fixture-invented. The captured Dash model (isDash on a dash
+                // route, via detectQuestion's `dash: true`) is the live signal;
+                // the timer flag only reports whether the fixture chrome shows.
+                let timerVisible = false;
+                let isDash = false;
                 try {
-                    dash = await page.evaluate(detectDashInPage, DIR.dash_timer_css, DIR.dash_results_css);
-                } catch { return; }
-                if (!dash || !dash.isDash) return;
+                    const dash = await page.evaluate(detectDashInPage, DIR.dash_timer_css, DIR.dash_results_css);
+                    if (dash && dash.isDash) {
+                        isDash = true;
+                        timerVisible = !!dash.timerVisible;
+                    }
+                } catch { /* fall through to the model check */ }
+                if (!isDash) {
+                    try {
+                        const descriptor = await detectQuestion(page);
+                        if (descriptor && descriptor.dash === true) isDash = true;
+                    } catch { return; }
+                }
+                if (!isDash) return;
                 dashNoted = true;
-                console.log(`Dash sprint detected (timer visible: ${dash.timerVisible ? 'yes' : 'no'}). ${DASH_PACING_NOTE}`);
+                console.log(`Dash sprint detected (timer visible: ${timerVisible ? 'yes' : 'no'}). ${DASH_PACING_NOTE}`);
                 if (accuracyRun && accuracyRun.enabled !== false && accuracyConfig && accuracyConfig.enabled) {
                     console.log(`Accuracy ${accuracyRun.target}% is on for this Dash sprint. ${DASH_ACCURACY_NOTE}`);
                 } else {

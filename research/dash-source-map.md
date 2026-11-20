@@ -1,6 +1,6 @@
 # Dash (timed sprint): source-only map
 
-Checked 19 November 2026. Scope: Education Perfect's public student client source and local synthetic fixtures only. No live Dash run was started by the program; the only live observation is Page's own run on 19 November 2026, which the program refused at the Smart Lesson mode guard (`Choice answering requires confirmed Smart Lesson practice mode; unknown modes are not supported`). That refusal is what this map explains.
+Checked 20 November 2026. Scope: Education Perfect's public student client source and local synthetic fixtures only. No live Dash run was started by the program; the only live observation is Page's own run on 19 November 2026, which the program refused at the Smart Lesson mode guard (`Choice answering requires confirmed Smart Lesson practice mode; unknown modes are not supported`). That refusal is what this map explains.
 
 Primary source: [public student chunk 171](https://mfe-student-app.educationperfect.com/main/mfe-hashed-assets-171-69df426caed962f89980.js), SHA-256 `d6cd2c7eb1d99610fd5369acf793b75a00762646f6a8e20cb6cea396f4f47722` (12,955,262 bytes) - the same snapshot the Assessment research pins. Named symbols below refer to that snapshot, not necessarily the bundle today's live app loads. Client code shows what the client calls, not what a server accepts.
 
@@ -61,7 +61,10 @@ guard:
 This is the grounding capture for the narrow `dash-typed` reader
 (`lib/dash-typed-state.js`): the reader answers exactly this shape on a dash
 route from the shipped `validAnswers` entry and refuses every deviation by
-name (`renderer: dash-typed`). The classic-text, audio and lesson-typed
+name (`renderer: dash-typed`), enforcing the route, section-data, game-mode,
+identity, question/translation modes, question flags, answer count, component
+count, speaker, choice-markup, Submit-control, exit-button and foreign-editable
+guards. The classic-text, audio and lesson-typed
 fallbacks still refuse other Dash shapes by name.
 
 Still unknown after both captures: the real timer markup and expiry behavior,

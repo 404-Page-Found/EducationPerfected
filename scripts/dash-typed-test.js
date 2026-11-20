@@ -17,7 +17,8 @@ const { readDashTypedInPage } = require('../lib/dash-typed-state');
 const installStub = (self) => { window.angular = { element: () => ({ scope: () => ({ self }) }) }; };
 const dom = (extra = '') => '<table><tr><td id="question-text">one</td>'
     + '<td><input id="answer-text" autocomplete="off"></td></tr></table>'
-    + '<button class="submit-button nice-button positive-green">Submit</button>' + extra;
+    + '<button class="submit-button nice-button positive-green">Submit</button>'
+    + '<button class="exit-button" hidden>Exit</button>' + extra;
 const question = (overrides = {}) => ({
     contentID: 99101,
     questionIndex: 0,
@@ -34,8 +35,9 @@ const MODEL = (q, modelOverrides = {}) => ({ gameMode: null, isDash: true, _curr
     const server = createServer();
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const origin = `http://127.0.0.1:${server.address().port}`;
-    const browser = await puppeteer.launch({ headless: 'shell' });
+    let browser;
     try {
+        browser = await puppeteer.launch({ headless: 'shell' });
         const page = (await browser.pages())[0];
         // A dash-routed page: setContent then keeps this URL.
         await page.goto(origin + '/dash-task/typed');
@@ -67,6 +69,7 @@ const MODEL = (q, modelOverrides = {}) => ({ gameMode: null, isDash: true, _curr
 
         // Refusals by name.
         refuse(await run(dom(), MODEL(question(), { gameMode: 3 })), 'game-mode');
+        refuse(await run(dom(), MODEL(question(), { gameMode: undefined })), 'game-mode');
         refuse(await run(dom(), { model: MODEL(question()), sectionData: { activityGroup: { isAutoMarked: true } } }), 'section-data');
         refuse(await run(dom(), MODEL(question()), ['TEXT_BOX_COMPONENT']), 'mixed-slide');
         refuse(await run(dom(), MODEL(question({ contentID: 0 }))), 'identity');
@@ -83,6 +86,7 @@ const MODEL = (q, modelOverrides = {}) => ({ gameMode: null, isDash: true, _curr
         refuse(await run(dom('<div class="multi-choice-component" role="radiogroup"><div class="mcq-preview-option">a</div></div>'), MODEL(question())), 'choice-present');
         refuse(await run(dom().replace('<button class="submit-button', '<button hidden class="submit-button'), MODEL(question())), 'submit-control');
         refuse(await run(dom() + '<button class="submit-button">Again</button>', MODEL(question())), 'submit-control');
+        refuse(await run(dom().replace('<button class="exit-button" hidden>Exit</button>', ''), MODEL(question())), 'exit-control');
         refuse(await run(dom('<input class="text-box-component">'), MODEL(question())), 'foreign-editable');
 
         // Not a typed candidate: no question/answer markup (e.g. the choice
@@ -117,7 +121,7 @@ const MODEL = (q, modelOverrides = {}) => ({ gameMode: null, isDash: true, _curr
 
         console.log('Dash typed reader: captured shape answered (gameMode null and CLASSIC); every deviation refuses by name; non-candidates fall through PASS. Synthetic only.');
     } finally {
-        await browser.close().catch(() => {});
+        if (browser) await browser.close().catch(() => {});
         try { server.close(); } catch { /* already closed */ }
     }
 })().catch(error => { console.error(error); process.exitCode = 1; });

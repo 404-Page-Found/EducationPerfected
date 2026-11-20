@@ -481,7 +481,7 @@ const dashTypedPage = PAGE(`
                 <table class="modal-body">
                     <tr><td id="question-field">\${rounds[index].question}</td></tr>
                     <tr><td id="correct-answer-field">\${rounds[index].answer}</td></tr>
-                    <tr><td id="users-answer-field"><span>\${input}</span></td></tr>
+                    <tr><td id="users-answer-field"><span>\${String(input).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/\x27/g, "&#39;")}</span></td></tr>
                 </table>
                 <button id="continue-button" disabled onclick="advance()">Continue</button>\`;
             document.body.appendChild(modal);

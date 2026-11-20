@@ -121,7 +121,10 @@ const { bootCli, fixtureLogin } = require('./cli-test-harness');
             || typedCapture.dom.choiceGroups !== 0 || typedCapture.dom.speaker !== 0) {
             throw new Error('typed dash capture missed the #272 shape: ' + typedInspectLine);
         }
-        for (const leaked of ['eins', 'zwei', 'drei']) {
+        // Sanitised capture: fixed structural fields only, never question or
+        // answer text. Quoted-value matching avoids the `componentCount` key
+        // tripping a bare `one` substring check.
+        for (const leaked of ['"one"', '"two"', '"three"', '"eins"', '"zwei"', '"drei"']) {
             if (typedInspectLine.includes(leaked)) throw new Error('typed dash capture leaked fixture content');
         }
 

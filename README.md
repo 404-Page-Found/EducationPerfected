@@ -2,7 +2,7 @@
 
 #### A JavaScript program that automatically answers Education Perfect language questions at **super** speeds.
 
-It automates word-to-word (translation) tasks, audio tasks (Listening and Dictation) and multiple-choice questions in auto-marked Smart Lessons and Dash (timed sprint) choice and typed rounds on [Education Perfect](https://www.educationperfect.com/). The question types and their limits are listed in [Supported question types](#supported-question-types).
+It automates word-to-word (translation) tasks, audio tasks (Listening and Dictation) and multiple-choice questions in auto-marked Smart Lessons, plus choice and typed rounds in Dash (timed sprint) on [Education Perfect](https://www.educationperfect.com/). The question types and their limits are listed in [Supported question types](#supported-question-types).
 
 **Live verification:** the word-to-word task flow has been run end-to-end against the live Education Perfect service. Other question types have only bounded live checks or synthetic coverage, and Dash has not been answered live. The dated evidence is in the [changelog](CHANGELOG.md#live-verification-log).
 
