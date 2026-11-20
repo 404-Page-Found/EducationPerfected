@@ -81,11 +81,11 @@ function createElectronApp({ electron, session }) {
         app.on('before-quit', event => {
             if (!quitting) {
                 event.preventDefault();
-                quit();
+                void quit();
             }
         });
         // No macOS keep-alive: closing the window closes the managed browser too.
-        app.on('window-all-closed', () => { if (!quitting) quit(); });
+        app.on('window-all-closed', () => { if (!quitting) void quit(); });
         app.whenReady().then(async () => {
             createWindow();
             // Probe setup before first paint settles so the wizard/main screen is right.

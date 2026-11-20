@@ -6,7 +6,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
+const { execFileSync } = require('node:child_process');
 const Module = require('node:module');
 
 const ROOT = path.join(__dirname, '..');
@@ -75,7 +75,8 @@ async function main() {
         [IPC.action, 'action', ['start', undefined]],
         [IPC.reflectionRespond, 'respondReflection', [7, 'text']],
     ];
-    assert.deepEqual([...handlers.keys()].sort(), expected.map(([channel]) => channel).sort());
+    const byName = (a, b) => String(a).localeCompare(String(b));
+    assert.deepEqual([...handlers.keys()].sort(byName), expected.map(([channel]) => channel).sort(byName));
     await new Promise(resolve => setImmediate(resolve)); // let start()'s setup probe land
     session.calls.length = 0;
     for (const [channel, method, args] of expected) await handlers.get(channel)({}, ...args);
@@ -106,41 +107,44 @@ async function main() {
     assert.equal(listeners.get('quit-called'), true);
     console.log('ok quit drains the session');
 
-    // The preload exposes exactly the allowlisted API over fixed channels.
+    // The preload exposes exactly the allowlisted API over fixed channels. The
+    // electron import is stubbed at the CommonJS loader; no code is evaluated
+    // outside Node's own module machinery.
     const exposed = {};
     const ipcCalls = [];
-    const sandbox = {
-        require: name => {
-            assert.equal(name, 'electron');
-            return {
-                contextBridge: { exposeInMainWorld: (key, value) => { exposed[key] = value; } },
-                ipcRenderer: {
-                    invoke: (channel, ...args) => { ipcCalls.push(['invoke', channel, ...args]); return Promise.resolve(); },
-                    on: (channel, fn) => { ipcCalls.push(['on', channel]); },
-                },
-            };
+    const electronStub = {
+        contextBridge: { exposeInMainWorld: (key, value) => { exposed[key] = value; } },
+        ipcRenderer: {
+            invoke: (channel, ...args) => { ipcCalls.push(['invoke', channel, ...args]); return Promise.resolve(); },
+            on: channel => { ipcCalls.push(['on', channel]); },
         },
     };
-    vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'app', 'preload.js'), 'utf8'), sandbox, { filename: 'preload.js' });
+    const originalLoad = Module._load;
+    Module._load = function (request, ...rest) {
+        if (request === 'electron') return electronStub;
+        return originalLoad.call(this, request, ...rest);
+    };
+    try { require('../app/preload'); } finally { Module._load = originalLoad; }
     const api = exposed.educationPerfected;
-    assert.deepEqual(Object.keys(api).sort(), [
+    assert.deepEqual(Object.keys(api).sort(byName), [
         'action', 'completeWizard', 'downloadBrowser', 'forgetLogin', 'getState',
         'onReflectionRequest', 'onReflectionSettled', 'onSetupProgress', 'onState',
         'refreshSetup', 'respondReflection', 'saveLogin', 'startSession',
-    ].sort());
+    ].sort(byName));
     await api.action('start', undefined);
     await api.saveLogin('a@b.c', 'pw');
     assert.deepEqual(ipcCalls[0], ['invoke', 'ep:action', 'start', undefined]);
     assert.deepEqual(ipcCalls[1], ['invoke', 'ep:save-login', 'a@b.c', 'pw']);
     console.log('ok preload allowlist');
 
-    // Renderer sources parse, and the page carries a self-only CSP with no remote targets.
-    new vm.Script(fs.readFileSync(path.join(ROOT, 'app', 'renderer', 'renderer.js'), 'utf8'), { filename: 'renderer.js' });
+    // Renderer sources parse (Node's own syntax checker), and the page carries a
+    // self-only CSP with no remote targets.
+    for (const file of ['app/renderer/renderer.js', 'app/session.js', 'app/main.js', 'app/preload.js']) {
+        execFileSync(process.execPath, ['--check', path.join(ROOT, file)]);
+    }
     const html = fs.readFileSync(path.join(ROOT, 'app', 'renderer', 'index.html'), 'utf8');
     assert.match(html, /Content-Security-Policy" content="default-src 'self'/);
     assert.doesNotMatch(html, /https?:\/\//);
-    new vm.Script(fs.readFileSync(path.join(ROOT, 'app', 'session.js'), 'utf8'), { filename: 'session.js' });
-    new vm.Script(fs.readFileSync(path.join(ROOT, 'app', 'main.js'), 'utf8'), { filename: 'main.js' });
     console.log('ok renderer sources and CSP');
 
     console.log('Desktop app shell wiring contract passed.');

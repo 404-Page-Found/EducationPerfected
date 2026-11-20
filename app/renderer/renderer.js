@@ -172,7 +172,7 @@ $('download-browser').addEventListener('click', async () => {
 
 api.onSetupProgress(line => {
     $('download-line').textContent = line;
-    const match = /(\d+)\s*%/.exec(line);
+    const match = /(\d+)%/.exec(line);
     if (match) $('download-fill').style.width = `${match[1]}%`;
 });
 
@@ -188,8 +188,8 @@ $('save-login').addEventListener('click', async () => {
     $('login-email').value = '';
     $('login-password').value = '';
 });
-$('skip-login').addEventListener('click', () => { startFromSetup(); });
-$('finish-setup').addEventListener('click', () => { startFromSetup(); });
+$('skip-login').addEventListener('click', () => { void startFromSetup(); });
+$('finish-setup').addEventListener('click', () => { void startFromSetup(); });
 
 async function startFromSetup() {
     try {
@@ -244,7 +244,7 @@ setInterval(async () => {
     try { render(await api.getState()); } catch { /* window closing */ }
 }, 1000);
 
-(async () => {
+void (async () => {
     try {
         const state = await api.getState();
         render(state);

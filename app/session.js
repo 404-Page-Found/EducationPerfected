@@ -174,8 +174,8 @@ function createAppSession({
                 runtime = createRuntimeDirectory();
                 env.PUPPETEER_TMP_DIR = runtime.directory;
                 const launched = await launchProgram({
-                    onBrowserClosed: () => { cleanupRuntime(true); resetSession('closed'); },
-                    onBrowserDisconnected: () => { cleanupRuntime(true); resetSession('closed'); },
+                    onBrowserClosed: () => { void cleanupRuntime(true); resetSession('closed'); },
+                    onBrowserDisconnected: () => { void cleanupRuntime(true); resetSession('closed'); },
                     reflectionTextProvider,
                     accuracy,
                 });
