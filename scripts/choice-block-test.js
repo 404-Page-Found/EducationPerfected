@@ -171,6 +171,11 @@ async function setup(page, origin) {
                 assert.equal(descriptor.diagnostic?.check, expected.check, raw0);
                 assert.equal(descriptor.diagnostic?.option, 0, raw0);
                 assert.equal(descriptor.diagnostic?.directive, expected.directive, raw0);
+                // Every option is checked before the refusal, so the diagnostic
+                // maps the whole set (issue #238): the refused option first,
+                // the rest 'ok', fixed tags only.
+                assert.deepEqual(descriptor.diagnostic?.optionChecks,
+                    [expected.directive ? expected.check + ':' + expected.directive : expected.check, 'ok', 'ok', 'ok'], raw0);
                 assert.ok(!JSON.stringify(descriptor.diagnostic).includes('mystery'), raw0);
             }
         };
