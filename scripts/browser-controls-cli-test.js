@@ -71,7 +71,11 @@ const { installControlMenu } = require('../lib/browser-controls');
         });
         assert.ok(topDown, 'result block sits at the top between the status bar and the controls');
         assert.equal(await page.evaluate(() => [...document.getElementById('educationperfected-controls').shadowRoot.querySelectorAll('button')].filter(button => (button.dataset.action || '').startsWith('inspect')).length), 0, 'no inspect-* developer commands in the panel');
+        assert.deepEqual(await page.evaluate(() => [...new Set([...document.getElementById('educationperfected-controls').shadowRoot.querySelectorAll('button[data-action]')].map(button => button.dataset.action))].sort()), ['accuracy', 'delay', 'mode', 'refresh', 'start', 'status', 'stop'], 'the panel exposes only ordinary user controls, no developer commands');
         await assert.rejects(page.evaluate(() => window.epControl('inspect-dash')), /Unknown browser control/, 'the page control surface no longer dispatches inspect-*');
+        for (const dev of ['inspect-self-mark', 'inspect-components', 'inspectDropdowns', 'eval', 'diagnose']) {
+            await assert.rejects(page.evaluate(action => window.epControl(action), dev), /Unknown browser control/, `${dev} is not a panel command`);
+        }
         await command('inspect-dash', 'EP_DASH_INSPECT ', 'terminal keeps the read-only capture command');
         await command('accuracy off', '"enabled":false');
         await page.waitForFunction(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('live').textContent.includes('accuracy 100%'));

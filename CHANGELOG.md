@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- No developer commands in the browser control panel (#281): the Inspect self-mark/Dash/components buttons are removed from the in-browser control menu, and the page-exposed control surface no longer dispatches inspect-* actions at all. The read-only captures stay available as the terminal commands `inspect-self-mark`, `inspect-dash` and `inspect-components`; refusal guidance and capture formats are unchanged, and answering controls are untouched.
+- No developer commands in the browser control panel (#281): the Inspect self-mark/Dash/components buttons are removed from the in-browser control menu, and the page-exposed control surface no longer dispatches inspect-* actions at all. A full audit of the menu found the inspections were the only developer/diagnostic commands it exposed; the remaining controls (start/stop, refresh words, status, mode, accuracy and pacing) are ordinary user controls and stay, and a panel test now pins that exact allowlist. The read-only captures stay available as the terminal commands `inspect-self-mark`, `inspect-dash` and `inspect-components`; refusal guidance and capture formats are unchanged, and answering controls are untouched.
 
 ### Live verification log
 
