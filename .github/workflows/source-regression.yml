@@ -45,7 +45,10 @@ jobs:
       - name: Install pinned local-test browsers
         # Handler tests launch both modes: the CLI's test boot uses the
         # headless shell, direct fixture browsers use headless: true (the
-        # full pinned Chrome). Both must be installed.
-        run: node node_modules/puppeteer/lib/puppeteer/node/cli.js browsers install chrome chrome-headless-shell
+        # full pinned Chrome). The puppeteer CLI installs one browser per
+        # invocation, so both are installed explicitly.
+        run: |
+          node node_modules/puppeteer/lib/puppeteer/node/cli.js browsers install chrome-headless-shell
+          node node_modules/puppeteer/lib/puppeteer/node/cli.js browsers install chrome
       - name: Test question-type handlers, refusals and CLI fixture sessions
         run: npm run test:handlers
