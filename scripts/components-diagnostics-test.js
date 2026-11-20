@@ -42,9 +42,7 @@ const { collectComponentsDiagnostics } = require('../lib/components-diagnostics'
         assert.equal(result.dom.contentEditables, 0);
         // Sanitised: no fixture content strings anywhere in the report.
         const serialized = JSON.stringify(result);
-        assert.equal(serialized.includes('beta'), false);
-        assert.equal(serialized.includes('alpha'), false);
-        assert.equal(serialized.includes('Synthetic'), false);
+        for (const marker of ['beta', 'alpha', 'Synthetic', 'synthetic-gaps', '1643503']) assert.equal(serialized.includes(marker), false);
         // Read-only: no input, click, key, change or focus events fired.
         assert.deepEqual(await page.evaluate(() => window.inspectionCounts), { events: 0 });
 
@@ -107,6 +105,13 @@ const { collectComponentsDiagnostics } = require('../lib/components-diagnostics'
         assert.equal(assessmentModel.guard, 'assessment-mode');
         assert.equal(assessmentModel.gameMode, 2);
         assert.equal('question' in assessmentModel, false);
+        // Scope guard: the capture exists for refused Smart Lesson slides, so
+        // a classic (gameMode 1) model stops before any question state is read.
+        await page.evaluate(() => { window.angular.element(document.body).scope().self.model.gameMode = 1; });
+        const classicModel = await collectComponentsDiagnostics(page);
+        assert.equal(classicModel.guard, 'not-smart-lesson');
+        assert.equal(classicModel.gameMode, 1);
+        assert.equal('question' in classicModel, false);
         await page.evaluate(() => { window.angular.element(document.body).scope().self.model.gameMode = 3; });
 
         // The assessment shell boundary applies even to a read-only capture,
