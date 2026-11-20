@@ -72,6 +72,56 @@ const { installControlMenu } = require('../lib/browser-controls');
         assert.ok(topDown, 'result block sits at the top between the status bar and the controls');
         assert.equal(await page.evaluate(() => [...document.getElementById('educationperfected-controls').shadowRoot.querySelectorAll('button')].filter(button => (button.dataset.action || '').startsWith('inspect')).length), 0, 'no inspect-* developer commands in the panel');
         assert.deepEqual(await page.evaluate(() => [...new Set([...document.getElementById('educationperfected-controls').shadowRoot.querySelectorAll('button[data-action]')].map(button => button.dataset.action))].sort((a, b) => a.localeCompare(b))), ['accuracy', 'delay', 'mode', 'refresh', 'start', 'status', 'stop'], 'the panel exposes only ordinary user controls, no developer commands');
+        // #285: intro guide plus per-button helpers, discoverable without leaving the browser.
+        await page.evaluate(() => { document.getElementById('educationperfected-controls').shadowRoot.querySelector('details').open = true; });
+        const guideText = await page.evaluate(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('guide')?.textContent || '');
+        assert.ok(guideText.includes('Refresh words'), 'intro guide names the Refresh-then-Start workflow');
+        assert.ok(guideText.includes('Start'), 'intro guide names Start');
+        assert.match(guideText, /Auto/, 'intro guide mentions Auto vs Semi-auto');
+        assert.match(guideText, /status|one-line/i, 'intro guide points at the status bar/result area');
+        const helpers = await page.evaluate(() => {
+            const root = document.getElementById('educationperfected-controls').shadowRoot;
+            return {
+                buttons: [...root.querySelectorAll('button[data-action]')].map(button => ({ action: button.dataset.action, read: Boolean(button.dataset.read), title: button.getAttribute('title') || '', aria: button.getAttribute('aria-label') || '', text: button.textContent })),
+                fields: ['mode', 'accuracy', 'delay'].map(id => ({ id, title: root.getElementById(id)?.getAttribute('title') || '', aria: root.getElementById(id)?.getAttribute('aria-label') || '' })),
+                help: root.getElementById('help')?.textContent || '',
+                helpButtons: root.getElementById('help')?.querySelectorAll('button[data-action]').length ?? -1,
+                guideButtons: root.getElementById('guide')?.querySelectorAll('button[data-action]').length ?? -1,
+            };
+        });
+        for (const button of helpers.buttons) {
+            assert.ok(button.title.trim().length > 0, `${button.action}${button.read ? ' read' : ''} button has a tooltip`);
+            assert.ok(button.aria.trim().length > 0, `${button.action}${button.read ? ' read' : ''} button keeps a screen-reader label`);
+        }
+        for (const field of helpers.fields) {
+            assert.ok(field.title.trim().length > 0, `${field.id} field has a tooltip`);
+            assert.ok(field.aria.trim().length > 0, `${field.id} field keeps a screen-reader label`);
+        }
+        for (const name of ['Start', 'Stop', 'Refresh words', 'Status', 'Mode', 'Accuracy', 'Pacing']) {
+            assert.ok(helpers.help.includes(name), `help maps ${name} to one sentence`);
+        }
+        assert.equal(helpers.helpButtons, 0, 'help adds no extra panel commands');
+        assert.equal(helpers.guideButtons, 0, 'guide adds no extra panel commands');
+        // Collapsing the guide persists on this origin and applies to a fresh mount.
+        await page.evaluate(() => {
+            const root = document.getElementById('educationperfected-controls').shadowRoot;
+            root.getElementById('guide').open = false;
+            root.getElementById('guide').dispatchEvent(new Event('toggle', { bubbles: true }));
+        });
+        assert.equal(await page.evaluate(() => localStorage.getItem('educationperfected-control-menu-guide')), 'closed');
+        await page.evaluate(() => {
+            document.getElementById('educationperfected-controls').remove();
+            window.__epControlMenuInstalled = false;
+        });
+        await page.evaluate(installControlMenu);
+        assert.equal(await page.evaluate(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('guide').open), false, 'saved guide state applies to the next mount');
+        await page.evaluate(() => {
+            const root = document.getElementById('educationperfected-controls').shadowRoot;
+            root.getElementById('guide').open = true;
+            root.getElementById('guide').dispatchEvent(new Event('toggle', { bubbles: true }));
+            root.querySelector('details').open = true;
+        });
+        await ready();
         await assert.rejects(page.evaluate(() => window.epControl('inspect-dash')), /Unknown browser control/, 'the page control surface no longer dispatches inspect-*');
         for (const dev of ['inspect-self-mark', 'inspect-components', 'inspectDropdowns', 'eval', 'diagnose']) {
             await assert.rejects(page.evaluate(action => window.epControl(action), dev), /Unknown browser control/, `${dev} is not a panel command`);
