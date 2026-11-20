@@ -502,6 +502,53 @@ const dashTypedPage = PAGE(`
 
         render();
     </script>`);
+
+// Issue #282 Dash number-box round, modelled from the second 2026-11-20 live
+// EP_DASH_INSPECT capture (sanitised): QuizModel with gameMode null, isDash
+// true, no sectionData; a valid contentID/questionIndex, questionType 6,
+// translationMode 4, validAnswers EMPTY, exactly one NUMBER_BOX_COMPONENT
+// (Marked 0, one option, no Correct string/boolean flags, correct fields
+// absent); no #question-text, input#answer-text, .voice-speaker or choice
+// groups; one button.submit-button and a hidden .exit-button. The one visible
+// input.number-box-component follows chunk606's NumberBoxComponent renderer
+// (an input per box, wrapped in a span); the capture's DOM tally did not
+// count it. The captured model ships NO answer for this shape, so the run
+// must refuse by name and never submit. The #dash-timer div remains
+// fixture-invented (every live capture found no timer candidates).
+const dashNumberBoxPage = PAGE(`
+    <main>
+        <div id="dash-timer" data-seconds="60">01:00</div>
+        <span><input class="number-box-component" autocomplete="off"></span>
+        <button class="submit-button nice-button positive-green">Submit</button>
+        <button class="exit-button" hidden onclick="location.href='/learning/dashboard'">Exit</button>
+    </main>
+    <script>
+        const dashSelf = { model: {
+            gameMode: null,
+            isDash: true,
+            contentSource: { selectedActivity: { _taskID: 41003, _activityType: 6, _contentType: 0 } },
+            _currentQuestion: {
+                contentID: 99201,
+                questionIndex: 0,
+                questionType: 6,
+                translationMode: 4,
+                validAnswers: [],
+                questionDef: {
+                    Components: [{
+                        ComponentTypeCode: 'NUMBER_BOX_COMPONENT',
+                        Marked: 0,
+                        Options: [{ TextTemplate: 'private-option-1' }],
+                    }],
+                },
+            },
+        } };
+        // A throwing accessor on an unlisted field proves readers and the
+        // capture touch only own data properties of the fields they name.
+        Object.defineProperty(dashSelf.model._currentQuestion, 'Answers',
+            { get() { throw new Error('accessor-must-not-run'); } });
+        window.angular = { element: () => ({ scope: () => ({ self: dashSelf }) }) };
+    </script>`);
+
 // ---------------------------------------------------------------------------
 // Fixtures BUILT FROM the 2026-10-30 live-audit notes (no account data, no
 // captured markup): they reproduce the audited selectors and scope-state shape
@@ -772,6 +819,9 @@ function createServer() {
         // page off the dash route so the unconfirmed-route refusal is covered.
         if (url.pathname === '/dash-task/typed') return send(dashTypedPage);
         if (url.pathname === '/typed-round') return send(dashTypedPage);
+        // Issue #282 Dash number-box round: the second 2026-11-20 captured
+        // shape, which ships no answer and must refuse by name.
+        if (url.pathname === '/dash-task/number-box') return send(dashNumberBoxPage);
         if (url.pathname === '/lesson') return send(lessonPage(false));
         if (url.pathname === '/lesson-dropdown') {
             const count = Number.parseInt(url.searchParams.get('count') || '5', 10) || 5;

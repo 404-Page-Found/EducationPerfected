@@ -18,6 +18,10 @@
 // no components, #question-text + input#answer-text): the CLI types each
 // round's shipped answer and completes the sprint, with the same off-route
 // refusal coverage at /typed-round.
+// The /dash-task/number-box page models the second 2026-11-20 live capture
+// (issue #282: a NUMBER_BOX_COMPONENT round with validAnswers empty and no
+// correct flags - no shipped answer): the CLI refuses by name, points at
+// inspect-dash and never submits.
 // Synthetic only; never touches the live site.
 const { createServer } = require('./mock-ep');
 const { cleanupTestProcess } = require('./test-process-cleanup');
@@ -158,7 +162,38 @@ const { bootCli, fixtureLogin } = require('./cli-test-harness');
         }
         await command('status', '"state":"stopped"');
 
-        console.log('Dash: unknown-question timed run warns; refreshed timed run completes without the warning; captured quiz shape is answered to completion; off-route round refuses by name; inspect-dash captures sanitised; captured typed shape is answered to completion with off-route refusal PASS. Synthetic only.');
+        // The second 2026-11-20 live capture (number-box round, issue #282):
+        // the read-only capture reports the shape, then the run refuses by
+        // name and never submits - the captured model ships no answer.
+        await page.goto(origin + '/dash-task/number-box');
+        let nbOffset = output().length;
+        await command('inspect-dash', 'EP_DASH_INSPECT ');
+        const nbInspectLine = output().slice(nbOffset).split('\n')
+            .find(line => line.startsWith('EP_DASH_INSPECT '));
+        if (!nbInspectLine) throw new Error('inspect-dash produced no EP_DASH_INSPECT line on the number-box round');
+        const nbCapture = JSON.parse(nbInspectLine.slice('EP_DASH_INSPECT '.length).trim());
+        if (nbCapture.guard !== 'captured' || nbCapture.isDash !== true
+            || nbCapture.question.questionType !== 6 || nbCapture.question.translationMode !== 4
+            || nbCapture.question.validAnswersCount !== 0 || nbCapture.question.componentCount !== 1
+            || nbCapture.question.components[0].type !== 'NUMBER_BOX_COMPONENT'
+            || nbCapture.dom.questionText !== 0 || nbCapture.dom.answerText !== 0
+            || nbCapture.dom.choiceGroups !== 0 || nbCapture.dom.speaker !== 0) {
+            throw new Error('number-box dash capture missed the #282 shape: ' + nbInspectLine);
+        }
+        if (nbInspectLine.includes('private-')) throw new Error('number-box dash capture leaked fixture content');
+        nbOffset = output().length;
+        await command('start', '"state":"running"');
+        await wait(() => output().slice(nbOffset).includes('answerLoop Exited.'));
+        const nbOut = output().slice(nbOffset);
+        if (!nbOut.includes('Dash timed sprint round detected')) {
+            throw new Error('Dash number-box round did not refuse by name: ' + nbOut);
+        }
+        if (!nbOut.includes('inspect-dash')) {
+            throw new Error('Dash number-box refusal did not point at the inspect-dash capture');
+        }
+        await command('status', '"state":"stopped"');
+
+        console.log('Dash: unknown-question timed run warns; refreshed timed run completes without the warning; captured quiz shape is answered to completion; off-route round refuses by name; inspect-dash captures sanitised; captured typed shape is answered to completion with off-route refusal; captured number-box shape refuses by name without submitting PASS. Synthetic only.');
     } finally {
         if (browser) await browser.close().catch(() => {});
         try { cleanupTestProcess(child); } catch { /* already gone */ }
