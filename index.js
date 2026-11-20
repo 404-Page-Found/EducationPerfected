@@ -1256,7 +1256,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 // being typed: the detected question then belonged to an item different from
                 // the one graded, and every later occurrence of those words was mis-answered
                 // while "learning" wrote the wrong pairing back again.
-                if (!/^(audio|typed):/.test(question) && modalQuestion !== question) {
+                if (!/^(audio|typed|dash-typed):/.test(question) && modalQuestion !== question) {
                     console.warn(`Round skew: read question "${question}" but EP graded "${modalQuestion}". Learning only the graded pairing.`);
                 }
                 // EP just graded `answer` wrong for modalQuestion: that exact pairing must
@@ -1875,6 +1875,197 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 return TOGGLE;
             }
 
+            /**
+             * Plays one round of a Dash timed-sprint typed question (issue #273).
+             * The accepted answers ship in EP's client-side question state (the
+             * #272-captured validAnswers shape, verified live 2026-11-20), so the
+             * round is: type the first shipped answer EP hasn't rejected, submit,
+             * wait for the item to change. No word-list lookup, no random probe:
+             * on a timed clock every blind guess burns score, so a round with no
+             * usable shipped answer stops instead of mistyping (fail-closed).
+             * Reuses the classic typing/verify/submit mechanics bound to the Dash
+             * round key, with the typed 4-10s human-paced range.
+             * @param {object} descriptor - dash-typed descriptor from detectQuestion
+             * @returns {Promise<boolean>} False to stop the run, true to keep looping
+             */
+            async function handleDashTypedRound(descriptor) {
+                const key = descriptor.key;
+                await noteDashOnce();
+                // Marking gate. Dash has no sectionData/activityGroup, so the
+                // Smart Lesson flag proof does not apply. The proof is
+                // client-side instead, as for dash-choice: EP's quiz page
+                // marks through its own marking manager (public chunk 171,
+                // QuizInGamePage.submitAnswer ->
+                // markingManager.markAnswerWithSecondChance) and the reader
+                // only accepts the captured isDash QuizModel shape.
+                if (descriptor.autoMarked !== true) {
+                    const message = descriptor.autoMarked === false
+                        ? 'This Dash sprint round is marked manually (self/peer/teacher), not auto-marked by EP; stopping instead of answering.'
+                        : 'EP did not confirm this Dash sprint round is auto-marked (the marking field was missing or unreadable); stopping instead of answering.';
+                    console.error(message);
+                    await alert(message);
+                    return false;
+                }
+                // Bound the submissions any single item can get in one run. The
+                // advance wait below treats only a changed question key, a modal, or
+                // completion as progress, so an item that quietly rejects (cleared
+                // box, same item) would otherwise be resubmitted without limit.
+                // Two attempts mirror the typed path's submit-once-plus-one-retry.
+                const submissions = typedSubmissionsByKey.get(key) || 0;
+                if (submissions >= 2) {
+                    const message = `EP has not accepted ${submissions} submissions for ${key}; stopping instead of resubmitting.`;
+                    console.error(message);
+                    await alert(message);
+                    return false;
+                }
+                const answers = (descriptor.answers || []).filter(a => typeof a === 'string' && a.trim() !== '');
+                const rejected = rejectedDict[key] || new Set();
+                const correct = answers.find(a => !rejected.has(a));
+                if (correct === undefined) {
+                    const message = answers.length === 0
+                        ? `This Dash sprint round ships no accepted answers to answer with; stopping instead of guessing.`
+                        : `EP rejected every shipped answer for ${key}; stopping instead of guessing.`;
+                    console.error(message);
+                    await alert(message);
+                    return false;
+                }
+                // Issue #222: occasional human-like typo on the FIRST submission only
+                // (auto mode), mirroring the typed path. The retry for the same key
+                // always uses the correct answer, so an intentional mistake costs one
+                // modal then completes. On Dash a mistake is expected (unproved
+                // live) to burn sprint time/points; perfect stays the provisional
+                // recommendation (see the sprint notice above).
+                let submitAnswer = correct;
+                let intentionalMistake = false;
+                let accuracyPending = null;
+                if (accuracyRun && ENTER && submissions === 0) {
+                    try {
+                        if (accuracyRun.shouldMistake()) {
+                            const { makeTypoFor } = require('./lib/accuracy');
+                            const typo = makeTypoFor(correct, answers);
+                            if (typo && typo !== correct) {
+                                console.log(`Accuracy mistake for ${key}: submitting "${typo}" instead of "${correct}" (target ${accuracyRun.target}%).`);
+                                submitAnswer = typo;
+                                intentionalMistake = true;
+                            }
+                            accuracyPending = intentionalMistake;
+                        } else {
+                            accuracyPending = false;
+                        }
+                    } catch {
+                        submitAnswer = correct;
+                        accuracyPending = null;
+                    }
+                }
+
+                const contextUnchanged = async (current = undefined) => {
+                    if (current === undefined) current = await detectQuestion(page);
+                    return current?.kind === 'dash-typed' && current.key === key && current.autoMarked === true && current.answers?.includes(correct);
+                };
+                if (!await contextUnchanged(await detectQuestion(page))) return false;
+                console.log(`Answering Dash typed round ${key} from EP's shipped answers.`);
+                if (!await enterAnswer(submitAnswer, contextUnchanged)) {
+                    // the box vanished mid-entry: a round transition; the next pass re-detects
+                    console.log('Answer box vanished while answering; re-detecting the question.');
+                    return true;
+                }
+                if (!TOGGLE) return false;
+
+                // the item can swap while the answer is being typed (the same round
+                // skew the classic path guards against): re-detect before submitting
+                const fresh = await detectQuestion(page);
+                if (fresh === null || fresh.key !== key) {
+                    console.log(`Question changed while typing (${key}); looking the answer up again on the next pass.`);
+                    return true;
+                }
+                if (!await contextUnchanged(fresh)) return false;
+
+                // The paced wait (issue #221) runs BEFORE the final rechecks so the
+                // context and box-value guards still hold at Enter time. Typed
+                // rounds share the typed 4-10s range by default; delay off stays
+                // the provisional max-score recommendation on a timed clock.
+                if (ENTER) await humanDelay.beforeSubmit('typed');
+                // Recheck the actual value after scope detection, immediately
+                // before Enter. No submission slot is consumed by a lost box.
+                if (!await contextUnchanged()) return false;
+                if (!boxMatchesAnswer(submitAnswer, await answerBoxValue()) || !TOGGLE) return true;
+                if (ENTER) {
+                    typedSubmissionsByKey.set(key, submissions + 1);
+                    await page.keyboard.press('Enter');
+                    if (accuracyPending !== null && accuracyRun) {
+                        try { accuracyRun.recordFirstTry(accuracyPending); } catch { /* never break answering on stats */ }
+                    }
+                    accuracyPending = null;
+                }
+                lastSubmitted = { question: key, answer: submitAnswer };
+
+                let outcome = await waitForAdvanceKey(key, ENTER ? ADVANCE_TIMEOUT : 0, submitAnswer, contextUnchanged);
+                if (outcome === 'timeout' && ENTER) {
+                    if (!await contextUnchanged()) return false;
+                    // same single-retry policy as the typed path: EP can swallow
+                    // an Enter. But a quiet rejection CLEARS the box, so never
+                    // retry blind: re-read it and retype the exact answer first,
+                    // otherwise the retry submits an empty box.
+                    console.log(`Question ${key} did not advance within ${ADVANCE_TIMEOUT}ms; retrying the submission once.`);
+                    await page.click(DIR.answer_box_css).catch(() => { });
+                    if (!TOGGLE) return false;
+                    const inBox = await page.$eval(DIR.answer_box_css, el => el.value).catch(() => null);
+                    if (inBox === null) {
+                        console.log('Answer box vanished before the retry; re-detecting the question.');
+                        return true;
+                    }
+                    // Retry always uses the correct answer: a first-try typo must not be
+                    // resubmitted, otherwise --accuracy 0 would loop typos on timeouts.
+                    // A box holding EP's IME-normalized punctuation still verifies.
+                    if (!boxMatchesAnswer(correct, inBox)) {
+                        console.log(inBox === ''
+                            ? 'The answer box was cleared after the submission (quiet rejection); retyping the answer for the retry.'
+                            : 'The answer box content changed after the submission; retyping the answer for the retry.');
+                        if (!await enterAnswer(correct, contextUnchanged)) {
+                            console.log('Answer box vanished while retyping; re-detecting the question.');
+                            return true;
+                        }
+                        if (!TOGGLE) return false;
+                    }
+                    const retryQuestion = await detectQuestion(page);
+                    if (!retryQuestion || retryQuestion.key !== key) return true;
+                    if (!await contextUnchanged(retryQuestion)) return false;
+                    if (!boxMatchesAnswer(correct, await answerBoxValue()) || !TOGGLE) return true;
+                    const retryCount = typedSubmissionsByKey.get(key) || 0;
+                    if (retryCount >= 2) {
+                        const message = `EP has not accepted ${retryCount} submissions for ${key}; stopping instead of resubmitting.`;
+                        console.error(message);
+                        await alert(message);
+                        return false;
+                    }
+                    typedSubmissionsByKey.set(key, retryCount + 1);
+                    await page.keyboard.press('Enter');
+                    // The retry dispatched the correct answer: a modal from here on
+                    // rejects THAT value, so the rejection bookkeeping below must
+                    // blame it rather than the first-try typo.
+                    submitAnswer = correct;
+                    outcome = await waitForAdvanceKey(key, ADVANCE_TIMEOUT, correct, contextUnchanged);
+                    if (outcome === 'timeout') {
+                        console.error(`Question ${key} did not advance after submitting its answer. Stopping.`);
+                        await alert(`Answer loop stopped: ${key} did not advance.`);
+                        return false;
+                    }
+                }
+                if (outcome === 'timeout' && !ENTER) {
+                    // semi-auto: the answer is typed and awaiting the user's Enter
+                    console.log(`Waiting for the answer to ${key} to be submitted.`);
+                    outcome = await waitForAdvanceKey(key, 0, submitAnswer, contextUnchanged);
+                }
+                if (outcome === 'aborted') return false;
+                if (outcome === 'modal') {
+                    // the modal proves this shipped answer was rejected: record that
+                    // and try the remaining shipped answers, then stop (no guessing).
+                    recordRejection(key, submitAnswer);
+                    return await handleModalAndContinue(key, submitAnswer, false);
+                }
+                return TOGGLE;
+            }
+
             // The non-text question handlers, dispatched from answerQuestions by the
             // detected descriptor's kind (issue #33's QUESTION_HANDLERS). Detection is
             // deliberately shared per-round in detectQuestion: a round must be
@@ -1894,10 +2085,12 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 { type: 'workingformula', play: playSelectionDescriptorRound },
                 { type: 'audio', play: handleTypedRound },
                 { type: 'typed', play: handleTypedRound },
+                { type: 'dash-typed', play: handleDashTypedRound },
             ];
 
             /**
- * Plays one round of a non-text question (Smart Lesson slide or audio task).
+ * Plays one round of a non-text question (Smart Lesson slide, audio task
+ * or Dash typed round).
  * Every refusal path stops and reports rather than guessing (issue #33).
  * @param {object} descriptor - non-text descriptor from detectQuestion
  * @returns {Promise<boolean>} False to stop the run, true to keep looping
@@ -2059,11 +2252,13 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 return TOGGLE && proven;
             }
 
-            // Dash sprint notice (issue #237): the classic pair is shared by belief,
-            // so call it out once per run instead of mistyping silently. Reports the
-            // timer presence, the shared text 2-6s pacing decision (provisional delay
-            // off recommendation, live scoring unproved) and the expected accuracy
-            // cost (a Dash mistake is expected to burn sprint time/points).
+            // Dash sprint notice (issue #237): the typed Dash round shares the
+            // classic question/answer pair (captured 2026-11-20), so call it
+            // out once per run instead of mistyping silently. Reports the
+            // timer presence, the shared per-type pacing decision (provisional
+            // delay off recommendation, live scoring unproved) and the
+            // expected accuracy cost (a Dash mistake is expected to burn
+            // sprint time/points).
             // Runs inside the answer loop; never throws and never stops the run.
             let dashNoted = false;
             async function noteDashOnce() {

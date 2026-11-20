@@ -378,6 +378,130 @@ const dashQuizPage = PAGE(`
         render();
     </script>`);
 
+// Issue #273 Dash typed rounds, modelled from the 2026-11-20 live
+// EP_DASH_INSPECT capture (filed as #272, sanitised): QuizModel with gameMode
+// null, isDash true, no sectionData; a valid contentID/questionIndex,
+// questionType 0, translationMode 0, explicit non-EP/non-speaking flags, one
+// validAnswers entry, no question components; one visible #question-text, one
+// visible input#answer-text, one button.submit-button, a hidden .exit-button
+// and no .voice-speaker or choice groups. The type/grade/advance/completion
+// cycle below is fixture behavior, not live-verified EP behavior; the
+// #dash-timer div remains fixture-invented (both captures found no timer
+// candidates). /typed-round serves the same page off the dash route so the
+// unconfirmed-route refusal is covered end to end.
+const DASH_TYPED_ROUNDS = [
+    { contentID: 99101, questionIndex: 0, question: 'one', answer: 'eins' },
+    { contentID: 99102, questionIndex: 1, question: 'two', answer: 'zwei' },
+    { contentID: 99103, questionIndex: 2, question: 'three', answer: 'drei' },
+];
+const dashTypedPage = PAGE(`
+    <main>
+        <div id="dash-timer" class="dash-timer" data-seconds="60">60</div>
+        <div class="dash-score">0</div>
+        <div class="dash-results" hidden>Dash complete: ${DASH_TYPED_ROUNDS.length}/${DASH_TYPED_ROUNDS.length}</div>
+        <table><tr>
+            <td id="question-text">${DASH_TYPED_ROUNDS[0].question}</td>
+            <td><input id="answer-text" autocomplete="off"></td>
+        </tr></table>
+        <button class="submit-button nice-button positive-green">Submit</button>
+        <button class="exit-button" hidden onclick="location.href='/learning/dashboard'">Exit</button>
+    </main>
+    <script>
+        const rounds = ${JSON.stringify(DASH_TYPED_ROUNDS)};
+        const dashSelf = { model: {
+            gameMode: null,
+            isDash: true,
+            contentSource: { selectedActivity: { _taskID: 41002, _activityType: 6, _contentType: 0 } },
+            _currentQuestion: null,
+        } };
+        window.angular = { element: () => ({ scope: () => ({ self: dashSelf }) }) };
+        let index = 0;
+        let score = 0;
+        let secondsLeft = 60;
+        const question = document.getElementById('question-text');
+        const box = document.getElementById('answer-text');
+        const submit = document.querySelector('.submit-button');
+        const exit = document.querySelector('.exit-button');
+        const timer = document.querySelector('.dash-timer');
+        const scoreEl = document.querySelector('.dash-score');
+        const results = document.querySelector('.dash-results');
+        const countdown = setInterval(() => {
+            secondsLeft = Math.max(0, secondsLeft - 1);
+            if (timer) timer.textContent = String(secondsLeft);
+            if (secondsLeft <= 0) clearInterval(countdown);
+        }, 1000);
+
+        function render() {
+            if (index >= rounds.length) {
+                clearInterval(countdown);
+                dashSelf.model._currentQuestion = null;
+                question.remove();
+                box.parentElement.innerHTML = '';
+                submit.remove();
+                if (results) results.hidden = false;
+                exit.hidden = false;
+                return;
+            }
+            const round = rounds[index];
+            dashSelf.model._currentQuestion = {
+                contentID: round.contentID,
+                questionIndex: round.questionIndex,
+                questionType: 0,
+                translationMode: 0,
+                isEPQuestion: false,
+                isSpeakingMode: false,
+                validAnswers: [{ outputString: round.answer }],
+            };
+            // A throwing accessor on an unlisted field proves readers and the
+            // capture touch only own data properties of the fields they name.
+            Object.defineProperty(dashSelf.model._currentQuestion, 'Answers',
+                { get() { throw new Error('accessor-must-not-run'); } });
+            question.textContent = round.question;
+            box.value = '';
+            box.focus();
+        }
+
+        function grade() {
+            if (index >= rounds.length) return;
+            const input = box.value;
+            if (input.trim() === rounds[index].answer) {
+                score += 1;
+                if (scoreEl) scoreEl.textContent = String(score);
+                index += 1;
+                render();
+            } else {
+                showWrong(input);
+            }
+        }
+
+        function showWrong(input) {
+            const modal = document.createElement('div');
+            modal.setAttribute('uib-modal-window', 'modal-window');
+            modal.innerHTML = \`
+                <table class="modal-body">
+                    <tr><td id="question-field">\${rounds[index].question}</td></tr>
+                    <tr><td id="correct-answer-field">\${rounds[index].answer}</td></tr>
+                    <tr><td id="users-answer-field"><span>\${input}</span></td></tr>
+                </table>
+                <button id="continue-button" disabled onclick="advance()">Continue</button>\`;
+            document.body.appendChild(modal);
+        }
+
+        function advance() {
+            document.querySelectorAll('[uib-modal-window]').forEach(m => m.remove());
+            index += 1;
+            render();
+        }
+
+        box.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            grade();
+        });
+        submit.addEventListener('click', () => grade());
+
+        render();
+    </script>`);
 // ---------------------------------------------------------------------------
 // Fixtures BUILT FROM the 2026-10-30 live-audit notes (no account data, no
 // captured markup): they reproduce the audited selectors and scope-state shape
@@ -644,6 +768,10 @@ function createServer() {
         // Same Dash round OFF the dash route: the model says isDash but the
         // route is unconfirmed, so the run must refuse by name.
         if (url.pathname === '/quiz-round') return send(dashQuizPage);
+        // Issue #273 Dash typed rounds: the #272-captured shape, plus the same
+        // page off the dash route so the unconfirmed-route refusal is covered.
+        if (url.pathname === '/dash-task/typed') return send(dashTypedPage);
+        if (url.pathname === '/typed-round') return send(dashTypedPage);
         if (url.pathname === '/lesson') return send(lessonPage(false));
         if (url.pathname === '/lesson-dropdown') {
             const count = Number.parseInt(url.searchParams.get('count') || '5', 10) || 5;
@@ -724,7 +852,7 @@ function createServer() {
     });
 }
 
-module.exports = { createServer, WORDS, LESSON_ROUNDS, AUDIO_ROUNDS, dashStarterPage, dashTaskPage };
+module.exports = { createServer, WORDS, LESSON_ROUNDS, AUDIO_ROUNDS, dashStarterPage, dashTaskPage, dashTypedPage };
 
 if (require.main === module) {
     const server = createServer();

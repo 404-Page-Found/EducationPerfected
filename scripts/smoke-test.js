@@ -216,6 +216,81 @@ async function testDashSprint(page, origin) {
     check('Dash: completion exit button resolves and clicks to dashboard');
 }
 
+async function testDashTypedSprint(page, origin) {
+    // Dash typed sprint (issue #273): the #272-captured shape (QuizModel with
+    // isDash, #question-text + input#answer-text, one Submit button, no choice
+    // or speaker markup) plus the shared wrong-answer modal and completion
+    // controls. The timer/score/results chrome stays fixture-invented.
+    await page.goto(origin + '/dash-task/typed', { waitUntil: 'domcontentloaded' });
+    assert.equal(await question(), 'one');
+    check('Dash typed: $eval reads the shared question');
+    assert.equal(await page.$$eval('button.submit-button',
+        els => els.filter(el => !el.hidden && el.offsetParent !== null).length), 1);
+    assert.equal(await page.$('.multi-choice-component'), null);
+    assert.equal(await page.$('.voice-speaker'), null);
+    check('Dash typed: one Submit button, no choice or speaker markup');
+    const timer = await page.$eval('.dash-timer', el => ({ text: el.textContent, hidden: el.hidden }));
+    assert.ok(timer && !timer.hidden && timer.text.trim() !== '', 'Dash typed timer must be visible during the sprint');
+    const timerStart = timer.text.trim();
+    assert.equal(await page.$eval('.dash-score', el => el.textContent), '0');
+    check('Dash typed: timer countdown and score readout are present');
+    // Wrong answer still shows the shared correction modal without scoring.
+    await page.keyboard.type('wrong', { delay: 20 });
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('[uib-modal-window=modal-window]', { timeout: 2000 });
+    assert.equal(await page.$eval('#correct-answer-field', el => el.textContent), 'eins');
+    assert.equal(await page.$eval('.dash-score', el => el.textContent), '0', 'Dash typed score stays 0 after a wrong answer');
+    check('Dash typed: wrong answer shows the shared correction modal without scoring');
+    const continued = await page.evaluate(css => {
+        const button = document.querySelector(css);
+        if (!button) return false;
+        button.disabled = false;
+        button.click();
+        return true;
+    }, '#continue-button');
+    assert.equal(continued, true);
+    await page.waitForFunction(() => document.querySelectorAll('[uib-modal-window]').length === 0, { timeout: 2000 });
+    check('Dash typed: correction modal dismisses via Continue');
+    await page.waitForFunction(expected => document.querySelector('#question-text').textContent === expected, { timeout: 2000 }, WORDS[1][0]);
+    await page.waitForFunction(start => {
+        const el = document.querySelector('.dash-timer');
+        return el && el.textContent.trim() !== start;
+    }, { timeout: 4000 }, timerStart);
+    const timerAfter = await page.$eval('.dash-timer', el => el.textContent.trim());
+    assert.ok(parseInt(timerAfter, 10) < parseInt(timerStart, 10), `Dash typed timer must decrement during the sprint, got ${timerStart} -> ${timerAfter}`);
+    check(`Dash typed: timer decrements during the sprint (${timerStart} -> ${timerAfter})`);
+    let expectedScore = 0;
+    for (const [base, answer] of WORDS.slice(1, 3)) {
+        const last = base === WORDS[2][0];
+        assert.equal(await question(), base);
+        await clearBox();
+        await page.keyboard.type(answer, { delay: 20 });
+        await page.keyboard.press('Enter');
+        const advanced = await page.waitForFunction(isLast => {
+            const questionEl = document.querySelector('#question-text');
+            if (document.querySelectorAll('[uib-modal-window]').length > 0) return false;
+            if (isLast) return questionEl === null && !document.querySelector('#answer-text');
+            return questionEl !== null && questionEl.textContent !== '';
+        }, { timeout: 2000 }, last).then(() => true).catch(() => false);
+        assert.ok(advanced, last ? 'Dash typed: last round reaches the results state' : 'Dash typed: round "' + answer + '" advances');
+        expectedScore += 1;
+        assert.equal(await page.$eval('.dash-score', el => el.textContent), String(expectedScore), `Dash typed score must be ${expectedScore} after correct answer "${answer}"`);
+    }
+    check('Dash typed: typed answers advance all 3 sprint rounds with scoring');
+    assert.equal(await boxValue(), null);
+    await page.waitForSelector('.dash-results:not([hidden])', { timeout: 2000 });
+    const resultsText = await page.$eval('.dash-results', el => el.textContent);
+    assert.ok(resultsText.includes('Dash complete'), 'Dash typed results interstitial must name the sprint, got: ' + resultsText);
+    check('Dash typed: results interstitial appears at sprint end');
+    await page.waitForSelector('button.exit-button', { timeout: 2000 });
+    const exit = await page.$('button.exit-button');
+    const exitNav = page.waitForNavigation({ timeout: 5000, waitUntil: 'domcontentloaded' }).catch(() => null);
+    await exit.click();
+    await exitNav;
+    await page.waitForSelector('main #single-spa-application\\:mfeGlobalNavigation\\:Tertiary', { timeout: 2000 });
+    check('Dash typed: completion exit button resolves and clicks to dashboard');
+}
+
 async function testHotkeyPreloadSurvival(page, origin) {
     const state = { refreshed: 0 };
     const doRefresh = async () => { state.refreshed += 1; };
@@ -324,6 +399,9 @@ async function main() {
         // --- Dash sprint (issue #237): shared selectors + timed chrome ---
         await readDashWordLists(page, origin);
         await testDashSprint(page, origin);
+
+        // --- Dash typed sprint (issue #273): #272-captured shape ---
+        await testDashTypedSprint(page, origin);
 
         // --- host bindings + preload ---
         await testHotkeyPreloadSurvival(page, origin);

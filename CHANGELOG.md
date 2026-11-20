@@ -11,6 +11,7 @@ Dated evidence moved from the root README. Each entry is a dated, user-run check
 - 30 Oct 2026: Listening and Dictation each ran one accepted type/submit/advance cycle.
 - 2026-10-30: the live Listening task ships no marking flag.
 - 19 Nov 2026: a live Dash run plus a read-only `EP_DASH_INSPECT` capture established the real multi-choice round shape; Dash multi-choice rounds are now answered from that shape, fixture-tested only - no end-to-end live Dash sprint yet.
+- 20 Nov 2026 (#272, issue #273): a second live `EP_DASH_INSPECT` capture established the typed Dash round shape (`isDash` on EP's QuizModel, `gameMode` null, `questionType` 0, `translationMode` 0, one `validAnswers` entry, no components, `#question-text` + `input#answer-text`, one Submit button); Dash typed rounds are now answered from that shape (shipped answer only, no word-list lookup, no random probe), fixture-tested only - no end-to-end live Dash sprint yet. Audio, mixed-surface and other Dash layouts still refuse by name.
 - Ordinary guarded dropdown: one bounded live F4 popup submission, which EP marked correct.
 - 5, 6, 8 and 17 Nov 2026: live validations. Their detailed sections are in [docs/question-types.md](docs/question-types.md).
 
