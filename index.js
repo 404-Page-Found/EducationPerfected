@@ -2904,6 +2904,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 refresh: refreshWords,
                 inspect: () => collectSelfMarkDiagnostics(page),
                 inspectDash: () => require('./lib/dash-diagnostics').collectDashDiagnostics(page),
+                inspectComponents: () => require('./lib/components-diagnostics').collectComponentsDiagnostics(page),
                 close: () => legacySignals && startupSignal ? closeSignalBrowser() : browser.close(),
             });
             // Issue #222: expose accuracy in status and allow tuning when stopped.
