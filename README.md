@@ -103,6 +103,7 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 - `status` - show current status (including accuracy target)
 - `inspect-self-mark` - read-only capture of a self-mark (Reflection) page
 - `inspect-dash` - read-only capture of a Dash round's structure (used for shapes the Dash answerer refuses)
+- `inspect-components` - read-only capture of a slide's question components (used for slides the answerer refuses on an accompanying component)
 - `quit` - close the CLI
 
 The browser also has a collapsible **EducationPerfected** menu in the bottom-right
@@ -217,7 +218,7 @@ Unsupported Smart Lesson question types are detected and reported, not guessed a
 
 - **Dash support is fixture-tested only.** Choice rounds (19 November 2026) and typed rounds (20 November 2026) are answered from live structural captures (see [CHANGELOG](CHANGELOG.md#live-verification-log)); no end-to-end live Dash sprint has been run through the program yet, and other Dash layouts are refused by name. Run `inspect-dash` at a refused round and send the `EP_DASH_INSPECT` line to help extend support.
 - **Audio answers depend on EP's data.** Audio is answered from the data EP ships to the browser before submission. If that state goes missing, those tasks fail loudly rather than fall back to guessing. Self-test work still earns points and stays visible to teachers.
-- **Smart Lesson support is limited.** Only explicitly auto-marked activities are answered. Full-lesson completion and automated rejection handling are not proved live.
+- **Smart Lesson support is limited.** Only explicitly auto-marked activities are answered. Full-lesson completion and automated rejection handling are not proved live. A slide that pairs a supported question with an unrecognized accompanying component stops instead of answering the supported part; run `inspect-components` with the CLI stopped at that slide and send the `EP_COMPONENTS_INSPECT` line to help map the companion.
 - **Word-list parsing is best-effort.** Extreme formatting cases can still produce incorrect answers.
 - **The anti-cheat bypass may stop working** when the service changes.
 

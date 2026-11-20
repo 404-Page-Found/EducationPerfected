@@ -78,6 +78,26 @@ refresh are locked out. Waiting is bounded to two seconds; a remote read already
 in flight may finish later, but it has no write path. Existing answering guards
 are unchanged. A capture is not permission for live answering.
 
+### Read-only slide component inspection (#231)
+
+When a Smart Lesson slide stops on an accompanying component the answerer does not
+recognize, the slide's full component structure can be captured without starting
+answering:
+
+1. Run `node bin/cli.js`, finish sign-in, and open the approved lesson slide.
+2. Leave the CLI inactive (stopped, completed or error state). Do not type `start` or press the answering hotkey.
+3. Type `inspect-components` once. Paste the line beginning `EP_COMPONENTS_INSPECT`.
+4. Type `quit` when finished.
+
+The command reads structural metadata and fixed-selector control counts only. It does
+not type, click, focus, Submit, reveal answers or advance the question. It reports
+recognized component codes by name (unlisted codes as `UNLISTED_COMPONENT`), marking
+flags, option counts and Correct-flag tallies, not answer values, question text,
+arbitrary keys, classes, labels or IDs. Cached metadata accessors are skipped.
+Assessment mode stops before question-state reads. While inspection is pending,
+answering, mode changes and refresh are locked out. A capture is not permission for
+live answering.
+
 
 ### Dropdown Submit readiness
 
