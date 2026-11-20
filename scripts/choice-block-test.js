@@ -196,6 +196,23 @@ async function setup(page, origin) {
         await variableVariant('[block\nx ]\n]', '[block\nx\n]', 'x', { kind: 'unsupported', check: 'body-bracket', directive: 'inline-bracket' });
         await variableVariant('[block\n \n]', '[block\nx\n]', 'x', { kind: 'unsupported', check: 'body-blank' });
         await variableVariant('[block\n \u000b \n]', '[block\nx\n]', 'x', { kind: 'unsupported', check: 'body-control' });
+        // A failure on a later option proves the map checks the whole set,
+        // not just the first refusal.
+        await setup(page, origin);
+        await page.evaluate(() => {
+            const f = window.mathFixture;
+            f.comp.Options[2].TextTemplate = '[block\n[table\n]\n]';
+            f.metadata.Options[2].TextTemplate = '[block\nx\n]';
+            f.previews[2].renderer.templateString = '[block\nx\n]';
+            f.previews[2].fields.renderGroup.textContent = 'x';
+        });
+        const lateRefusal = await detectQuestion(page);
+        assert.equal(lateRefusal.kind, 'unsupported');
+        assert.equal(lateRefusal.diagnostic?.boundary, 'raw-template');
+        assert.equal(lateRefusal.diagnostic?.option, 2);
+        assert.equal(lateRefusal.diagnostic?.check, 'body-bracket');
+        assert.equal(lateRefusal.diagnostic?.directive, 'table');
+        assert.deepEqual(lateRefusal.diagnostic?.optionChecks, ['ok', 'ok', 'body-bracket:table', 'ok']);
         const boundaries = {
             'no-parser': 'renderer-graph', 'foreign-index': 'renderer-graph', image: 'option-dom', math: 'raw-template', // injected katex flips detection to the formula path, whose raw templates carry no backticks
             'extra-editable': 'option-dom', 'render-text': 'option-dom', 'unknown-grammar': 'raw-template', 'unknown-attribute': 'raw-template',
