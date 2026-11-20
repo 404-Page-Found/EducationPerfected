@@ -80,9 +80,11 @@ async function main() {
     await new Promise(resolve => setImmediate(resolve)); // let start()'s setup probe land
     session.calls.length = 0;
     for (const [channel, method, args] of expected) await handlers.get(channel)({}, ...args);
-    assert.deepEqual(session.calls.map(([name]) => name), expected.map(([, method]) => method));
-    // Login fields arrive as two arguments and become one record for the store.
-    assert.deepEqual(session.calls.find(([name]) => name === 'saveLogin'), ['saveLogin', { email: 'a@b.c', password: 'pw' }]);
+    // Full argument comparison: dropped or swapped IPC payloads fail here.
+    assert.deepEqual(session.calls, expected.map(([, method, args]) => {
+        if (method === 'saveLogin') return ['saveLogin', { email: args[0], password: args[1] }];
+        return [method, ...args];
+    }));
     console.log('ok ipc channel mapping');
 
     // The window is sandboxed, isolated and loads only the bundled renderer.
@@ -96,15 +98,31 @@ async function main() {
     assert.ok(windows[0].file.endsWith(path.join('app', 'renderer', 'index.html')));
     console.log('ok window security preferences');
 
-    // Closing the last window drains the session before quitting.
+    // Closing the last window drains the session before quitting; app.quit()
+    // waits even for a deferred close().
+    let releaseClose;
+    session.close = () => new Promise(resolve => { releaseClose = () => { session.calls.push(['close']); resolve({ ok: true }); }; });
     const beforeQuit = listeners.get('before-quit');
     let prevented = false;
     beforeQuit({ preventDefault: () => { prevented = true; } });
     assert.equal(prevented, true);
     await new Promise(resolve => setImmediate(resolve));
+    assert.equal(listeners.get('quit-called'), undefined); // still waiting on close
+    releaseClose();
+    await new Promise(resolve => setImmediate(resolve));
     await new Promise(resolve => setImmediate(resolve));
     assert.ok(session.calls.some(([name]) => name === 'close'));
     assert.equal(listeners.get('quit-called'), true);
+
+    // The window-all-closed path triggers the same drain-and-quit on a fresh app.
+    const second = fakeElectron();
+    const secondSession = fakeSession();
+    createElectronApp({ electron: second.electron, session: secondSession }).start();
+    second.listeners.get('window-all-closed')();
+    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.ok(secondSession.calls.some(([name]) => name === 'close'));
+    assert.equal(second.listeners.get('quit-called'), true);
     console.log('ok quit drains the session');
 
     // The preload exposes exactly the allowlisted API over fixed channels. The

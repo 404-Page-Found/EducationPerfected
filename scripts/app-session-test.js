@@ -252,6 +252,33 @@ async function main() {
         console.log('ok browser disconnect resets the session');
     }
 
+    // A close during launch wins: the fresh browser is shut, never marked ready.
+    {
+        let releaseLaunch;
+        const controlsClosed = [];
+        const { deps } = makeDeps({
+            installedBrowser: async () => '/fake/chrome',
+            launchProgram: () => new Promise(resolve => {
+                releaseLaunch = () => resolve({
+                    status: () => ({ state: 'stopped', mode: 'auto' }),
+                    close: async () => { controlsClosed.push(true); return { state: 'closed' }; },
+                });
+            }),
+        });
+        const session = createAppSession(deps);
+        await session.refreshSetup();
+        const starting = session.startSession();
+        await new Promise(resolve => setImmediate(resolve));
+        const closing = session.close();
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(controlsClosed.length, 0); // close waits out the launch
+        releaseLaunch();
+        await Promise.all([starting, closing]);
+        assert.equal(controlsClosed.length, 1);
+        assert.equal(session.getState().session, 'closed');
+        console.log('ok close during launch shuts the fresh browser');
+    }
+
     // close() drains the shared controls and cleans up.
     {
         const { deps, calls } = makeDeps({ installedBrowser: async () => '/fake/chrome' });

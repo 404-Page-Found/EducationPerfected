@@ -124,7 +124,8 @@ function renderMain(state) {
     $('apply-mode').disabled = busy;
     $('apply-accuracy').disabled = busy;
     $('apply-delay').disabled = busy;
-    if (status && status.mode) $('mode').value = status.mode;
+    // Don't clobber an unapplied mode choice with the one-second poll.
+    if (status && status.mode && document.activeElement !== $('mode')) $('mode').value = status.mode;
     $('login-status').textContent = state.setup.hasLogin
         ? 'A login is saved in your OS credential store.'
         : 'No login saved. You sign in manually in the browser.';
@@ -192,10 +193,15 @@ $('skip-login').addEventListener('click', () => { void startFromSetup(); });
 $('finish-setup').addEventListener('click', () => { void startFromSetup(); });
 
 async function startFromSetup() {
+    const errorBox = $('setup-error');
+    errorBox.hidden = true;
     try {
         await api.completeWizard();
         await api.startSession();
-    } catch (error) { showMessage(String(error && error.message ? error.message : error), true); }
+    } catch (error) {
+        errorBox.textContent = String(error && error.message ? error.message : error);
+        errorBox.hidden = false;
+    }
 }
 
 $('retry-session').addEventListener('click', async () => {

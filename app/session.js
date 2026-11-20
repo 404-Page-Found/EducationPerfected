@@ -18,7 +18,9 @@ const ACTIONS = new Set(['status', 'start', 'stop', 'mode', 'refresh', 'accuracy
 const MODES = new Set(['auto', 'semi']);
 
 function createAppSession({
-    launchProgram = require('../index').launchProgram,
+    // The core import must stay lazy: requiring index.js loads Puppeteer, and
+    // startSession sets PUPPETEER_EXECUTABLE_PATH for the pinned browser first.
+    launchProgram = (...args) => require('../index').launchProgram(...args),
     ensureBrowser = require('../packaging/download-browser').ensureBrowser,
     installedBrowser = require('../packaging/download-browser').installedBrowser,
     store = require('../lib/credential-store').createCredentialStore(),
@@ -40,6 +42,8 @@ function createAppSession({
     let downloading = false;
     let pendingReflection = null;
     let reflectionSeq = 0;
+    let launching = null;
+    let closeRequested = false;
 
     const emit = (name, payload) => onEvent(name, payload);
     const emitState = () => emit('state', getState());
@@ -161,6 +165,7 @@ function createAppSession({
         async startSession() {
             if (sessionState === 'starting' || sessionState === 'ready') return getState();
             if (!setup.browserReady) throw new Error('Finish first-run setup before starting.');
+            closeRequested = false;
             sessionState = 'starting';
             sessionError = null;
             emitState();
@@ -173,17 +178,27 @@ function createAppSession({
                 env.PUPPETEER_EXECUTABLE_PATH = await ensureBrowser({ consent: async () => true, output: { write: line => emit('setup-progress', String(line)) }, home });
                 runtime = createRuntimeDirectory();
                 env.PUPPETEER_TMP_DIR = runtime.directory;
-                const launched = await launchProgram({
+                launching = Promise.resolve().then(() => launchProgram({
                     onBrowserClosed: () => { void cleanupRuntime(true); resetSession('closed'); },
                     onBrowserDisconnected: () => { void cleanupRuntime(true); resetSession('closed'); },
                     reflectionTextProvider,
                     accuracy,
-                });
+                }));
+                const launched = await launching;
+                launching = null;
+                // A close that landed mid-launch still wins: shut what started.
+                if (closeRequested) {
+                    try { await launched.close(); } catch { /* closing is best-effort on app quit */ }
+                    await cleanupRuntime(true);
+                    resetSession('closed');
+                    return getState();
+                }
                 controls = launched;
                 sessionState = 'ready';
                 emitState();
                 return getState();
             } catch (error) {
+                launching = null;
                 await cleanupRuntime(true);
                 resetSession('failed', String(error && error.message ? error.message : error));
                 throw error;
@@ -227,6 +242,10 @@ function createAppSession({
         },
 
         async close() {
+            closeRequested = true;
+            // Wait out an in-flight launch first; its continuation sees
+            // closeRequested and shuts the fresh browser instead of going ready.
+            if (launching) { try { await launching; } catch { /* startup failure state already recorded */ } }
             const current = controls;
             if (current) {
                 try { await current.close(); } catch { /* closing is best-effort on app quit */ }

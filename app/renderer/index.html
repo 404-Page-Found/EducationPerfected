@@ -47,6 +47,7 @@
             <p>Setup is complete. The browser will open so you can sign in and open a task.</p>
             <button id="finish-setup" class="primary">Open the browser</button>
         </div>
+        <p id="setup-error" class="error" role="alert" hidden></p>
     </section>
 
     <section id="main-screen" class="screen" hidden>
@@ -74,7 +75,7 @@
                 <input id="delay" placeholder="Pacing: 2-6, on, off, reset" aria-label="Pacing" autocomplete="off">
                 <button id="apply-delay">Apply pacing</button>
             </div>
-            <p class="fine">Change mode, accuracy or pacing only while stopped. Auto submits answers for you; Semi-auto fills them for you to submit.</p>
+            <p class="fine">Change mode, accuracy or pacing only while stopped. Auto submits answers for you; Semi-auto fills them for you to submit. An empty pacing or accuracy Apply reads the current setting; per-type pauses need pacing on with no custom range (use <code>reset</code> to clear one).</p>
         </div>
 
         <div class="card">

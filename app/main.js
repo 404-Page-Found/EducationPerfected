@@ -73,7 +73,9 @@ function createElectronApp({ electron, session }) {
     async function quit() {
         if (quitting) return;
         quitting = true;
-        try { await session.close(); } finally { app.quit(); }
+        // A stuck browser must not trap the app: quit anyway after a bound.
+        const bound = new Promise(resolve => setTimeout(resolve, 10000));
+        try { await Promise.race([session.close().catch(() => {}), bound]); } finally { app.quit(); }
     }
 
     function start() {
