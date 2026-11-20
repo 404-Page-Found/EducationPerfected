@@ -67,6 +67,11 @@ const series=(items,run)=>items.reduce((previous,item)=>previous.then(()=>run(it
         assert.deepEqual(choiceRefusal.diagnostic.unsupportedTypes,{MULTICHOICE_COMPONENT:1});
         assert.deepEqual(choiceRefusal.diagnostic.choiceSurface,{domGroups:0,domMultiSelectGroups:0,allowMultiSelect:{false:1},marked:{1:1},rendererEntries:{bound:1,ambiguous:0,missing:0},dropdownMarked:{1:1}});
         assert.doesNotMatch(JSON.stringify(choiceRefusal),/PRIVATE|invented|Radius/i);
+        // String multi flags are tallied as written; a stale cache entry (id mismatch) is not counted as bound.
+        await page.evaluate(()=>{dropdownFixture.q.questionDef.Components[1].AllowMultiSelect='false';dropdownFixture.base['invented-companion'][0].id='stale';});
+        const staleRefusal=await detectQuestion(page);
+        assert.deepEqual(staleRefusal.diagnostic.choiceSurface.allowMultiSelect,{false:1});
+        assert.deepEqual(staleRefusal.diagnostic.choiceSurface.rendererEntries,{bound:0,ambiguous:0,missing:1});
         // Replacing even an otherwise identical companion during input must stop.
         await series(['component','element','metadata','definition'],async change=>{
             await setup('annotated-text');const d=await detectQuestion(page);
