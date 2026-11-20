@@ -25,3 +25,25 @@ jobs:
         run: node node_modules/puppeteer/lib/puppeteer/node/cli.js browsers install chrome-headless-shell
       - name: Test controls, startup, signal drain, CLI and cleanup restart
         run: npm run test:phase3
+
+  # The handler fixture suite (npm run test:handlers) covers every
+  # question-type handler, refusal path and CLI fixture session. It ran
+  # nowhere in CI until #279, which let the per-command status line break
+  # three CLI tests on main unnoticed (fixed in #278). Same pinned setup as
+  # the source-regression job; parallel so the existing signal stays fast.
+  handlers:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.4
+      - name: Install pinned dependencies without lifecycle hooks
+        run: npm ci --ignore-scripts
+      - name: Install pinned local-test browser
+        run: node node_modules/puppeteer/lib/puppeteer/node/cli.js browsers install chrome-headless-shell
+      - name: Test question-type handlers, refusals and CLI fixture sessions
+        run: npm run test:handlers
