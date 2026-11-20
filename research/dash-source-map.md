@@ -73,6 +73,47 @@ scoring, the completion/results screen, typed wrong-answer behavior
 mixed-surface or formula/block Dash variants (each still refuses by name
 pending its own capture).
 
+## What the second 2026-11-20 capture added (#282)
+
+Page's third sanitised `EP_DASH_INSPECT` capture (20 November 2026, filed as
+#282) recorded a Dash sprint round built on a NUMBER_BOX_COMPONENT:
+
+- Routing: path includes `dash`, not `quiz`; `gameMode` null, `isDash` true,
+  `sectionData` absent; activity `_activityType` 6 / `_contentType` 0.
+- Question: valid `contentID`/`questionIndex`, `questionType` 6,
+  `translationMode` 4 - the SAME codes as the 19 November multi-choice
+  capture, so those codes do not distinguish Dash round layouts; the
+  component list does. `validAnswers` EMPTY; exactly one
+  `NUMBER_BOX_COMPONENT` (`Marked` 0, one option, no `Correct` string or
+  boolean flags, correct fields absent).
+- DOM: no `#question-text`, no `input#answer-text`, no `.voice-speaker`, no
+  choice groups or options, one `button.submit-button`, one `.exit-button`,
+  and no timer element candidates (the real timer markup is still uncaptured
+  on all three Dash layouts).
+
+Two findings this capture settles:
+
+1. **No shipped answer.** The choice round's answer came from the shipped
+   `Correct` flag and the typed round's from the shipped `validAnswers`
+   entry; this shape ships neither, so it is not answerable from the
+   captured state. Refusal is the designed outcome, not a missing handler.
+2. **Named refusal.** The shared lesson input-boxes reader
+   (`lib/textbox-state.js`) now refuses a Dash model by name
+   (`dash: true` + `inspect-dash` guidance) instead of its generic
+   `model-or-auto-mark` lesson refusal, closing the gap
+   `scripts/dash-refusal-test.js` already pinned for the classic, audio,
+   typed and choice readers.
+
+The synthetic `/dash-task/number-box` fixture reproduces the captured model
+shape (one visible `input.number-box-component` per chunk606's renderer; the
+capture's DOM tally did not count it) and `scripts/dash-cli-test.js` proves
+the real CLI stops and names Dash without submitting.
+
+Still unknown after all three captures: the real timer markup and expiry
+behavior, scoring, the completion/results screen, wrong-answer behavior, and
+any audio, multi-select, mixed-surface or formula/block Dash variants (each
+still refuses by name pending its own capture).
+
 ## Synthetic evidence and its limits
 
 `scripts/mock-ep.js` `/dash-task/quiz` models the captured shape above
@@ -97,3 +138,11 @@ lookup, no random probe) and proves `/typed-round` off the dash route refuses
 by name; `scripts/dash-typed-test.js` covers the reader's accepted shape and
 named refusals. Typing, grading, advance and completion in the fixture remain
 fixture behavior, not live-verified EP behavior.
+
+`/dash-task/number-box` (added for #282, modelled from the second 20 November
+capture) reproduces the number-box shape: `gameMode: null`, `isDash: true`,
+`questionType` 6, `translationMode` 4, `validAnswers` empty, one
+`NUMBER_BOX_COMPONENT` (`Marked` 0, one option, no correct flags), one Submit
+button, one exit button and a fixture-invented timer. The CLI refuses it by
+name without submitting; there is no answering behavior to verify because the
+captured model ships no answer.
