@@ -191,6 +191,12 @@ const { bootCli, fixtureLogin } = require('./cli-test-harness');
         if (!nbOut.includes('inspect-dash')) {
             throw new Error('Dash number-box refusal did not point at the inspect-dash capture');
         }
+        // The refusal must be a stop, not a fill: the fixture counts input
+        // events on the box and clicks on Submit, and both must stay zero.
+        const nbTouched = await page.evaluate(() => (window.__nbActions ? window.__nbActions() : -1));
+        if (nbTouched !== 0) {
+            throw new Error('Dash number-box round was touched despite the refusal: ' + nbTouched);
+        }
         await command('status', '"state":"stopped"');
 
         console.log('Dash: unknown-question timed run warns; refreshed timed run completes without the warning; captured quiz shape is answered to completion; off-route round refuses by name; inspect-dash captures sanitised; captured typed shape is answered to completion with off-route refusal; captured number-box shape refuses by name without submitting PASS. Synthetic only.');

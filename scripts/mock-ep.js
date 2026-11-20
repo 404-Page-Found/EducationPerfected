@@ -547,6 +547,12 @@ const dashNumberBoxPage = PAGE(`
         Object.defineProperty(dashSelf.model._currentQuestion, 'Answers',
             { get() { throw new Error('accessor-must-not-run'); } });
         window.angular = { element: () => ({ scope: () => ({ self: dashSelf }) }) };
+        // Instrumentation for the CLI test: any input event on the box or
+        // click on Submit proves the round was touched despite the refusal.
+        let actions = 0;
+        document.querySelector('.number-box-component').addEventListener('input', () => { actions += 1; });
+        document.querySelector('.submit-button').addEventListener('click', () => { actions += 1; });
+        window.__nbActions = () => actions;
     </script>`);
 
 // ---------------------------------------------------------------------------
