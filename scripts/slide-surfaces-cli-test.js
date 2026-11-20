@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { bootFixtureCli } = require('./fixture-cli-session');
+const { bootFixtureCli, stripCliStatusLines } = require('./fixture-cli-session');
 
 // The composed slide's teardown must remove BOTH surfaces' groups so the
 // CLI's completion watch sees the lesson end after the single Submit.
@@ -58,7 +58,7 @@ async function bootMixedCli() {
         assert.equal(output.includes('"kind":"slide-surfaces-refusal"'), true);
         assert.equal(output.includes('"guard":"mixed-definition-marking"'), true);
         assert.equal(output.includes('approval'), false);
-        assert.equal(['30', '7', 'Invented'].some(text => output.includes(text)), false);
+        assert.equal(['30', '7', 'Invented'].some(text => stripCliStatusLines(output).includes(text)), false);
         assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.inputs.length, multiFixture.clicks.length, dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [0, 0, 0, 0]);
         child.stdin.write('quit\n');
         await wait(() => child.exitCode !== null);

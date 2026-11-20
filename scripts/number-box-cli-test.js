@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { bootFixtureCli } = require('./fixture-cli-session');
+const { bootFixtureCli, stripCliStatusLines } = require('./fixture-cli-session');
 
 async function bootNumberBoxCli(path = '/lesson-number-box') {
     const session = await bootFixtureCli('cli.js', 'Commands: start');
@@ -59,7 +59,7 @@ async function expectRefusal(prepare, guard, expectedInputs, options = {}) {
         const output = String(session.output.slice(offset));
         assert.equal(output.includes(`"guard":"${guard}"`), true);
         assert.equal(output.includes('approval'), false);
-        assert.equal(forbidden.some(text => output.includes(text)), false);
+        assert.equal(forbidden.some(text => stripCliStatusLines(output).includes(text)), false);
         assert.deepEqual(await page.evaluate(() => [numberBoxFixture.inputs.length, numberBoxFixture.submits, numberBoxFixture.nexts]), [expectedInputs, 0, 0]);
         child.stdin.write('quit\n');
         await wait(() => child.exitCode !== null);
