@@ -52,7 +52,9 @@ async function bootMixedCli() {
         const offset = session.output.length;
         child.stdin.write('start\n');
         await wait(() => session.output.slice(offset).includes('Unsupported question diagnostic '));
-        const output = String(session.output.slice(offset));
+        // The post-command status print lists the fixed pacing ranges (e.g.
+        // [3000,8000]); drop those lines before the content-free check.
+        const output = String(session.output.slice(offset)).split('\n').filter(l => !l.startsWith('{"state"')).join('\n');
         assert.equal(output.includes('"kind":"slide-surfaces-refusal"'), true);
         assert.equal(output.includes('"guard":"mixed-definition-marking"'), true);
         assert.equal(output.includes('approval'), false);
