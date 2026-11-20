@@ -57,4 +57,10 @@ async function installSubmitExitTeardown(session, fixtureGlobal) {
     }, fixtureGlobal);
 }
 
-module.exports = { bootFixtureCli, installSubmitExitTeardown };
+// The CLI prints a one-line status JSON (state, accuracy, pacing ranges) after
+// every command since #221/#227. That line is control-plane output, not
+// diagnostic output, and its millisecond ranges can contain digit runs that
+// collide with short answer tokens, so content-free output checks filter it.
+const stripCliStatusLines = output => String(output).split('\n').filter(line => !line.startsWith('{"state":')).join('\n');
+
+module.exports = { bootFixtureCli, installSubmitExitTeardown, stripCliStatusLines };
