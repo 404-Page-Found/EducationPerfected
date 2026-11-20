@@ -5,7 +5,7 @@ const {readDropdownsInPage}=require('../lib/dropdown-state');
 const countFields=mutation=>{
  if(!['mixed','extraSelect'].includes(mutation))return {};
  const extra=Number(mutation==='mixed');
- return{definitionCount:5+extra,dropdownDefinitionCount:5,companionDefinitionCount:0,unsupportedDefinitionCount:extra};
+ return{definitionCount:5+extra,dropdownDefinitionCount:5,companionDefinitionCount:0,unsupportedDefinitionCount:extra,...(extra?{unsupportedTypes:{TEXT_BOX_COMPONENT:1},unsupportedIsInput:{yes:0,no:0,unknown:1}}:{})};
 };
 const baseDefinitions={total:5,byType:{dropdown:5},marked:5,unmarked:0,invalidMarked:0};
 const extraFields=mutation=>{
