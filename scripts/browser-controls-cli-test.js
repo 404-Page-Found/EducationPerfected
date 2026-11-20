@@ -70,6 +70,9 @@ const { installControlMenu } = require('../lib/browser-controls');
                 && after(root.getElementById('result'), root.querySelector('button'));
         });
         assert.ok(topDown, 'result block sits at the top between the status bar and the controls');
+        assert.equal(await page.evaluate(() => [...document.getElementById('educationperfected-controls').shadowRoot.querySelectorAll('button')].filter(button => (button.dataset.action || '').startsWith('inspect')).length), 0, 'no inspect-* developer commands in the panel');
+        await assert.rejects(page.evaluate(() => window.epControl('inspect-dash')), /Unknown browser control/, 'the page control surface no longer dispatches inspect-*');
+        await command('inspect-dash', 'EP_DASH_INSPECT ', 'terminal keeps the read-only capture command');
         await command('accuracy off', '"enabled":false');
         await page.waitForFunction(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('live').textContent.includes('accuracy 100%'));
         if (process.env.EP_PANEL_SCREENSHOT) {
