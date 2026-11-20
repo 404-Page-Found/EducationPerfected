@@ -40,21 +40,34 @@ function createProgress(output=process.stdout){
   else output.write(live?'\r'+line:line+'\n');
  };
 }
+// Verifies an installed browser directory's receipt and executable. Throws on any
+// invalid or changed state (fail-closed, exactly as ensureBrowser's cache check).
+async function readInstalledBrowser(directory,receipt,output,pin){
+ if(!fs.existsSync(receipt))return null;
+ const record=JSON.parse(fs.readFileSync(receipt,'utf8'));
+ if(record.version!==pins.version||record.sha256!==pin.sha256||typeof record.executable!=='string'||path.isAbsolute(record.executable))throw new Error('Invalid browser installation receipt');
+ const file=path.resolve(directory,record.executable);
+ if(!file.startsWith(directory+path.sep)||!fs.statSync(file).isFile()||!fs.realpathSync(file).startsWith(fs.realpathSync(directory)+path.sep))throw new Error('Incomplete browser installation');
+ if(typeof record.executableSha256!=='string'||await fileHash(file)!==record.executableSha256){output.write('Cached browser executable changed. Close all EducationPerfected processes, remove this browser installation directory, then retry: '+directory+'\n');throw new Error('Cached browser executable changed');}
+ return file;
+}
+// Read-only probe for first-run setup surfaces (the desktop window): the installed
+// pinned browser's executable path, or null when it is absent or unusable. Never
+// downloads, prompts, locks or throws.
+async function installedBrowser({home=os.homedir(),platform=process.platform,arch=process.arch}={}){
+ try {
+  const pin=hostPin(platform,arch);
+  const directory=path.join(home,'.educationperfected','browsers',pins.version+'-'+pin.platform);
+  return await readInstalledBrowser(directory,path.join(directory,'COMPLETE.json'),{write:()=>{}},pin);
+ } catch { return null; }
+}
 async function ensureBrowser({consent=promptDownload,install,api,home=os.homedir(),platform=process.platform,arch=process.arch,output=process.stdout,extractor=checkExtractor}={}){
  const pin=hostPin(platform,arch);
  // Do not share Puppeteer's cache or honor arbitrary browser/base-URL environment overrides.
  const root=path.join(home,'.educationperfected','browsers');
  fs.mkdirSync(root,{recursive:true,mode:0o700});
  const directory=path.join(root,pins.version+'-'+pin.platform),receipt=path.join(directory,'COMPLETE.json');
- const existing=async()=>{
-  if(!fs.existsSync(receipt))return null;
-  const record=JSON.parse(fs.readFileSync(receipt,'utf8'));
-  if(record.version!==pins.version||record.sha256!==pin.sha256||typeof record.executable!=='string'||path.isAbsolute(record.executable))throw new Error('Invalid browser installation receipt');
-  const file=path.resolve(directory,record.executable);
-  if(!file.startsWith(directory+path.sep)||!fs.statSync(file).isFile()||!fs.realpathSync(file).startsWith(fs.realpathSync(directory)+path.sep))throw new Error('Incomplete browser installation');
-  if(typeof record.executableSha256!=='string'||await fileHash(file)!==record.executableSha256){output.write('Cached browser executable changed. Close all EducationPerfected processes, remove this browser installation directory, then retry: '+directory+'\n');throw new Error('Cached browser executable changed');}
-  return file;
- };
+ const existing=()=>readInstalledBrowser(directory,receipt,output,pin);
  const cached=await existing();if(cached)return cached;
  const lock=directory+'.lock';let fd;
  try {fd=fs.openSync(lock,'wx',0o600);} catch(error) {if(error.code!=='EEXIST'){throw error;}output.write('Browser installation is active or was interrupted. Lock: '+lock+'. Close all EducationPerfected processes, then remove that lock and orphaned .download-* directories in '+root+' before retrying. Never remove them while an installation is running.\n');throw new Error('Browser installation lock requires inspection');}
@@ -83,4 +96,4 @@ async function ensureBrowser({consent=promptDownload,install,api,home=os.homedir
   return existing();
  } finally {clearTimeout(timer);process.removeListener('exit',cleanup);cleanup();}
 }
-module.exports={createProgress,hostPin,ensureBrowser,promptDownload,checkExtractor};
+module.exports={createProgress,hostPin,ensureBrowser,installedBrowser,promptDownload,checkExtractor};

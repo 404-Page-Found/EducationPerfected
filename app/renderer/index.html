@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EducationPerfected</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main id="app">
+    <header>
+        <img id="logo" src="../../branding/icon-128.png" alt="" width="28" height="28">
+        <h1>EducationPerfected</h1>
+        <span id="version"></span>
+    </header>
+
+    <section id="loading-screen" class="screen">
+        <p>Loading…</p>
+    </section>
+
+    <section id="setup-screen" class="screen" hidden>
+        <div class="card" id="setup-browser-card">
+            <h2>One-time browser download</h2>
+            <p>EducationPerfected drives its own pinned Chrome for Testing, downloaded once from Google (about 200 MB) into your EducationPerfected data folder. Your regular Chrome is not used or changed.</p>
+            <p class="fine">Downloading accepts Google's terms: policies.google.com/terms and google.com/chrome/terms.</p>
+            <button id="download-browser" class="primary">Download Chrome</button>
+            <div id="download-progress" hidden>
+                <div id="download-bar"><div id="download-fill"></div></div>
+                <p id="download-line" class="fine"></p>
+            </div>
+            <p id="download-error" class="error" role="alert" hidden></p>
+        </div>
+        <div class="card" id="setup-login-card" hidden>
+            <h2>Save your login (optional)</h2>
+            <p>Saved in your OS credential store, never in a file. You can also skip this and sign in manually in the browser each time.</p>
+            <label>EP email <input id="login-email" type="text" autocomplete="off" spellcheck="false"></label>
+            <label>EP password <input id="login-password" type="text" autocomplete="off" spellcheck="false"></label>
+            <div class="row">
+                <button id="save-login" class="primary">Save login</button>
+                <button id="skip-login">Skip</button>
+            </div>
+            <p id="login-error" class="error" role="alert" hidden></p>
+        </div>
+        <div class="card" id="setup-done-card" hidden>
+            <h2>Ready</h2>
+            <p>Setup is complete. The browser will open so you can sign in and open a task.</p>
+            <button id="finish-setup" class="primary">Open the browser</button>
+        </div>
+    </section>
+
+    <section id="main-screen" class="screen" hidden>
+        <p id="status-bar" role="status" aria-live="polite">…</p>
+        <div id="action-message" role="status" aria-live="polite" hidden></div>
+
+        <div class="card">
+            <h2>Answers</h2>
+            <div class="row">
+                <button id="start" class="primary">Start</button>
+                <button id="stop">Stop</button>
+            </div>
+            <div class="row">
+                <select id="mode" aria-label="Mode">
+                    <option value="auto">Auto</option>
+                    <option value="semi">Semi-auto</option>
+                </select>
+                <button id="apply-mode">Apply mode</button>
+            </div>
+            <div class="row">
+                <input id="accuracy" placeholder="Accuracy: 82, 70-90, off" aria-label="Accuracy target" autocomplete="off">
+                <button id="apply-accuracy">Apply accuracy</button>
+            </div>
+            <div class="row">
+                <input id="delay" placeholder="Pacing: 2-6, on, off, reset" aria-label="Pacing" autocomplete="off">
+                <button id="apply-delay">Apply pacing</button>
+            </div>
+            <p class="fine">Change mode, accuracy or pacing only while stopped. Auto submits answers for you; Semi-auto fills them for you to submit.</p>
+        </div>
+
+        <div class="card">
+            <h2>Word list</h2>
+            <p id="word-list-status">…</p>
+            <button id="refresh-words">Refresh words</button>
+            <p class="fine">Press once per new task, on the task starter page with the word lists visible, before Start.</p>
+        </div>
+
+        <details class="card" id="settings">
+            <summary>Settings</summary>
+            <p id="login-status">…</p>
+            <div class="row">
+                <button id="forget-login">Forget saved login</button>
+            </div>
+            <p id="browser-status" class="fine">…</p>
+            <p class="fine">The terminal CLI stays available as the <code>educationperfected</code> command; both share the same login, config and browser.</p>
+        </details>
+    </section>
+
+    <section id="failed-screen" class="screen" hidden>
+        <div class="card">
+            <h2>The browser session failed to start</h2>
+            <p id="failed-error" class="error"></p>
+            <button id="retry-session" class="primary">Retry</button>
+        </div>
+    </section>
+</main>
+
+<div id="reflection-modal" hidden role="dialog" aria-modal="true" aria-labelledby="reflection-title">
+    <div class="card">
+        <h2 id="reflection-title">Reflection answer needed</h2>
+        <p id="reflection-question"></p>
+        <p>Read the visible question and enter your own single-line response. Nothing is typed until you confirm.</p>
+        <input id="reflection-text" type="text" maxlength="2000" autocomplete="off" spellcheck="false" aria-label="Reflection response">
+        <div class="row">
+            <button id="reflection-fill" class="primary">Fill this response only</button>
+            <button id="reflection-cancel">Cancel</button>
+        </div>
+        <p class="fine">No Submit or self-grade will be clicked.</p>
+        <p id="reflection-error" class="error" role="alert" hidden></p>
+    </div>
+</div>
+
+<script src="renderer.js"></script>
+</body>
+</html>
