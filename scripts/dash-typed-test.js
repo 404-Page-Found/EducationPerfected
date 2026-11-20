@@ -100,24 +100,30 @@ const MODEL = (q, modelOverrides = {}) => ({ gameMode: null, isDash: true, _curr
         assert.equal(classic, null, 'non-Dash typed shape must fall through');
 
         // The model-level assessment boundary still wins over a Dash flag.
-        const assessment = await run(dom(), MODEL(question(), { gameMode: 2 }));
-        assert.equal(assessment.kind, 'unsupported');
-        assert.equal(assessment.assessment, true);
+        // Typed-Dash also proves the refusal carries the assessment marker
+        // (not merely kind unsupported).
+        const assessed = await run(dom(), MODEL(question(), { gameMode: 2 }));
+        assert.equal(assessed.kind, 'unsupported');
+        assert.equal(assessed.assessment, true);
+        assert.match(assessed.reason || '', /Assessment/);
 
         // Off the dash route the same model is unconfirmed and refuses.
+        // The typed round names the capture command so the operator can
+        // ground the shape read-only.
         await page.goto('about:blank');
-        const offRoute = await run(dom(), MODEL(question()));
-        assert.equal(offRoute.kind, 'unsupported');
-        assert.equal(offRoute.dash, true);
-        assert.match(offRoute.reason, /Dash timed sprint round detected outside a confirmed dash route/);
-        assert.match(offRoute.reason, /inspect-dash/);
+        const away = await run(dom(), MODEL(question()));
+        assert.equal(away.kind, 'unsupported');
+        assert.equal(away.dash, true);
+        assert.match(away.reason, /Dash timed sprint round detected outside a confirmed dash route/);
+        assert.match(away.reason, /inspect-dash/);
 
         // A "dash" substring inside another word (/learning/dashboard) is
         // not a dash route: the match is segment-bound.
         await page.goto(origin + '/learning/dashboard');
-        const dashboard = await run(dom(), MODEL(question()));
-        assert.equal(dashboard.kind, 'unsupported');
-        assert.match(dashboard.reason, /outside a confirmed dash route/);
+        const board = await run(dom(), MODEL(question()));
+        assert.equal(board.kind, 'unsupported');
+        assert.equal(board.dash, true);
+        assert.match(board.reason, /outside a confirmed dash route/);
 
         console.log('Dash typed reader: captured shape answered (gameMode null and CLASSIC); every deviation refuses by name; non-candidates fall through PASS. Synthetic only.');
     } finally {
