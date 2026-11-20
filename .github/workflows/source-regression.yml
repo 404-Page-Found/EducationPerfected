@@ -25,7 +25,6 @@ jobs:
         run: node node_modules/puppeteer/lib/puppeteer/node/cli.js browsers install chrome-headless-shell
       - name: Test controls, startup, signal drain, CLI and cleanup restart
         run: npm run test:phase3
-
   # The handler fixture suite (npm run test:handlers) covers every
   # question-type handler, refusal path and CLI fixture session. It ran
   # nowhere in CI until #279, which let the per-command status line break
@@ -43,7 +42,10 @@ jobs:
           node-version: 22.23.4
       - name: Install pinned dependencies without lifecycle hooks
         run: npm ci --ignore-scripts
-      - name: Install pinned local-test browser
-        run: node node_modules/puppeteer/lib/puppeteer/node/cli.js browsers install chrome-headless-shell
+      - name: Install pinned local-test browsers
+        # Handler tests launch both modes: the CLI's test boot uses the
+        # headless shell, direct fixture browsers use headless: true (the
+        # full pinned Chrome). Both must be installed.
+        run: node node_modules/puppeteer/lib/puppeteer/node/cli.js browsers install chrome chrome-headless-shell
       - name: Test question-type handlers, refusals and CLI fixture sessions
         run: npm run test:handlers
