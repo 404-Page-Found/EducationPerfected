@@ -23,20 +23,22 @@ if (!Object.hasOwn(executables, process.platform)) throw new Error('Unsupported 
 const executable = path.join(payload, executables[process.platform]);
 assert.ok(fs.statSync(executable).isFile(), 'app executable missing: ' + executable);
 
-// An isolated HOME keeps the run hermetic: no profile, credential-store or
-// app-data state from the runner, and nothing left behind there either.
+// An isolated HOME keeps POSIX runs hermetic: no profile, credential-store
+// or app-data state from the runner, and nothing left behind there either.
+// Windows is excepted: the Electron main process aborts at startup when
+// USERPROFILE is redirected away from the real profile (proven on the
+// windows-2025 runner; the CI VM is already throwaway).
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'ep-app-smoke-'));
 const reportPath = path.join(work, 'smoke-report.json');
 const env = {
     ...process.env,
     EP_APP_SMOKE: '1',
     EP_APP_SMOKE_REPORT: reportPath,
-    HOME: work,
-    USERPROFILE: work,
-    XDG_CONFIG_HOME: work,
-    XDG_CACHE_HOME: work,
     ELECTRON_ENABLE_LOGGING: '1',
 };
+if (process.platform !== 'win32') {
+    Object.assign(env, { HOME: work, USERPROFILE: work, XDG_CONFIG_HOME: work, XDG_CACHE_HOME: work });
+}
 delete env.ELECTRON_RUN_AS_NODE;
 
 // Child output goes to a log file, never a pipe: a Windows GUI-subsystem
