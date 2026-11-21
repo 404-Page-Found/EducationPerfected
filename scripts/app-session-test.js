@@ -229,7 +229,7 @@ async function main() {
         console.log('ok reflection dialog flow');
     }
 
-    // Browser loss resets to closed, cleans the runtime dir and allows relaunch.
+    // Browser loss resets to closed and allows relaunch.
     {
         const { deps } = makeDeps({ installedBrowser: async () => '/fake/chrome' });
         const session = createAppSession(deps);

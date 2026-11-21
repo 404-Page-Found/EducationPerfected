@@ -129,8 +129,8 @@ function renderMain(state) {
         ? 'A login is saved in your OS credential store.'
         : 'No login saved. You sign in manually in the browser.';
     $('browser-status').textContent = state.setup.browserReady
-        ? 'The app drives its own embedded browser. The terminal CLI\u2019s pinned Chrome is downloaded and shared with it.'
-        : 'The app drives its own embedded browser. The terminal CLI downloads its pinned Chrome separately on first run.';
+        ? 'The app drives its own embedded browser. The terminal CLI\u2019s separate pinned Chrome is downloaded.'
+        : 'The app drives its own embedded browser. The terminal CLI downloads its separate pinned Chrome on first run.';
     renderMaintenance(state);
 }
 
@@ -368,7 +368,7 @@ void (async () => {
         // the browser opens for sign-in without another click.
         const probed = state.setup && state.setup.browserReady === null ? await api.refreshSetup() : state;
         render(probed);
-        if (probed.setup.browserReady && probed.setup.wizardDone && probed.session === 'idle' && !startedOnce) {
+        if (probed.setup.wizardDone && probed.session === 'idle' && !startedOnce) {
             startedOnce = true;
             await api.startSession();
         }

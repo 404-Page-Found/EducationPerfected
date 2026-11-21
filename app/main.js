@@ -37,9 +37,15 @@ function relocateUserData(app) {
             fs.mkdirSync(root, { recursive: true, mode: 0o700 });
             fs.renameSync(legacy, target);
         } catch {
-            // Cross-device or locked files: copy what can be copied, then leave
-            // whatever remains; a fresh profile beats a failed launch.
-            try { fs.cpSync(legacy, target, { recursive: true }); } catch { /* keep the default-free target */ }
+            // Cross-device or locked files: copy to a staging sibling first so a
+            // partial copy never poses as a migrated folder and blocks retries.
+            const staging = path.join(root, `.app-data-migrating-${process.pid}`);
+            try {
+                fs.cpSync(legacy, staging, { recursive: true });
+                fs.renameSync(staging, target);
+            } catch {
+                try { fs.rmSync(staging, { recursive: true, force: true }); } catch { /* staging cleanup is best-effort */ }
+            }
         }
     }
     app.setPath('userData', target);
@@ -216,6 +222,17 @@ function createElectronApp({ electron, session }) {
         // No macOS keep-alive: closing the window closes the managed browser too.
         app.on('window-all-closed', () => { if (!quitting) void quit(); });
         app.whenReady().then(async () => {
+            // Only our bundled webview attaches, with the locked preferences the
+            // renderer declares: anything the page markup does not say is dropped.
+            if (electron.session && typeof electron.session.defaultSession?.on === 'function') {
+                electron.session.defaultSession.on('will-attach-webview', (event, webPreferences) => {
+                    delete webPreferences.preload;
+                    delete webPreferences.preloadURL;
+                    webPreferences.contextIsolation = true;
+                    webPreferences.sandbox = true;
+                    webPreferences.nodeIntegration = false;
+                });
+            }
             applyBrowserUserAgent(electron);
             if (process.env.EP_APP_SMOKE === '1') return smoke();
             createWindow();

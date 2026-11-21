@@ -152,7 +152,7 @@ async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=p
    const appData=path.join(root,'app-data');
    try{
     const stat=fs.lstatSync(appData);
-    if(stat.isDirectory()&&!stat.isSymbolicLink()){fs.rmSync(appData,{recursive:true});output.write('Desktop app data removed.\n');}
+    if(stat.isDirectory()&&!stat.isSymbolicLink()){fs.rmSync(appData,{recursive:true,maxRetries:3,retryDelay:300});output.write('Desktop app data removed.\n');}
     else{incomplete=true;output.write('Unexpected app data path retained for inspection.\n');}
    }catch(error){if(error.code!=='ENOENT'){incomplete=true;output.write('Desktop app data could not be fully removed; close the app and retry.\n');}}
    try{await cleanupOwn();}catch{incomplete=true;output.write('Owned runtime cleanup failed; retained for inspection.\n');}

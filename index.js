@@ -3081,14 +3081,15 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 let timer;
                 try {
                     await Promise.race([
-                        startupBrowser.close(),
+                        closeLaunchedBrowser(),
                         new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Browser close timed out')), 3000); }),
                     ]);
                 }
                 catch {
-                    // close() can fail on a broken control connection. The
-                    // owned browser child is still ours to terminate.
-                    startupBrowser.process()?.kill();
+                    // close() can fail on a broken control connection. An owned
+                    // browser child is still ours to terminate; an attached one
+                    // belongs to the app's window, so only disconnect it.
+                    if (ownsBrowser) startupBrowser.process()?.kill();
                     startupBrowser.disconnect();
                 } finally { clearTimeout(timer); }
             }
