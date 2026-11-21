@@ -13,6 +13,7 @@ const { detectQuestion } = require('../lib/detect-question');
 const {
   PRESENTATION_COMPONENTS,
   KNOWN_COMPONENT_CODES,
+  ANSWER_BEARING_CODES,
   formatAccompanyingCode,
   diagnosticComponentType,
 } = require('../lib/companion-components');
@@ -72,6 +73,11 @@ const REQUIRED_KNOWN = ['LONG_ANSWER_COMPONENT', 'MULTICHOICE_COMPONENT', 'TEXT_
   const libDir = path.join(__dirname, '..', 'lib');
   const mirrorFiles = ['choice-state.js', 'multi-choice-state.js', 'highlight-state.js',
     'working-formula-state.js', 'textbox-state.js', 'gaps-state.js'];
+  // Canonical answer-bearing minus the choice readers' own component type:
+  // choice/multi exclude MULTICHOICE_COMPONENT (their own surface, handled via
+  // the choices list) and rely on scratchPadAnswerBearing for the conditional
+  // SCRATCH_PAD_COMPONENT (absent from the canonical answer-bearing list).
+  const canonicalBearingMinusOwn = [...ANSWER_BEARING_CODES].filter(c => c !== 'MULTICHOICE_COMPONENT').sort((a, b) => a.localeCompare(b));
   for (const file of mirrorFiles) {
     const text = fs.readFileSync(path.join(libDir, file), 'utf8');
     assert.ok(text.includes('lib/companion-components.js'), `${file} missing canonical reference`);
@@ -86,6 +92,10 @@ const REQUIRED_KNOWN = ['LONG_ANSWER_COMPONENT', 'MULTICHOICE_COMPONENT', 'TEXT_
       const bearing = extractAnswerBearing(text);
       assert.ok(bearing, `${file} has neither presentation nor answer-bearing list`);
       for (const code of canonicalPresSorted) assert.ok(!bearing.includes(code), `${file} marks presentation ${code} answer-bearing`);
+    }
+    const bearing = extractAnswerBearing(text);
+    if (bearing) {
+      assert.deepEqual([...new Set(bearing)].sort((a, b) => a.localeCompare(b)), canonicalBearingMinusOwn, `${file} answerBearingCodes mirror out of sync (expected canonical minus MULTICHOICE_COMPONENT)`);
     }
   }
   // Shared capture segment derives from the canonical module (no copied list).
