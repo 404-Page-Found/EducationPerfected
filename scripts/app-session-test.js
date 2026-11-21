@@ -122,6 +122,14 @@ async function main() {
         assert.equal(state.session, 'ready');
         assert.equal(typeof deps.launchOptions.connectBrowser, 'function');
         assert.equal(typeof deps.launchOptions.selectPage, 'function');
+        const guest = { marker: 'guest' };
+        const browser = { waitForTarget: async (predicate, options) => {
+            assert.equal(predicate({ type: () => 'page' }), false, 'never select the control window');
+            assert.equal(predicate({ type: () => 'webview' }), true);
+            assert.equal(options.timeout, 10000);
+            return { page: async () => guest };
+        } };
+        assert.equal(await deps.launchOptions.selectPage([], browser), guest, 'guest selection does not depend on browser.pages()');
         console.log('ok session start gates on the wizard and passes the embedded browser hooks');
     }
 

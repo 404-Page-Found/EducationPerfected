@@ -82,6 +82,7 @@ function render(state) {
     // The embedded browser view takes over the pane once a session is opening;
     // the placeholder covers it before that and after it closes.
     $('browser-placeholder').hidden = state.session === 'starting' || state.session === 'ready';
+    renderMaintenance(state);
     if (!state.setup || state.setup.browserReady === null) { show('loading'); return; }
     if (state.session === 'failed') {
         show('failed');
@@ -131,7 +132,6 @@ function renderMain(state) {
     $('browser-status').textContent = state.setup.browserReady
         ? 'The app drives its own embedded browser. The terminal CLI\u2019s separate pinned Chrome is downloaded.'
         : 'The app drives its own embedded browser. The terminal CLI downloads its separate pinned Chrome on first run.';
-    renderMaintenance(state);
 }
 
 // Update and uninstall, driven by the same state the session publishes.
@@ -169,7 +169,7 @@ function renderMaintenance(state) {
     $('maintenance-log').hidden = !uninstallLogLines.length;
     $('maintenance-log').textContent = uninstallLogLines.join('\n');
     // One quiet background check per app run once the main screen is up.
-    if (maintenance.install && !updateCheckedOnce && !update.checking && !update.applying && !update.plan && !update.upToDate && !update.error) {
+    if (state.session === 'ready' && maintenance.install && !updateCheckedOnce && !update.checking && !update.applying && !update.plan && !update.upToDate && !update.error) {
         updateCheckedOnce = true;
         api.checkUpdate().catch(() => {});
     }
@@ -356,7 +356,7 @@ $('reflection-cancel').addEventListener('click', () => {
 
 // --- State flow: pushed updates plus a slow poll for run progress ---
 api.onState(state => render(state));
-setInterval(async () => {
+const statePoll = setInterval(async () => {
     try { render(await api.getState()); } catch { /* window closing */ }
 }, 1000);
 

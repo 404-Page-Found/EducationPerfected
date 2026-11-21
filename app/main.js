@@ -182,7 +182,39 @@ function createElectronApp({ electron, session }) {
             if (!state || state.session !== 'idle' || typeof state.version !== 'string') {
                 throw new Error('unexpected initial state: ' + JSON.stringify(state));
             }
-            report = { ok: true, state };
+            // Exercise the real embedded guest, not just the shell. Electron
+            // reports it as a webview target, omitted by browser.pages(). Use
+            // the same selector as engine startup and navigate offline only.
+            const browser = await require('puppeteer').connect({ browserWSEndpoint: await readDevtoolsEndpoint(app), defaultViewport: null });
+            try {
+                const page = await require('./embedded-browser').selectEmbeddedPage(browser);
+                await page.goto('data:text/html,<title>Embedded browser ready</title><h1>Embedded browser ready</h1>');
+                if (await page.title() !== 'Embedded browser ready') throw new Error('embedded guest navigation failed');
+            } finally { await browser.disconnect(); }
+            // Maintenance must stay reachable even when startup fails. No
+            // install identity is invented and no update request is made.
+            const maintenanceScreens = await window.webContents.executeJavaScript(`(() => {
+                clearInterval(statePoll);
+                const original = ${JSON.stringify(state)};
+                const checked = [];
+                for (const session of ['idle', 'failed', 'ready']) {
+                    render({ ...original, setup: { browserReady: false, hasLogin: false, wizardDone: true }, session, sessionError: 'Offline fixture' });
+                    for (const id of ['check-update', 'open-uninstall']) {
+                        const button = document.getElementById(id);
+                        if (!button || !button.getClientRects().length || button.closest('[hidden]')) throw new Error(id + ' hidden in ' + session);
+                    }
+                    checked.push(session);
+                }
+                return checked;
+            })()`);
+            if (process.env.EP_APP_SMOKE_SCREENSHOT) {
+                for (const fixtureState of ['ready', 'failed']) {
+                    await window.webContents.executeJavaScript(`render({ ...${JSON.stringify(state)}, setup: { browserReady: false, hasLogin: false, wizardDone: true }, session: ${JSON.stringify(fixtureState)}, sessionError: 'Offline startup-failure fixture' })`);
+                    await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+                    fs.writeFileSync(process.env.EP_APP_SMOKE_SCREENSHOT + '.' + fixtureState + '.png', (await window.webContents.capturePage()).toPNG());
+                }
+            }
+            report = { ok: true, state, embeddedPage: true, maintenanceScreens };
         } catch (error) {
             report = { ok: false, error: String((error && error.message) || error) };
             process.exitCode = 1;

@@ -31,12 +31,16 @@ Source: "{#AppPayload}\*"; DestDir: "{app}\app"; Flags: ignoreversion recursesub
 Name: "addtopath"; Description: "Add EducationPerfected to your PATH"; GroupDescription: "Extra options:"
 
 [Icons]
-Name: "{group}\EducationPerfected"; Filename: "{app}\educationperfected.exe"
-Name: "{group}\EducationPerfected App"; Filename: "{app}\app\EducationPerfected.exe"
+Name: "{group}\EducationPerfected"; Filename: "{app}\app\EducationPerfected.exe"
 Name: "{group}\Uninstall EducationPerfected"; Filename: "{uninstallexe}"
 
 ; The app payload includes Electron's Chromium. [Files] installs the browser
 ; before the finish page. Do not launch the terminal CLI's separate download.
+
+[InstallDelete]
+; Remove the previous separate app launcher on upgrade. The remaining shortcut
+; is replaced by [Icons] to launch the desktop app, not the terminal CLI.
+Type: files; Name: "{group}\EducationPerfected App.lnk"
 
 [UninstallDelete]
 Type: files; Name: "{app}\educationperfected-install.json"
@@ -135,7 +139,7 @@ begin
   Json := '{"version":1,"method":"setup-exe"'
     + ',"files":["' + JsonEscape(ExpandConstant('{app}\educationperfected.exe')) + '","' + JsonEscape(ExpandConstant('{app}\educationperfected-install.json')) + '"]'
     + ',"directories":["' + JsonEscape(ExpandConstant('{app}\app')) + '"]'
-    + ',"shortcuts":["' + JsonEscape(ExpandConstant('{group}\EducationPerfected.lnk')) + '","' + JsonEscape(ExpandConstant('{group}\EducationPerfected App.lnk')) + '","' + JsonEscape(ExpandConstant('{group}\Uninstall EducationPerfected.lnk')) + '"]'
+    + ',"shortcuts":["' + JsonEscape(ExpandConstant('{group}\EducationPerfected.lnk')) + '","' + JsonEscape(ExpandConstant('{group}\Uninstall EducationPerfected.lnk')) + '"]'
     + ',"uninstaller":"' + JsonEscape(ExpandConstant('{app}\unins000.exe')) + '"'
     + PathPart + '}';
   SaveStringToFile(ExpandConstant('{app}\educationperfected-install.json'), Json, False);

@@ -25,6 +25,11 @@ assert.ok(iss.includes('WizardIsTaskSelected'),'task check uses the wizard-conte
 assert.ok(iss.includes('Type: files; Name: "{app}\\educationperfected-install.json"'),'the Inno uninstaller removes the install record');
 assert.ok(!iss.includes('RegWriteStringValue'),'PATH writes must preserve REG_EXPAND_SZ');
 assert.ok(iss.includes('RegWriteExpandStringValue'),'PATH writes use RegWriteExpandStringValue');
+const icons = iss.split('[Icons]')[1].split('[')[0];
+assert.ok(icons.includes('Name: "{group}\\EducationPerfected"; Filename: "{app}\\app\\EducationPerfected.exe"'), 'the single launcher opens the desktop app');
+assert.equal((icons.match(/Filename: "\{app\}/g)||[]).length, 1, 'only one program launcher, no duplicate CLI launcher');
+const installDelete = iss.split('[InstallDelete]')[1].split(/^\[/m)[0];
+assert.ok(installDelete.includes('Type: files; Name: "{group}\\EducationPerfected App.lnk"'), 'upgrades remove the old separate app shortcut');
 const publish=fs.readFileSync(path.join(__dirname,'../.github/workflows/publish.yml'),'utf8');
 for(const required of [
  'Inno Setup 6\\ISCC.exe',"require('./package.json').version",'/DAppVersion','/DSourceExe',
