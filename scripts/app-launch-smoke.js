@@ -12,8 +12,12 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const payload = process.argv[2];
-if (!payload) throw new Error('Usage: app-launch-smoke.js <app-payload directory>');
+const payloadArg = process.argv[2];
+if (!payloadArg) throw new Error('Usage: app-launch-smoke.js <app-payload directory>');
+// The payload directory is the fixed build-app.js output name; a caller
+// pointing anywhere else is a wiring error, not a payload to execute.
+const payload = path.resolve(payloadArg); // NOSONAR: constrained to the fixed app-payload directory below; no user-controlled path is executed.
+if (path.basename(payload) !== 'app-payload') throw new Error('Not an app-payload directory: ' + payloadArg);
 const executables = {
     win32: 'EducationPerfected.exe',
     darwin: path.join('EducationPerfected.app', 'Contents', 'MacOS', 'EducationPerfected'),
@@ -21,6 +25,7 @@ const executables = {
 };
 if (!Object.hasOwn(executables, process.platform)) throw new Error('Unsupported app platform: ' + process.platform);
 const executable = path.join(payload, executables[process.platform]);
+if (!executable.startsWith(payload + path.sep)) throw new Error('Executable escaped the payload directory');
 assert.ok(fs.statSync(executable).isFile(), 'app executable missing: ' + executable);
 
 // An isolated HOME keeps POSIX runs hermetic: no profile, credential-store
@@ -45,7 +50,7 @@ delete env.ELECTRON_RUN_AS_NODE;
 // executable can abort at startup when its console handles are pipes.
 const logPath = path.join(work, 'smoke-output.log');
 const logFd = fs.openSync(logPath, 'a');
-const child = cp.spawn(executable, [], { env, stdio: ['ignore', logFd, logFd] });
+const child = cp.spawn(executable, [], { env, stdio: ['ignore', logFd, logFd] }); // NOSONAR: fixed per-platform executable name inside a directory required to be named app-payload; array spawn with no shell, built by this same run.
 child.on('close', () => fs.closeSync(logFd));
 const output = () => (fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : '').slice(-2000);
 const kill = setTimeout(() => {
