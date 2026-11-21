@@ -9,6 +9,10 @@ function installInputBoxFixture(config) {
     // .. next "}" with at least one char between is a delimiter (inner
     // "{" allowed per EP splitParts). Preserves source grammar while
     // avoiding super-linear backtracking (S8786).
+    // NOTE: page-serialized fixture cannot require a shared module, so this
+    // scanner mirrors the dropdown/numberbox splitParts grammar (see
+    // scripts/dropdown-fixture.js and scripts/dropdown-numberbox-fixture.js);
+    // keep the copies in sync.
     const splitTemplate = template => {
         const parts = [];
         let pos = 0;

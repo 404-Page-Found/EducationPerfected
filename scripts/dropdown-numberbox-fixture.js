@@ -11,9 +11,10 @@ function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxIt
     // /^\{[^}]+\}$/ test: every "{" .. next "}" with at least one char
     // between is an expression (inner "{" allowed per EP splitParts).
     // Preserves source grammar while avoiding super-linear backtracking.
-    // NOTE: intentionally buffer-accumulating (substring/indexOf mix) so this
-    // page-serialized fixture stays self-contained yet token-distinct from
-    // the textbox/dropdown fixtures for Sonar CPD.
+    // NOTE: page-serialized fixture cannot require a shared module, so this
+    // scanner mirrors the textbox/dropdown splitParts grammar (see
+    // scripts/textbox-fixture.js and scripts/dropdown-fixture.js); keep the
+    // copies in sync.
     const splitTemplate = template => {
         const res = [];
         let buf = '';

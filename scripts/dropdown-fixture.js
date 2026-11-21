@@ -7,9 +7,10 @@ function installDropdownFixture(count=5,variant){
     // .. next "}" with at least one char between is a delimiter (inner
     // "{" allowed per EP splitParts). Preserves source grammar while
     // avoiding super-linear backtracking (S8786).
-    // NOTE: intentionally char-scanned (no indexOf-pair search) so this
-    // page-serialized fixture stays self-contained yet token-distinct from
-    // the textbox/numberbox fixtures for Sonar CPD.
+    // NOTE: page-serialized fixture cannot require a shared module, so this
+    // scanner mirrors the textbox/numberbox splitParts grammar (see
+    // scripts/textbox-fixture.js and scripts/dropdown-numberbox-fixture.js);
+    // keep the copies in sync.
     const splitTemplate=template=>{
         const out=[];let textStart=0,i=0;const n=template.length;
         while(i<n){
