@@ -48,8 +48,8 @@ Every single-surface reader (gaps, highlight, working-formula, textbox/number-bo
 ## Resolution (fail-closed-with-report)
 
 - Chosen policy: keep fail-closed. Proven-safe partial answering and opt-in partial submit stay rejected until per-component Submit grading is proven on a real mixed slide.
-- Canonical runtime lists: `lib/companion-components.js` (presentation pair, known codes, answer-bearing codes, `formatAccompanyingCode` / `diagnosticComponentType`). In-page readers keep self-contained mirrors of those sets; `scripts/companion-components-test.js` asserts they stay in sync.
-- Every companion refusal names the recognized code (or `redacted type` / `UNLISTED_COMPONENT`) with a content-free `accompanying-component` diagnostic; the orchestrator retags to `slide-surfaces-refusal`. No path fills or submits part of a mixed slide.
+- Canonical runtime lists: `lib/companion-components.js` (presentation pair, known codes, answer-bearing codes, `formatAccompanyingCode` / `diagnosticComponentType`). In-page readers keep self-contained mirrors of those sets; `scripts/companion-components-test.js` extracts each mirror and asserts Set equality with the canonical lists. Node-side captures stay wired without copying: `lib/question-inspection.js` builds its in-page `known` set from the canonical module.
+- Every companion refusal names the recognized code (or `redacted type` / `UNLISTED_COMPONENT`) with a content-free diagnostic; the orchestrator retags to `slide-surfaces-refusal`. Choice, multi-select, highlight, working-formula and gaps emit `accompanying-component`; textbox/dropdown report through `componentTypes` / `unsupportedTypes` tallies; Dash choice uses `companion-components` with renderer `dash-choice`. No path fills or submits part of a mixed slide.
 
 ## Live evidence still blocking full partial-answering (issue options 2/3)
 

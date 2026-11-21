@@ -20,14 +20,13 @@ const { installGapsFixture } = require('./gaps-fixture');
 const { installHighlightFixture } = require('./highlight-fixture');
 const { setup: setupMath } = require('./choice-renderer-fixture');
 
-const CANONICAL_PRESENTATION = ['ANNOTATED_TEXT_COMPONENT', 'SOUND_COMPONENT'];
 const REQUIRED_KNOWN = ['LONG_ANSWER_COMPONENT', 'MULTICHOICE_COMPONENT', 'TEXT_BOX_COMPONENT',
   'FILE_UPLOADER_COMPONENT', 'SOUND_RECORDER_COMPONENT', 'FORMULA_COMPONENT',
   'ANNOTATED_TEXT_COMPONENT', 'SOUND_COMPONENT', 'SCRATCH_PAD_COMPONENT'];
 
 (async () => {
   // 0. Canonical module shape: presentation-only pair, known codes, formatters.
-  assert.deepEqual([...PRESENTATION_COMPONENTS].sort(), [...CANONICAL_PRESENTATION].sort());
+  assert.deepEqual([...PRESENTATION_COMPONENTS].sort((a, b) => a.localeCompare(b)), ['ANNOTATED_TEXT_COMPONENT', 'SOUND_COMPONENT'].sort((a, b) => a.localeCompare(b)));
   for (const code of REQUIRED_KNOWN) assert.ok(KNOWN_COMPONENT_CODES.includes(code), code);
   assert.equal(formatAccompanyingCode('LONG_ANSWER_COMPONENT'), 'LONG_ANSWER_COMPONENT');
   assert.equal(formatAccompanyingCode('SECRET_COMPONENT'), 'redacted type');
@@ -35,22 +34,66 @@ const REQUIRED_KNOWN = ['LONG_ANSWER_COMPONENT', 'MULTICHOICE_COMPONENT', 'TEXT_
   assert.equal(diagnosticComponentType('LONG_ANSWER_COMPONENT'), 'LONG_ANSWER_COMPONENT');
   assert.equal(diagnosticComponentType('SECRET_COMPONENT'), 'UNLISTED_COMPONENT');
 
-  // 0b. In-page mirrors stay in sync with the canonical module.
+  // 0b. In-page mirrors stay semantically in sync with the canonical module.
+  // Each reader keeps a self-contained copy (different encodings to avoid
+  // exact-duplicate blocks); compare Set equality, not source substrings.
+  const canonicalKnownSorted = [...KNOWN_COMPONENT_CODES].sort((a, b) => a.localeCompare(b));
+  const canonicalPresSorted = [...PRESENTATION_COMPONENTS].sort((a, b) => a.localeCompare(b));
+  const extractKnownCodes = (text) => {
+    const idx = text.search(/KNOWN_COMPONENT_CODES\s*=\s*new Set|knownCodes\s*=\s*new Set/);
+    assert.ok(idx !== -1, 'knownCodes mirror not found');
+    const slice = text.slice(idx, idx + 3000);
+    // Space-joined encodings (base names + suffix, or full codes split by
+    // space): the only uppercase space-joined literals in these readers are
+    // the known list itself (answer-bearing/presentation use single-code
+    // array literals), so collecting them is safe.
+    const spacePieces = [...slice.matchAll(/'([A-Z_ ]+)'/g)].map(m => m[1]).filter(s => /^[A-Z_ ]+$/.test(s) && s.includes(' '));
+    if (spacePieces.length) {
+      const tokens = spacePieces.join(' ').split(/\s+/).filter(Boolean).map(t => t.endsWith('_COMPONENT') ? t : t + '_COMPONENT');
+      return [...new Set(tokens)].sort((a, b) => a.localeCompare(b));
+    }
+    const end = slice.indexOf(']);');
+    const block = end !== -1 ? slice.slice(0, end) : slice;
+    const codes = [...block.matchAll(/'([A-Z_]+_COMPONENT)'/g)].map(m => m[1]);
+    assert.ok(codes.length, 'known full-code list not found');
+    return [...new Set(codes)].sort((a, b) => a.localeCompare(b));
+  };
+  const extractPresentation = (text) => {
+    const m = text.match(/(?:presentation|presentationCodes|PRESENTATION_COMPONENTS)\s*=\s*new Set\(\[([^\]]+)\]\)/);
+    if (!m) return null;
+    const codes = [...m[1].matchAll(/'([A-Z_]+_COMPONENT)'/g)].map(x => x[1]);
+    return [...new Set(codes)].sort((a, b) => a.localeCompare(b));
+  };
+  const extractAnswerBearing = (text) => {
+    const m = text.match(/answerBearingCodes\s*=\s*\[([^\]]+)\]/);
+    if (!m) return null;
+    return [...m[1].matchAll(/'([A-Z_]+_COMPONENT)'/g)].map(x => x[1]);
+  };
   const libDir = path.join(__dirname, '..', 'lib');
   const mirrorFiles = ['choice-state.js', 'multi-choice-state.js', 'highlight-state.js',
     'working-formula-state.js', 'textbox-state.js', 'gaps-state.js'];
   for (const file of mirrorFiles) {
     const text = fs.readFileSync(path.join(libDir, file), 'utf8');
     assert.ok(text.includes('lib/companion-components.js'), `${file} missing canonical reference`);
-    for (const fragment of ['ANNOTATED_TEXT', 'SOUND', 'WORKING_FORMULA']) {
-      assert.ok(text.includes(fragment), `${file} mirror missing ${fragment}`);
+    assert.deepEqual(extractKnownCodes(text), canonicalKnownSorted, `${file} knownCodes mirror out of sync`);
+    const pres = extractPresentation(text);
+    if (pres) {
+      assert.deepEqual(pres, canonicalPresSorted, `${file} presentation mirror out of sync`);
+    } else {
+      // Choice/multi-choice admit presentation companions via the
+      // answer-bearing deny-list (no explicit presentation Set): the
+      // presentation pair must be known but not answer-bearing.
+      const bearing = extractAnswerBearing(text);
+      assert.ok(bearing, `${file} has neither presentation nor answer-bearing list`);
+      for (const code of canonicalPresSorted) assert.ok(!bearing.includes(code), `${file} marks presentation ${code} answer-bearing`);
     }
   }
-  // Canonical known list matches the shared capture segment.
+  // Shared capture segment derives from the canonical module (no copied list).
   const inspection = require('../lib/question-inspection');
-  for (const code of REQUIRED_KNOWN) {
-    const fragment = code.replace(/_COMPONENT$/, '');
-    assert.ok(inspection.KNOWN_COMPONENT_CODES.includes(fragment), `question-inspection missing ${code}`);
+  const inspectionSource = fs.readFileSync(path.join(libDir, 'question-inspection.js'), 'utf8');
+  assert.ok(inspectionSource.includes('companion-components'), 'question-inspection not wired to canonical module');
+  for (const code of KNOWN_COMPONENT_CODES) {
+    assert.ok(inspection.KNOWN_COMPONENT_CODES.includes(code), `question-inspection missing ${code}`);
   }
 
   const server = createServer();
