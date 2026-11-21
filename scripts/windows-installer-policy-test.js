@@ -20,22 +20,20 @@ assert.ok(iss.includes('WizardIsTaskSelected'),'task check uses the wizard-conte
 assert.ok(iss.includes('Type: files; Name: "{app}\\educationperfected-install.json"'),'the Inno uninstaller removes the install record');
 assert.ok(!iss.includes('RegWriteStringValue'),'PATH writes must preserve REG_EXPAND_SZ');
 assert.ok(iss.includes('RegWriteExpandStringValue'),'PATH writes use RegWriteExpandStringValue');
-const beta=fs.readFileSync(path.join(__dirname,'../.github/workflows/beta-preparation.yml'),'utf8');
+const publish=fs.readFileSync(path.join(__dirname,'../.github/workflows/publish.yml'),'utf8');
 for(const required of [
  'Inno Setup 6\\ISCC.exe',"require('./package.json').version",'/DAppVersion','/DSourceExe',
  'installer\\windows-setup.iss','educationperfected-windows-x64-setup.exe >> SHA256SUMS',
- "inputs.browser_mode == 'direct-download-validation' && runner.os == 'Windows'",
-])assert.ok(beta.includes(required),required);
-const isccStep=beta.split('      - name: Build the per-user Windows installer')[1].split('      - name:')[0];
+ "runner.os == 'Windows'",
+])assert.ok(publish.includes(required),required);
+const isccStep=publish.split('      - name: Build the per-user Windows installer')[1].split('      - name:')[0];
 assert.ok(isccStep.includes('Join-Path $root'),'ISCC receives absolute paths; Inno resolves relative Source/OutputDir against the script directory');
 assert.doesNotMatch(isccStep,/\/DSourceExe=build\\/,'no repo-root-relative /DSourceExe');
 const compileCheck=fs.readFileSync(path.join(__dirname,'../.github/workflows/installer-compile-check.yml'),'utf8');
 for(const required of ['pull_request:','windows-2025','Inno Setup 6\\ISCC.exe','stub executable, compile proof only','Join-Path $root','contents: read'])assert.ok(compileCheck.includes(required),required);
 assert.doesNotMatch(compileCheck,/upload-artifact|contents: write|pull_request_target/,'compile proof only, no artifacts or write access');
-const bundles=beta.split('      - name: Upload explicitly requested downloadable candidate bundle')[1].split('      - name:')[0];
+const bundles=publish.split('      - name: Upload validated downloadable candidate bundle')[1].split('      - name:')[0];
 assert.match(bundles,/educationperfected\*/,'candidate upload picks up the installer via glob');
-assert.ok(beta.indexOf('      - name: Stage explicitly requested Windows internal test package')<beta.indexOf('      - name: Checksum the Windows installer'),'test package stages before the installer line is appended to SHA256SUMS, keeping the manifest byte-equality assertion intact');
-const staging=fs.readFileSync(path.join(__dirname,'../.github/workflows/release-bundle-staging.yml'),'utf8');
-for(const required of ['windows-x64:educationperfected-windows-x64-setup.exe',' is not byte-identical to the validated candidate','20 payload files'])assert.ok(staging.includes(required),required);
+for(const required of ['windows-x64:educationperfected-windows-x64-setup.exe',' is not byte-identical to the validated candidate','20 payload files'])assert.ok(publish.includes(required),required);
 assert.ok(require('../package.json').scripts['test:phase3'].includes('windows-installer-policy-test.js'),'wired into test:phase3');
-console.log('Windows installer: per-user Inno Setup script, candidate lane builds and checksums it, staging bundles it byte-identical, raw exe asset names unchanged.');
+console.log('Windows installer: per-user Inno Setup script, the Publish candidate lane builds, checksums and bundles it byte-identical, raw exe asset names unchanged.');

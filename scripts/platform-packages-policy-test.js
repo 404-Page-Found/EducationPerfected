@@ -2,8 +2,8 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const build=fs.readFileSync(path.join(__dirname,'build-packages.sh'),'utf8');
 for(const required of ['pkgbuild','com.404pf.educationperfected','dpkg-deb --build','rpmbuild -bb','rpm2cpio','pkgutil --expand-full','identical "$ex/usr/bin/educationperfected" "$src"','identical "$check/expanded/Payload/usr/local/bin/educationperfected" "$src"','educationperfected-install.json','"method":"pkg"','"method":"deb"','"method":"rpm"'])assert.ok(build.includes(required),required);
-const beta=fs.readFileSync(path.join(__dirname,'../.github/workflows/beta-preparation.yml'),'utf8');
-for(const required of ['Install rpm tooling for Linux package lanes','apt-get install -y rpm rpm2cpio','Build and byte-verify platform packages','scripts/build-packages.sh','Pack the npm installer package','npm pack','Exercise install.sh end-to-end','Exercise the npm package end-to-end','Exercise install.ps1 end-to-end','EP_INSTALL_BASE_URL'])assert.ok(beta.includes(required),required);
+const publish=fs.readFileSync(path.join(__dirname,'../.github/workflows/publish.yml'),'utf8');
+for(const required of ['Install rpm tooling for Linux package lanes','apt-get install -y rpm rpm2cpio','Build and byte-verify platform packages','scripts/build-packages.sh','Pack the npm installer package','npm pack','Exercise install.sh end-to-end','Exercise the npm package end-to-end','Exercise install.ps1 end-to-end','EP_INSTALL_BASE_URL'])assert.ok(publish.includes(required),required);
 const sh=fs.readFileSync(path.join(__dirname,'../installer/install.sh'),'utf8');
 for(const required of ['set -eu','SHA256SUMS','sha256sum','Checksum mismatch','/.local/bin','EP_INSTALL_BASE_URL','educationperfected-$os-$arch','educationperfected-install.json','method\\":\\"install-sh'])assert.ok(sh.includes(required),required);
 const ps1=fs.readFileSync(path.join(__dirname,'../installer/install.ps1'),'utf8');
@@ -18,7 +18,6 @@ assert.equal(pkg.name,'educationperfected');assert.equal(pkg.scripts.postinstall
 assert.ok(require('../package.json').version===pkg.version,'npm package version tracks the app version');
 const install=fs.readFileSync(path.join(npmdir,'install.js'),'utf8');
 for(const required of ['EP_INSTALL_BASE_URL','SHA256SUMS','Checksum mismatch','macos-arm64','linux-arm64','windows-x64','createHash(\'sha256\')','educationperfected-install.json',"method:'npm'"])assert.ok(install.includes(required),required);
-const staging=fs.readFileSync(path.join(__dirname,'../.github/workflows/release-bundle-staging.yml'),'utf8');
-for(const required of ['20 payload files','install.sh','install.ps1','educationperfected-macos-arm64.pkg','_amd64.deb','.x86_64.rpm','educationperfected-${RELEASE_VERSION}.tgz'])assert.ok(staging.includes(required),required);
+for(const required of ['20 payload files','install.sh','install.ps1','educationperfected-macos-arm64.pkg','_amd64.deb','.x86_64.rpm','educationperfected-${VERSION}.tgz'])assert.ok(publish.includes(required),required);
 assert.ok(require('../package.json').scripts['test:phase3'].includes('platform-packages-policy-test.js'),'wired into test:phase3');
 console.log('Platform packages: pkg/deb/rpm byte-verified in lanes, curl/PowerShell installers verify SHA256SUMS, npm package prepared and published by the Publish workflow once the release is live.');

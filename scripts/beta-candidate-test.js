@@ -109,54 +109,9 @@ fs.writeFileSync(path.join(out,'THIRD-PARTY-NOTICES','ELECTRON-VERSION.txt'),'sy
         fs.appendFileSync(path.join(checkout,'package.json'),'\n');
         const dirty=command();assert.ifError(dirty.error);assert.equal(dirty.status,1,'dirty source must not become a candidate');
     }finally{fs.rmSync(checkout,{recursive:true,force:true});}
-    const workflow=fs.readFileSync(path.resolve(__dirname,'../.github/workflows/beta-preparation.yml'),'utf8');
-    assert.match(workflow,/^name: V2026 stable-release preparation \(no publication\)$/m);
     const stableVersion=require('../package.json').version;
     assert.equal(stableVersion,'2026.11.16');
     assert.equal(require('../package-lock.json').version,stableVersion);
     assert.equal(require('../package-lock.json').packages[''].version,stableVersion);
-    const active=workflow.split('\n').filter(line=>!line.trimStart().startsWith('#')).join('\n');
-    assert.match(active,/contents: read/);assert.match(active,/persist-credentials: false/);
-    assert.match(active,/if: github.ref == 'refs\/heads\/main'/);
-    assert.match(active,/npm ci --ignore-scripts/);assert.match(active,/node-version: 22\.23\.4/);
-    assert.doesNotMatch(active,/continue-on-error/,'A failed probe must still fail the job');
-    const stepGate=(content,name)=>{
-        const step=content.replaceAll('\r\n','\n').split('      - name: ').find(block=>block.startsWith(name+'\n'));
-        assert.ok(step,'Named native probe must exist');
-        return step.split('\n').find(line=>line.trimStart().startsWith('if:'))||'';
-    };
-    const requiredGates=[
-        ['Windows actual SEA first-run public consent and direct acquisition','candidate_build'],
-        ['Select exact downloadable artifact for existing credential fixtures','candidate_build'],
-        ['Windows exact SEA hosted synthetic setup health and deletion','store_candidate'],
-        ['Upload explicitly requested downloadable candidate bundle','candidate_build'],
-    ];
-    const verifyGates=content=>{for(const [name,prerequisite] of requiredGates){
-        const gate=stepGate(content,name);
-        assert.ok(gate.includes('!cancelled()')&&gate.includes("steps."+prerequisite+".outcome == 'success'")&&gate.includes("inputs.browser_mode == 'direct-download-validation'"),'Each independent step needs its own prerequisite');
-        if(name.startsWith('Windows'))assert.ok(gate.includes("runner.os == 'Windows'"));
-    }};
-    verifyGates(active);
-    verifyGates(active.replaceAll('\r\n','\n').replaceAll('\n','\r\n'));
-    for(const [name,prerequisite] of requiredGates){
-        const gate=stepGate(active,name);
-        await assert.rejects(async()=>verifyGates(active.replace(gate,gate.replace("steps."+prerequisite+".outcome == 'success'",'true'))));
-        await assert.rejects(async()=>verifyGates(active.replace(gate,gate.replace('!cancelled()','true'))));
-    }
-    assert.doesNotMatch(active,/contents: write|gh release|git tag|git push|actions\/cache|pull_request_target/);
-    assert.equal((active.match(/uses: actions\/upload-artifact@/g)||[]).length,2);
-    assert.match(active,/uses: actions\/upload-artifact@[a-f0-9]{40}(?:\s|$)/);
-    const upload=active.split('      - name: Upload explicitly requested unsigned Windows test package')[1].split('      - name:')[0];
-    assert.match(upload,/inputs.upload_windows_test && steps.test_package.outcome == 'success'/);assert.match(upload,/runner.os == 'Windows'/);
-    assert.match(upload,/retention-days: 7/);assert.match(upload,/path: build\/windows-internal-test\//);assert.match(upload,/if-no-files-found: error/);
-    assert.match(active,/upload_windows_test:[\s\S]*?default: false/);
-    const bundles=active.split('      - name: Upload explicitly requested downloadable candidate bundle')[1].split('      - name:')[0];
-    assert.match(bundles,/inputs\.upload_candidate_bundles/);assert.match(bundles,/retention-days: 90/);assert.match(bundles,/if-no-files-found: error/);
-    assert.match(bundles,/name: downloadable-candidate-/);assert.match(bundles,/SHA256SUMS/);assert.match(bundles,/THIRD-PARTY-NOTICES/);
-    assert.match(bundles,/educationperfected\*/,'candidate upload path is a glob so the Windows lane also carries the installer');
-    assert.match(active,/upload_candidate_bundles:[\s\S]*?default: false/);
-    assert.doesNotMatch(active,/run:.*\$\{\{\s*inputs\./);
-    assert.equal((active.match(/- uses:/g)||[]).length,4);
-    assert.match(active,/actions\/checkout@[a-f0-9]{40}/);assert.match(active,/actions\/setup-node@[a-f0-9]{40}/);
-    console.log('Release preparation contracts PASS: dated versions, exact-byte inventory, invalid target/commit/missing-file failures, read-only manual workflow/explicit opt-in test artifact and candidate-bundle uploads only, no release. Synthetic only.');
+    console.log('Candidate build contracts PASS: dated validation labels, exact-byte inventory, invalid target/commit/missing-file failures and clean-source enforcement. Synthetic only.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

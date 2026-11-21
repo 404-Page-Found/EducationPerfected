@@ -1,5 +1,5 @@
 ; Per-user EducationPerfected installer for Windows. No administrator rights.
-; Compiled by the beta-preparation and Publish candidate lanes with /DAppVersion, /DSourceExe and /DAppPayload.
+; Compiled by the Publish candidate lane with /DAppVersion, /DSourceExe and /DAppPayload (installer-compile-check compiles it with a stub on PRs).
 [Setup]
 AppId={{5C0EDD47-9C42-5901-AF48-2393F39A36CD}
 AppName=EducationPerfected
