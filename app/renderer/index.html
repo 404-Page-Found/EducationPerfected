@@ -2,10 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- style-src allows inline styles: Chromium sizes the webview's guest through an
-     inline style, and blocking that leaves the guest at its 300x150 default (the
-     page clipped into a short strip). Scripts still load only from the app itself. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"> <!-- NOSONAR: Chromium sizes the webview guest through an inline style; without this the pane clips. script-src stays 'self'. -->
+<!-- The Content-Security-Policy is applied by the main process (app/main.js, RENDERER_CSP) as a response header. -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EducationPerfected</title>
 <link rel="stylesheet" href="styles.css">

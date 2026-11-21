@@ -6,6 +6,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const RENDERER_CSP = ["default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "img-src 'self' data:"].join('; ');
+
 const IPC = {
     getState: 'ep:get-state',
     refreshSetup: 'ep:refresh-setup',
@@ -111,6 +113,14 @@ function createElectronApp({ electron, session }) {
     if (typeof session.setOnEvent === 'function') session.setOnEvent(onEvent);
 
     function createWindow() {
+        // Applied as a header (not a meta tag) for the renderer page only. Chromium sizes the
+        // webview guest through an inline style; a style-src without inline allowance leaves the
+        // guest at its default 150px height and the pane clips. Scripts load only from the app.
+        const rendererPolicy = RENDERER_CSP;
+        const rendererSession = electron.session && electron.session.defaultSession;
+        if (rendererSession && rendererSession.webRequest) rendererSession.webRequest.onHeadersReceived({ urls: ['file://*/*'] }, (details, callback) => {
+            callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [rendererPolicy] } });
+        });
         window = new BrowserWindow({
             // Master-detail: the control column on the left, the embedded
             // browser view (a sandboxed webview guest) filling the rest.
@@ -303,4 +313,4 @@ if (require.main === module) {
     createElectronApp({ electron, session }).start();
 }
 
-module.exports = { createElectronApp, readDevtoolsEndpoint, applyBrowserUserAgent, BROWSER_PARTITION, IPC };
+module.exports = { createElectronApp, readDevtoolsEndpoint, applyBrowserUserAgent, BROWSER_PARTITION, IPC, RENDERER_CSP };
