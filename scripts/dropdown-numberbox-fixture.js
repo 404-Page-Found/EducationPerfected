@@ -7,7 +7,30 @@
 // dropdowns; numberBoxItems overrides the six-box list (Page's live
 // seven-box/one-text-box composition passes seven).
 function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxItem, dropdownAnswers, numberBoxItems, keepMulti) {
-    const injectorFrom = template => ({ parts: template.split(/({[^}]+})/g).map(part => /^\{[^}]+\}$/.test(part) ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
+    // Linear equivalent of template.split(/({[^}]+})/g) plus
+    // /^\{[^}]+\}$/ test: every "{" .. next "}" with at least one char
+    // between is an expression (inner "{" allowed per EP splitParts).
+    // Preserves source grammar while avoiding super-linear backtracking.
+    // NOTE: page-serialized fixture cannot require a shared module, so this
+    // scanner mirrors the textbox/dropdown splitParts grammar (see
+    // scripts/textbox-fixture.js and scripts/dropdown-fixture.js); keep the
+    // copies in sync.
+    const splitTemplate = template => {
+        const res = [];
+        let buf = '';
+        for (let k = 0; k < template.length;) {
+            if (template[k] !== '{') { buf += template[k++]; continue; }
+            const shut = template.indexOf('}', k + 1);
+            if (shut < 0 || shut === k + 1) { buf += template[k++]; continue; }
+            res.push(buf, template.substring(k, shut + 1));
+            buf = '';
+            k = shut + 1;
+        }
+        res.push(buf);
+        return res;
+    };
+    const isExpressionPart = part => part.length > 2 && part[0] === '{' && part[part.length - 1] === '}' && part.slice(1, -1).indexOf('}') === -1;
+    const injectorFrom = template => ({ parts: splitTemplate(template).map(seg => isExpressionPart(seg) ? { temporaryVariable: { expression: seg.slice(1, -1) } } : { text: seg }) });
     const old = document.querySelector('.multi-choice-component');
     const self = window.angular.element(old).scope().self, q = self.model._currentQuestion, base = {}, group = document.createElement('div');
     self.model.gameMode = 3;

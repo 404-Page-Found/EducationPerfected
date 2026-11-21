@@ -5,7 +5,35 @@
 // resolves {expression} templates in place on answerOptions, so an item with
 // `raw` keeps the template in def/metadata while answerOptions is resolved.
 function installInputBoxFixture(config) {
-    const injectorFrom = template => ({ parts: template.split(/({[^}]+})/g).map(part => part.startsWith('{') && part.endsWith('}') ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
+    // Linear equivalent of template.split(/({[^}]+})/g): every "{"
+    // .. next "}" with at least one char between is a delimiter (inner
+    // "{" allowed per EP splitParts). Preserves source grammar while
+    // avoiding super-linear backtracking (S8786).
+    // NOTE: page-serialized fixture cannot require a shared module, so this
+    // scanner mirrors the dropdown/numberbox splitParts grammar (see
+    // scripts/dropdown-fixture.js and scripts/dropdown-numberbox-fixture.js);
+    // keep the copies in sync.
+    const splitTemplate = template => {
+        const parts = [];
+        let pos = 0;
+        while (true) {
+            let open = template.indexOf('{', pos);
+            let validOpen = -1, validClose = -1;
+            while (open !== -1) {
+                const close = template.indexOf('}', open + 1);
+                if (close === -1) break;
+                if (close > open + 1) { validOpen = open; validClose = close; break; }
+                open = template.indexOf('{', open + 1);
+            }
+            if (validOpen === -1) { parts.push(template.slice(pos)); break; }
+            parts.push(template.slice(pos, validOpen));
+            parts.push(template.slice(validOpen, validClose + 1));
+            pos = validClose + 1;
+        }
+        return parts;
+    };
+    const isExpressionPart = part => part.length > 2 && part.charCodeAt(0) === 123 && part.charCodeAt(part.length - 1) === 125 && part.indexOf('}', 1) === part.length - 1;
+    const injectorFrom = template => ({ parts: splitTemplate(template).map(part => isExpressionPart(part) ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
     const old = document.querySelector('.multi-choice-component');
     const self = window.angular.element(old).scope().self, q = self.model._currentQuestion;
     self.model.gameMode = 3;

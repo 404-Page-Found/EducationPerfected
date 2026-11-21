@@ -33,7 +33,7 @@ const {navigationCause,recordNavigationFailure} = require('../lib/test-navigatio
   assert.doesNotThrow(()=>recordNavigationFailure(error,true,0,()=>{throw Error('Sink failed');}));
  }
  let reports=0;recordNavigationFailure(Error(secret),false,0,()=>{reports++;});assert.equal(reports,0);
- for (const [start,now,expected] of [[0,200000,120000],[10,5,0],[NaN,5,null]]) {
+ for (const [start,now,expected] of [[0,200000,120000],[10,5,0],[Number.NaN,5,null]]) {
   let detail;recordNavigationFailure(Error(secret),true,start,line=>{detail=JSON.parse(line.split('=')[1]);},()=>now);assert.equal(detail.elapsedMs,expected);
  }
  let calls=0;await run({goto:async()=>{calls++;}}, {login_url:secret},true,id=>{if(id==='./lib/initial-login-navigation')return {navigateInitialLogin:async(page,url)=>page.goto(url,{waitUntil:'domcontentloaded'})};throw Error('Successful goto must not load recorder');});assert.equal(calls,1); // NOSONAR: calls the fixed repository navigation block compiled above, with inert page and fake require only; no external code.
