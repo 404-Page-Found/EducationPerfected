@@ -38,7 +38,7 @@ Name: "{group}\Uninstall EducationPerfected"; Filename: "{uninstallexe}"
 [Run]
 ; Install-time setup: the pinned Chrome download, non-interactive. Consent is
 ; presented here; the app's first-run wizard is the repair path on failure.
-Filename: "{app}\educationperfected.exe"; Parameters: "setup --browser-only"; Description: "Download the pinned Chrome browser now (about 200 MB from Google; downloading accepts Google's terms). Required before first use."; Flags: postinstall runasoriginaluser skipifsilent
+Filename: "{app}\educationperfected.exe"; Parameters: "setup --browser-only"; Description: "Download the pinned Chrome browser now (about 200 MB from Google; downloading accepts Google's terms). Required before first use."; Flags: postinstall runasoriginaluser skipifsilent ignoreexitcode
 
 [UninstallDelete]
 Type: files; Name: "{app}\educationperfected-install.json"

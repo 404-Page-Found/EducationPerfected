@@ -47,7 +47,7 @@ function assertAppResources(appDir, version) {
     // The bundled main must not reference the source tree, and the native
     // credential-store binding rides along unbundled.
     const bundle = fs.readFileSync(path.join(appDir, 'main.cjs'), 'utf8');
-    assert.ok(!bundle.includes('require("electron")') || bundle.includes('electron'), 'bundle references electron');
+    assert.ok(!bundle.includes(root), 'bundle references the source tree');
     assert.ok(fs.statSync(path.join(appDir, 'node_modules', '@napi-rs', 'keyring', 'package.json')).isFile());
     assert.ok(fs.readdirSync(path.join(appDir, 'node_modules', '@napi-rs')).some(name => name.startsWith('keyring-')));
 }

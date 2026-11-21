@@ -122,7 +122,9 @@ if (require.main === module) {
     const platforms = { 'linux-x64': 'linux', 'linux-arm64': 'linux', 'windows-x64': 'win32', 'macos-arm64': 'darwin', 'macos-x64': 'darwin' };
     if (!platforms[target] || !out || process.argv.length !== 4) throw new Error('Usage: build-app.js <target> <downloadable-build-directory>');
     const expected = { linux: 'linux', win32: 'win32', darwin: 'darwin' }[platforms[target]];
-    if (process.platform !== expected) throw new Error('App payload requires its native build host');
+    // OS and arch must both match: the Electron distribution and the native
+    // keyring binding are this host's, so a mismatched target ships a wrong payload.
+    if (process.platform !== expected || process.arch !== target.split('-')[1]) throw new Error('App payload requires its native build host');
     buildApp({ out, platform: platforms[target], notices: path.join(out, 'THIRD-PARTY-NOTICES') })
         .catch(error => { console.error(error); process.exitCode = 1; });
 }

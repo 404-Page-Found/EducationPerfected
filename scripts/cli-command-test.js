@@ -56,7 +56,7 @@ async function probe(args,downloadFails=false,updateFails=false){
   if(id==='./update')return {updateCommand:async options=>{assert.equal(options.executable,'fixed.exe');events.push('update');if(updateFails)throw Error('inert update failure');}};
   if(id==='../lib/credential-store')return {createCredentialStore:()=>({inert:true})};
   if(id==='./uninstall')return {uninstallCommand:async options=>{assert.equal(options.ownDirectory,'/inert-runtime');assert.equal(options.store.inert,true);events.push('uninstall');await options.cleanupOwn();return {incomplete:false};}};
-  if(id==='./download-browser')return {ensureBrowser:async(options)=>{events.push(options&&options.consent?'acquire-implied':'acquire');if(downloadFails)throw Error('inert cancellation');},downloadNotice:()=>'inert notice'};
+  if(id==='./download-browser')return {ensureBrowser:async(options)=>{events.push(options&&options.consent?(await options.consent())===true?'acquire-implied':'acquire-refused':'acquire');if(downloadFails)throw Error('inert cancellation');},downloadNotice:()=>'inert notice'};
   if(id==='../bin/cli')return {credentialCommand:async command=>{events.push(command);},runCli:async()=>{throw Error('Must not launch browser');}};
   if(id==='../lib/diagnostics')return {diagnostic:()=> 'inert'};
   return require(id);

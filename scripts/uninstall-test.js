@@ -134,6 +134,12 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
   assert.deepEqual(s.spawns.map(([c,a])=>[c,...a]),[['sudo','rm','-rf',s.exe,s.recordFile,'/Applications/EducationPerfected.app'],['sudo','pkgutil','--forget','com.404pf.educationperfected']]);
   cleanup(s);
  }
+ // A record claiming unrelated directories: recursive removal is allowlisted to the installer-recorded app bundle.
+ {
+  const s=await runProgramScenario({method:'pkg',record:{receipt:'com.404pf.educationperfected',directories:['/System/Library','/Users']},platform:'darwin',choices:{program:true}});
+  assert.deepEqual(s.spawns.map(([c,a])=>[c,...a]),[['sudo','rm','-rf',s.exe,s.recordFile],['sudo','pkgutil','--forget','com.404pf.educationperfected']]);
+  cleanup(s);
+ }
  // Windows install.ps1: detached helper, PATH entry and files passed through, exe still present.
  {
   const s=await runProgramScenario({method:'install-ps1',record:{pathEntries:['C:\\\\Programs\\\\EducationPerfected']},platform:'win32',choices:{program:true},execName:'educationperfected.exe'});

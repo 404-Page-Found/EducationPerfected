@@ -14,8 +14,10 @@ test -d "$payload"
 # and offers the same download as the repair path.
 read -r -d '' POSTINST <<'SCRIPT' || true
 #!/bin/sh
-user=${SUDO_USER:-$(whoami)}
-if [ "$user" = "root" ] && command -v loginctl >/dev/null 2>&1; then user=$(loginctl list-users --no-legend 2>/dev/null | awk '$2 != 0 {print $2; exit}'); fi
+# The installing user is who ran sudo; never guess another logged-in account -
+# a wrong guess would download 200 MB into the wrong home. When the user
+cannot be determined, skip: the app's first-run setup is the repair path.
+user=${SUDO_USER:-}
 home=$(getent passwd "$user" 2>/dev/null | cut -d: -f6)
 if [ -n "$user" ] && [ "$user" != "root" ] && [ -n "$home" ]; then
   echo "EducationPerfected: downloading the pinned Chrome browser for $user (about 200 MB from Google; downloading accepts Google's terms)."
@@ -102,6 +104,7 @@ case "$target" in
 %global __os_install_post %{nil}
 Name: educationperfected
 Source0: educationperfected
+Source1: app-payload.tar
 Version: $version
 Release: 1
 Summary: Education Perfect helper CLI (packaged binary)
@@ -112,6 +115,8 @@ Packaged command-line app that opens Education Perfect in a dedicated browser wi
 %install
 mkdir -p %{buildroot}/usr/bin
 install -m 755 %{SOURCE0} %{buildroot}/usr/bin/educationperfected
+# Desktop app payload (app directory, .desktop entry, icon).
+tar -xf %{SOURCE1} -C %{buildroot}
 # Install record: uninstall reads this to remove exactly what this install created.
 printf '%s\\n' '{"version":1,"method":"rpm","files":["/usr/bin/educationperfected","/usr/bin/educationperfected-install.json"],"directories":["/usr/lib/educationperfected"]}' > %{buildroot}/usr/bin/educationperfected-install.json
 %post

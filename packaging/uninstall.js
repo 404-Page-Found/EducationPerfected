@@ -10,6 +10,8 @@ const {detectInstall,recordPathFor}=require('../lib/install-record');
 const {startWindowsUninstallHelper}=require('./uninstall-windows');
 
 const PACKAGE_NAME='educationperfected';
+// The only directories the .pkg installer records; recursive removal allowlist.
+const PKG_APP_DIRECTORIES=['/Applications/EducationPerfected.app'];
 
 async function confirmUninstall(input=process.stdin,output=process.stdout,program=null){
  if(!input.isTTY||!output.isTTY)throw new Error('Uninstall requires an interactive terminal');
@@ -87,9 +89,10 @@ function removalPlan(install,{platform,executable}){
    return {kind:'package',command:['sudo','rpm','-e',PACKAGE_NAME],detail:'runs sudo rpm -e '+PACKAGE_NAME};
   case 'pkg':
    // No receipt id means no receipt can be forgotten; without one this is a
-   // manual removal, not a null argument to spawn. Directories (the .app
-   // bundle) are removed recursively; only installer-recorded paths.
-   return install.receipt?{kind:'pkg',files:ownedFiles,directories:install.directories||[],receipt:install.receipt,detail:'removes the installed files and the desktop app with sudo and forgets the installer receipt'}:null;
+   // manual removal, not a null argument to spawn. Recursive removal is
+   // restricted to the one app bundle path the .pkg installer records: a
+   // writable record must not turn uninstall into arbitrary sudo rm -rf.
+   return install.receipt?{kind:'pkg',files:ownedFiles,directories:(install.directories||[]).filter(directory=>PKG_APP_DIRECTORIES.includes(directory)),receipt:install.receipt,detail:'removes the installed files and the desktop app with sudo and forgets the installer receipt'}:null;
   default:
    return null;
  }
@@ -174,7 +177,7 @@ async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=p
   }else if(plan.kind==='pkg'){
    const remove=spawn('sudo',['rm','-rf',...plan.files,...plan.directories],{stdio:'inherit'});
    const forget=remove.error||remove.status!==0?null:spawn('sudo',['pkgutil','--forget',plan.receipt],{stdio:'inherit'});
-   if(remove.error||remove.status!==0||(forget&&(forget.error||forget.status!==0))){incomplete=true;output.write('Package removal failed; remove the files and forget the receipt by hand: sudo rm -f '+plan.files.join(' ')+' && sudo pkgutil --forget '+plan.receipt+'\n');}
+   if(remove.error||remove.status!==0||(forget&&(forget.error||forget.status!==0))){incomplete=true;output.write('Package removal failed; remove the files and forget the receipt by hand: sudo rm -rf '+[...plan.files,...plan.directories].join(' ')+' && sudo pkgutil --forget '+plan.receipt+'\n');}
    else output.write('Program removed (files deleted, installer receipt forgotten).\n');
   }
  }
