@@ -220,9 +220,9 @@ async function driveDashSprint(page, origin, { route, label, rounds, totalLabel,
 }
 
 async function testDashSprint(page, origin) {
-    // Dash classic reconstruction (issue #230): synthetic timed page sharing the
-    // classic selectors, retained only to exercise the timed-run empty-word-list
-    // warning. The captured Dash shapes below are the live-grounded coverage.
+    // Dash classic reconstruction (issue #230): synthetic full-sprint test sharing the
+    // classic selectors, with fixture-invented timer, score and results.
+    // The captured Dash shapes below are the live-grounded coverage.
     await driveDashSprint(page, origin, {
         route: '/dash-task/play',
         label: 'Dash',
@@ -263,8 +263,9 @@ async function testDashQuizSprint(page, origin) {
     assert.equal(await page.$('#answer-text'), null);
     assert.equal(await page.$('.voice-speaker'), null);
     check('Dash choice: no classic question/box or speaker markup');
-    const groupCount = await page.$$eval('.multi-choice-component .mcq-preview-option', els => els.length);
-    assert.equal(groupCount, 4);
+    assert.equal(await page.$$eval('.multi-choice-component', els => els.length), 1);
+    const optionCount = await page.$$eval('.multi-choice-component .mcq-preview-option', els => els.length);
+    assert.equal(optionCount, 4);
     assert.equal(await page.$$eval('button.submit-button',
         els => els.filter(el => !el.hidden && el.offsetParent !== null).length), 1);
     const timer = await page.$eval('#dash-timer', el => el.textContent.trim());
@@ -290,6 +291,10 @@ async function testDashQuizSprint(page, origin) {
             }
         }
         assert.ok(picked, `Dash choice round ${round} contains its shipped correct option`);
+        const prevIndex = await page.evaluate(() => {
+            const self = window.angular.element(document.body).scope().self;
+            return self.model._currentQuestion ? self.model._currentQuestion.questionIndex : null;
+        });
         const submit = await page.$('button.submit-button');
         await submit.click();
         if (last) {
@@ -298,7 +303,7 @@ async function testDashQuizSprint(page, origin) {
             await page.waitForFunction(prev => {
                 const self = window.angular.element(document.body).scope().self;
                 return self.model._currentQuestion && self.model._currentQuestion.questionIndex !== prev;
-            }, { timeout: 2000 }, round);
+            }, { timeout: 2000 }, prevIndex);
         }
         assert.equal(await page.$eval('.quiz-score', el => el.textContent), String(round + 1));
     }
@@ -320,7 +325,8 @@ async function testDashNumberBoxShape(page, origin) {
     // present, the classic/choice/speaker markup is absent, and the captured
     // model ships no answer.
     await page.goto(`${origin}/dash-task/number-box`, { waitUntil: 'domcontentloaded' });
-    assert.ok(await page.$('input.number-box-component'), 'Dash number-box input must be present');
+    assert.equal(await page.$$eval('input.number-box-component', els => els.length), 1,
+        'Dash number-box fixture must contain exactly one input');
     assert.equal(await page.$('#question-text'), null);
     assert.equal(await page.$('#answer-text'), null);
     assert.equal(await page.$('.multi-choice-component'), null);

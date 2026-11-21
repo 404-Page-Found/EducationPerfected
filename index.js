@@ -498,7 +498,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
         // classic reconstruction is synthetic and retained only to exercise the
         // timed-run empty-word-list warning. The timer/score/results selectors
         // below are fixture-invented (lib/dash.js, no live timer candidates):
-        // the timer warns when a timed run starts with an empty word list and
+        // the timer warns on the first classic question the word list cannot answer and
         // notes the sprint; it never drives answering. The fixture exposes both
         // .dash-timer and #dash-timer (likewise score/results) so either selector
         // resolves.
