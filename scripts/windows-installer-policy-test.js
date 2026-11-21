@@ -5,6 +5,7 @@ for(const required of [
  'AppId={{5C0EDD47-9C42-5901-AF48-2393F39A36CD}','PrivilegesRequired=lowest',
  '{localappdata}\\Programs\\EducationPerfected','OutputBaseFilename=educationperfected-windows-x64-setup',
  'DestName: "educationperfected.exe"','Name: "addtopath"','{group}\\EducationPerfected',
+ 'Source: "{#AppPayload}\\*"; DestDir: "{app}\\app"; Flags: ignoreversion recursesubdirs createallsubdirs',
  'CurUninstallStepChanged','RemoveAppFromPath','UninstallDisplayName=EducationPerfected',
  '[UninstallDelete]','educationperfected.exe.backup','educationperfected.exe.update-result',
  'educationperfected.exe.update.lock','{app}\\.update-*',
