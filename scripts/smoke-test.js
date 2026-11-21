@@ -131,10 +131,10 @@ async function testCompletionExit(page, origin) {
 
 
 async function readDashWordLists(page, origin) {
-    // Dash starter shares the classic word-list selectors (issue #237 audit
-    // 2026-11-19): the same div.baseLanguage / div.targetLanguage markup as
-    // /task, so a Dash entry with no lists strands the timed run on modal-only
-    // learning.
+    // Classic Dash starter shares the word-list selectors (issue #230): the same
+    // div.baseLanguage / div.targetLanguage markup as /task, so a classic timed
+    // entry with no lists strands the run on modal-only learning. Captured Dash
+    // choice/typed rounds do not use word lists (shipped answer or refusal).
     await page.goto(origin + '/dash-task', { waitUntil: 'domcontentloaded' });
     const readList = selector => page.$$eval(selector, els => els.map(el => el.innerText));
     const base = await readList('div.baseLanguage span');
@@ -145,10 +145,10 @@ async function readDashWordLists(page, origin) {
 }
 
 async function driveDashSprint(page, origin, { route, label, rounds, totalLabel, shapeCheck }) {
-    // Shared timed-sprint driver for the Dash reconstructions (issues #237,
-    // #273): the classic selectors (#question-text + input#answer-text, shared
-    // wrong-answer modal, timer/score/results chrome) with per-round typing.
-    // A single copy avoids duplicating the sprint flow across Dash variants.
+    // Shared timed-sprint driver for the classic/typed Dash reconstructions
+    // (issue #230): the classic selectors (#question-text + input#answer-text,
+    // shared wrong-answer modal, timer/score/results chrome) with per-round
+    // typing. A single copy avoids duplicating the sprint flow across variants.
     await page.goto(origin + route, { waitUntil: 'domcontentloaded' });
     assert.equal(await question(), 'one');
     check(`${label}: $eval reads the shared question`);
@@ -220,9 +220,9 @@ async function driveDashSprint(page, origin, { route, label, rounds, totalLabel,
 }
 
 async function testDashSprint(page, origin) {
-    // Dash round shares the classic selectors (issue #237): #question-text +
-    // input#answer-text with the same wrong-answer modal, plus the provisional
-    // timed-sprint chrome (.dash-timer countdown, .dash-score, .dash-results).
+    // Dash classic reconstruction (issue #230): synthetic full-sprint test sharing the
+    // classic selectors, with fixture-invented timer, score and results.
+    // The captured Dash shapes below are the live-grounded coverage.
     await driveDashSprint(page, origin, {
         route: '/dash-task/play',
         label: 'Dash',
@@ -232,9 +232,9 @@ async function testDashSprint(page, origin) {
 }
 
 async function testDashTypedSprint(page, origin) {
-    // Dash typed sprint (issue #273): the #272-captured shape (QuizModel with
+    // Dash typed sprint (issue #230, #272-captured shape): QuizModel with
     // isDash, #question-text + input#answer-text, one Submit button, no choice
-    // or speaker markup) plus the shared wrong-answer modal and completion
+    // or speaker markup, plus the shared wrong-answer modal and completion
     // controls. The timer/score/results chrome stays fixture-invented.
     await driveDashSprint(page, origin, {
         route: '/dash-task/typed',
@@ -249,6 +249,109 @@ async function testDashTypedSprint(page, origin) {
             check('Dash typed: one Submit button, no choice or speaker markup');
         },
     });
+}
+
+async function testDashQuizSprint(page, origin) {
+    // Dash choice sprint (issue #230, 2026-11-19 live capture): one
+    // single-select multi-choice component on EP's QuizModel (isDash true),
+    // one Submit button, no classic question/answer-text markup. The correct
+    // option is read from EP's own shipped question state (the same source the
+    // CLI reader uses), never hardcoded: the fixture only models the captured
+    // structure, and the timer stays fixture-invented.
+    await page.goto(`${origin}/dash-task/quiz`, { waitUntil: 'domcontentloaded' });
+    assert.equal(await page.$('#question-text'), null);
+    assert.equal(await page.$('#answer-text'), null);
+    assert.equal(await page.$('.voice-speaker'), null);
+    check('Dash choice: no classic question/box or speaker markup');
+    assert.equal(await page.$$eval('.multi-choice-component', els => els.length), 1);
+    const optionCount = await page.$$eval('.multi-choice-component .mcq-preview-option', els => els.length);
+    assert.equal(optionCount, 4);
+    assert.equal(await page.$$eval('button.submit-button',
+        els => els.filter(el => !el.hidden && el.offsetParent !== null).length), 1);
+    const timer = await page.$eval('#dash-timer', el => el.textContent.trim());
+    assert.ok(timer !== '', 'Dash choice timer must be present during the sprint');
+    assert.equal(await page.$eval('.quiz-score', el => el.textContent), '0');
+    check('Dash choice: one 4-option group, one Submit button, timer and score present');
+    for (let round = 0; round < 3; round += 1) {
+        const last = round === 2;
+        const correct = await page.evaluate(() => {
+            const self = window.angular.element(document.body).scope().self;
+            const options = self.model._currentQuestion.questionDef.Components[0].Options;
+            return options.find(o => o.Correct === 'true').TextTemplate;
+        });
+        assert.ok(typeof correct === 'string' && correct !== '', 'Dash choice round ships one Correct flag');
+        const options = await page.$$('.multi-choice-component .mcq-preview-option');
+        let picked = false;
+        for (const option of options) {
+            const text = await option.evaluate(el => el.textContent.trim());
+            if (text === correct) {
+                await option.click();
+                picked = true;
+                break;
+            }
+        }
+        assert.ok(picked, `Dash choice round ${round} contains its shipped correct option`);
+        const prevIndex = await page.evaluate(() => {
+            const self = window.angular.element(document.body).scope().self;
+            return self.model._currentQuestion ? self.model._currentQuestion.questionIndex : null;
+        });
+        const submit = await page.$('button.submit-button');
+        await submit.click();
+        if (last) {
+            await page.waitForFunction(() => !document.querySelector('.multi-choice-component') && !document.querySelector('button.submit-button'), { timeout: 2000 });
+        } else {
+            await page.waitForFunction(prev => {
+                const self = window.angular.element(document.body).scope().self;
+                return self.model._currentQuestion && self.model._currentQuestion.questionIndex !== prev;
+            }, { timeout: 2000 }, prevIndex);
+        }
+        assert.equal(await page.$eval('.quiz-score', el => el.textContent), String(round + 1));
+    }
+    check('Dash choice: all 3 sprint rounds selected from the shipped answer with scoring');
+    await page.waitForSelector('button.exit-button', { timeout: 2000 });
+    const exit = await page.$('button.exit-button');
+    const exitNav = page.waitForNavigation({ timeout: 5000, waitUntil: 'domcontentloaded' }).catch(() => null);
+    await exit.click();
+    await exitNav;
+    await page.waitForSelector('main #single-spa-application\\:mfeGlobalNavigation\\:Tertiary', { timeout: 2000 });
+    check('Dash choice: completion exit button resolves and clicks to dashboard');
+}
+
+async function testDashNumberBoxShape(page, origin) {
+    // Dash number-box shape (issue #230, second 2026-11-20 capture filed as
+    // #282): one NUMBER_BOX_COMPONENT with empty validAnswers and no correct
+    // flags, so the run must refuse by name. Smoke does not run the CLI loop,
+    // so it pins the fixture shape the refusal is defined against: the box is
+    // present, the classic/choice/speaker markup is absent, and the captured
+    // model ships no answer.
+    await page.goto(`${origin}/dash-task/number-box`, { waitUntil: 'domcontentloaded' });
+    assert.equal(await page.$$eval('input.number-box-component', els => els.length), 1,
+        'Dash number-box fixture must contain exactly one input');
+    assert.equal(await page.$('#question-text'), null);
+    assert.equal(await page.$('#answer-text'), null);
+    assert.equal(await page.$('.multi-choice-component'), null);
+    assert.equal(await page.$('.voice-speaker'), null);
+    assert.equal(await page.$$eval('button.submit-button',
+        els => els.filter(el => !el.hidden && el.offsetParent !== null).length), 1);
+    const shape = await page.evaluate(() => {
+        const self = window.angular.element(document.body).scope().self;
+        const q = self.model._currentQuestion;
+        return {
+            isDash: self.model.isDash,
+            questionType: q.questionType,
+            translationMode: q.translationMode,
+            validAnswers: q.validAnswers.length,
+            component: q.questionDef.Components[0].ComponentTypeCode,
+            flags: q.questionDef.Components[0].Options.map(o => String(o.Correct ?? '')),
+        };
+    });
+    assert.equal(shape.isDash, true);
+    assert.equal(shape.questionType, 6);
+    assert.equal(shape.translationMode, 4);
+    assert.equal(shape.validAnswers, 0);
+    assert.equal(shape.component, 'NUMBER_BOX_COMPONENT');
+    assert.ok(shape.flags.every(f => f !== 'true'), 'Dash number-box ships no correct flag');
+    check('Dash number-box: refusal shape present (one box, no answer, no classic/choice markup)');
 }
 
 async function testHotkeyPreloadSurvival(page, origin) {
@@ -356,12 +459,18 @@ async function main() {
         // Completion exit
         await testCompletionExit(page, origin);
 
-        // --- Dash sprint (issue #237): shared selectors + timed chrome ---
+        // --- Dash sprint (issue #230): classic synthetic + timed chrome ---
         await readDashWordLists(page, origin);
         await testDashSprint(page, origin);
 
-        // --- Dash typed sprint (issue #273): #272-captured shape ---
+        // --- Dash typed sprint (issue #230): #272-captured shape ---
         await testDashTypedSprint(page, origin);
+
+        // --- Dash choice sprint (issue #230): 2026-11-19 captured shape ---
+        await testDashQuizSprint(page, origin);
+
+        // --- Dash number-box shape (issue #230, #282): refusal fixture ---
+        await testDashNumberBoxShape(page, origin);
 
         // --- host bindings + preload ---
         await testHotkeyPreloadSurvival(page, origin);
