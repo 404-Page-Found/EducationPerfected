@@ -213,6 +213,23 @@ async function setup(page, origin) {
         assert.equal(lateRefusal.diagnostic?.check, 'body-bracket');
         assert.equal(lateRefusal.diagnostic?.directive, 'table');
         assert.deepEqual(lateRefusal.diagnostic?.optionChecks, ['ok', 'ok', 'body-bracket:table', 'ok']);
+        // A bracket that survives raw normalization but appears after variable
+        // resolution still stops with the same content-free family tag (#238):
+        // resolved-template parity with the raw-template diagnostic.
+        await setup(page, origin);
+        await page.evaluate(() => {
+            const f = window.mathFixture;
+            f.metadata.Options[1].TextTemplate = '[block\n[image url="x"]\n]';
+            f.previews[1].renderer.templateString = '[block\n[image url="x"]\n]';
+        });
+        const resolvedRefusal = await detectQuestion(page);
+        assert.equal(resolvedRefusal.kind, 'unsupported');
+        assert.equal(resolvedRefusal.diagnostic?.boundary, 'resolved-template');
+        assert.equal(resolvedRefusal.diagnostic?.option, 1);
+        assert.equal(resolvedRefusal.diagnostic?.check, 'body-bracket');
+        assert.equal(resolvedRefusal.diagnostic?.directive, 'image');
+        assert.ok(!JSON.stringify(resolvedRefusal.diagnostic).includes('url='));
+        assert.equal(await page.evaluate(() => mathFixture.clicks.length), 0);
         const boundaries = {
             'no-parser': 'renderer-graph', 'foreign-index': 'renderer-graph', image: 'option-dom', math: 'raw-template', // injected katex flips detection to the formula path, whose raw templates carry no backticks
             'extra-editable': 'option-dom', 'render-text': 'option-dom', 'unknown-grammar': 'raw-template', 'unknown-attribute': 'raw-template',
