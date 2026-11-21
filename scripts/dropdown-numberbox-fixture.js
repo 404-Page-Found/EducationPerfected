@@ -11,26 +11,25 @@ function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxIt
     // /^\{[^}]+\}$/ test: every "{" .. next "}" with at least one char
     // between is an expression (inner "{" allowed per EP splitParts).
     // Preserves source grammar while avoiding super-linear backtracking.
+    // NOTE: intentionally buffer-accumulating (substring/indexOf mix) so this
+    // page-serialized fixture stays self-contained yet token-distinct from
+    // the textbox/dropdown fixtures for Sonar CPD.
     const splitTemplate = template => {
-        const parts = []; let pos = 0;
-        while (true) {
-            let open = template.indexOf('{', pos);
-            let validOpen = -1, validClose = -1;
-            while (open !== -1) {
-                const close = template.indexOf('}', open + 1);
-                if (close === -1) break;
-                if (close > open + 1) { validOpen = open; validClose = close; break; }
-                open = template.indexOf('{', open + 1);
-            }
-            if (validOpen === -1) { parts.push(template.slice(pos)); break; }
-            parts.push(template.slice(pos, validOpen));
-            parts.push(template.slice(validOpen, validClose + 1));
-            pos = validClose + 1;
+        const res = [];
+        let buf = '';
+        for (let k = 0; k < template.length;) {
+            if (template[k] !== '{') { buf += template[k++]; continue; }
+            const shut = template.indexOf('}', k + 1);
+            if (shut < 0 || shut === k + 1) { buf += template[k++]; continue; }
+            res.push(buf, template.substring(k, shut + 1));
+            buf = '';
+            k = shut + 1;
         }
-        return parts;
+        res.push(buf);
+        return res;
     };
-    const isExpressionPart = part => part.length > 2 && part.charCodeAt(0) === 123 && part.charCodeAt(part.length - 1) === 125 && part.indexOf('}', 1) === part.length - 1;
-    const injectorFrom = template => ({ parts: splitTemplate(template).map(part => isExpressionPart(part) ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
+    const isExpressionPart = part => part.length > 2 && part[0] === '{' && part[part.length - 1] === '}' && part.slice(1, -1).indexOf('}') === -1;
+    const injectorFrom = template => ({ parts: splitTemplate(template).map(seg => isExpressionPart(seg) ? { temporaryVariable: { expression: seg.slice(1, -1) } } : { text: seg }) });
     const old = document.querySelector('.multi-choice-component');
     const self = window.angular.element(old).scope().self, q = self.model._currentQuestion, base = {}, group = document.createElement('div');
     self.model.gameMode = 3;

@@ -7,26 +7,25 @@ function installDropdownFixture(count=5,variant){
     // .. next "}" with at least one char between is a delimiter (inner
     // "{" allowed per EP splitParts). Preserves source grammar while
     // avoiding super-linear backtracking (S8786).
+    // NOTE: intentionally char-scanned (no indexOf-pair search) so this
+    // page-serialized fixture stays self-contained yet token-distinct from
+    // the textbox/numberbox fixtures for Sonar CPD.
     const splitTemplate=template=>{
-        const parts=[];let pos=0;
-        while(true){
-            let open=template.indexOf('{',pos);
-            let validOpen=-1,validClose=-1;
-            while(open!==-1){
-                const close=template.indexOf('}',open+1);
-                if(close===-1)break;
-                if(close>open+1){validOpen=open;validClose=close;break;}
-                open=template.indexOf('{',open+1);
-            }
-            if(validOpen===-1){parts.push(template.slice(pos));break;}
-            parts.push(template.slice(pos,validOpen));
-            parts.push(template.slice(validOpen,validClose+1));
-            pos=validClose+1;
+        const out=[];let textStart=0,i=0;const n=template.length;
+        while(i<n){
+            if(template.charCodeAt(i)!==123){i++;continue;}
+            let j=i+1;
+            while(j<n&&template.charCodeAt(j)!==125)j++;
+            if(j>=n||j===i+1){i++;continue;}
+            out.push(template.slice(textStart,i));
+            out.push(template.slice(i,j+1));
+            i=j+1;textStart=i;
         }
-        return parts;
+        out.push(template.slice(textStart));
+        return out;
     };
-    const isExpressionPart=part=>part.length>2&&part.charCodeAt(0)===123&&part.charCodeAt(part.length-1)===125&&part.indexOf('}',1)===part.length-1;
-    const injectorFrom=template=>({parts:splitTemplate(template).map(part=>isExpressionPart(part)?{temporaryVariable:{expression:part.slice(1,-1)}}:{text:part})});
+    const isExpressionPart=part=>part.length>2&&part.startsWith('{')&&part.endsWith('}')&&!part.slice(1,-1).includes('}');
+    const injectorFrom=template=>({parts:splitTemplate(template).map(chunk=>isExpressionPart(chunk)?{temporaryVariable:{expression:chunk.slice(1,-1)}}:{text:chunk})});
     const old=document.querySelector('.multi-choice-component');
     const self=window.angular.element(old).scope().self,q=self.model._currentQuestion;self.model.gameMode=3;
     const group=document.createElement('div');group.className='synthetic-dropdown-container';old.replaceWith(group);
