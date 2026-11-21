@@ -27,7 +27,7 @@ async function confirmUninstall(input=process.stdin,output=process.stdout,progra
  };
  try{
   const login=await ask('Remove the saved login from the OS credential store? [y/N] ');
-  const data=await ask('Remove EducationPerfected app data (settings and temporary files)? [y/N] ');
+  const data=await ask('Remove EducationPerfected app data (settings, saved sessions and temporary files)? [y/N] ');
   const browsers=await ask('Remove downloaded browsers (about 200 MB)? [y/N] ');
   const programChoice=program?await ask('Remove the EducationPerfected program itself ('+program+')? [y/N] '):false;
   return {login,data,browsers,program:programChoice};
@@ -135,7 +135,7 @@ async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=p
   if(choices.data){
    let safe=safeRuntimeRoot(tmp,ownDirectory);
    // Unknown root entries are not recursively deleted, nor followed as links.
-   try{if(fs.readdirSync(root).some(name=>!['tmp','browsers','MAINTENANCE.lock','config.json','app-setup.json','app-update-result.txt'].includes(name)))safe=false;}catch{safe=false;}
+   try{if(fs.readdirSync(root).some(name=>!['tmp','browsers','MAINTENANCE.lock','config.json','app-setup.json','app-update-result.txt','app-data'].includes(name)))safe=false;}catch{safe=false;}
    if(!safe){incomplete=true;output.write('Live/uncertain runtime files or unknown app data retained. Close all app/browser processes and inspect before retrying.\n');}
    // config.json is the shared settings file; app-setup.json is the desktop
    // app's wizard marker and app-update-result.txt its one-shot update receipt.
@@ -147,6 +147,14 @@ async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=p
      else{incomplete=true;output.write('Unexpected settings path retained for inspection.\n');}
     }catch(error){if(error.code!=='ENOENT'){incomplete=true;output.write('Saved app settings could not be removed.\n');}}
    }
+   // The desktop app's own data folder (saved sessions, caches) lives under
+   // the root as app-data; remove it as a real directory, never through a link.
+   const appData=path.join(root,'app-data');
+   try{
+    const stat=fs.lstatSync(appData);
+    if(stat.isDirectory()&&!stat.isSymbolicLink()){fs.rmSync(appData,{recursive:true});output.write('Desktop app data removed.\n');}
+    else{incomplete=true;output.write('Unexpected app data path retained for inspection.\n');}
+   }catch(error){if(error.code!=='ENOENT'){incomplete=true;output.write('Desktop app data could not be fully removed; close the app and retry.\n');}}
    try{await cleanupOwn();}catch{incomplete=true;output.write('Owned runtime cleanup failed; retained for inspection.\n');}
    // Only remove empty containers. No recursive root or temp deletion.
    try{fs.rmdirSync(tmp);}catch(error){if(error.code!=='ENOENT')incomplete=true;}

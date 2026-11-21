@@ -393,7 +393,7 @@ async function resolveCredentials(watchForSession) {
 
 // ===== Program ===== //
 
-async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected = () => {}, legacySignals = false, gapsFillOnly = false, choiceSelectOnly = false, gapsSubmitOnce = false, textboxFillOnly = false, dropdownSubmitOnce = false, multiSelectOnly = false, reflectionTextProvider, accuracy = {} } = {}) {
+async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected = () => {}, legacySignals = false, gapsFillOnly = false, choiceSelectOnly = false, gapsSubmitOnce = false, textboxFillOnly = false, dropdownSubmitOnce = false, multiSelectOnly = false, reflectionTextProvider, accuracy = {}, connectBrowser = null, selectPage = null } = {}) {
     // F4 popup is the only normal-run dropdown input path. The older
     // Home/ArrowDown mechanism remains only in explicit synthetic regression
     // fixtures and the local EP-free diagnostic; there is no env rollback.
@@ -533,12 +533,15 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
         let timer;
         try {
             await Promise.race([
-                startupBrowser.close(),
+                closeLaunchedBrowser(),
                 new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Browser shutdown timed out')), 3000); }),
             ]);
         } finally { clearTimeout(timer); }
     };
     let signalClose = closeSignalBrowser;
+    // An attached (embedded) browser outlives the session: closing disconnects
+    // from it rather than shutting the app's own browser shell down.
+    const closeLaunchedBrowser = () => ownsBrowser ? startupBrowser.close() : Promise.resolve().then(() => startupBrowser.disconnect());
     const removeStartupSignals = () => {
         process.removeListener('SIGINT', onStartupInt);
         process.removeListener('SIGTERM', onStartupTerm);
@@ -582,20 +585,29 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
     process.on('SIGINT', onStartupInt);
     process.on('SIGTERM', onStartupTerm);
     process.on('SIGHUP', onStartupHup);
-    return puppeteer.launch({
-        // test boot: no visible window, and the endpoint is printed so the
-        // test can attach
-        headless: TEST_BOOT ? 'shell' : false,
-        defaultViewport: null,
-        handleSIGINT: false,
-        handleSIGTERM: false,
-        handleSIGHUP: false
-    })
+    // The desktop app attaches to its own embedded browser view instead of
+    // launching a browser: connectBrowser hands over a Puppeteer connection
+    // and selectPage picks the guest page out of it. An attached browser is
+    // never this process's to kill, so closing disconnects instead.
+    const ownsBrowser = !connectBrowser;
+    return (ownsBrowser
+        ? puppeteer.launch({
+            // test boot: no visible window, and the endpoint is printed so the
+            // test can attach
+            headless: TEST_BOOT ? 'shell' : false,
+            defaultViewport: null,
+            handleSIGINT: false,
+            handleSIGTERM: false,
+            handleSIGHUP: false
+        })
+        : connectBrowser())
         .then(async browser => {
             startupBrowser = browser;
             if (startupSignal) return shutdownStartup();
             if (TEST_BOOT) console.log(`EP_WS_ENDPOINT=${browser.wsEndpoint()}`);
-            const page = (await browser.pages())[0];
+            const allPages = await browser.pages();
+            const page = selectPage ? selectPage(allPages) : allPages[0];
+            if (!page) throw new Error('The browser opened no page to control.');
 
             /**
  * Finds the login button by its label text within the login form.
@@ -2913,7 +2925,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 inspect: () => collectSelfMarkDiagnostics(page),
                 inspectDash: () => require('./lib/dash-diagnostics').collectDashDiagnostics(page),
                 inspectComponents: () => require('./lib/components-diagnostics').collectComponentsDiagnostics(page),
-                close: () => legacySignals && startupSignal ? closeSignalBrowser() : browser.close(),
+                close: () => legacySignals && startupSignal ? closeSignalBrowser() : (ownsBrowser ? browser.close() : Promise.resolve().then(() => browser.disconnect())),
             });
             // Issue #222: expose accuracy in status and allow tuning when stopped.
             // Validation sessions stay perfect and reject accuracy changes.

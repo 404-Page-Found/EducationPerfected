@@ -8,7 +8,6 @@ const { contextBridge, ipcRenderer } = require('electron');
 const CHANNELS = {
     getState: 'ep:get-state',
     refreshSetup: 'ep:refresh-setup',
-    downloadBrowser: 'ep:download-browser',
     saveLogin: 'ep:save-login',
     forgetLogin: 'ep:forget-login',
     startSession: 'ep:start-session',
@@ -21,7 +20,6 @@ const CHANNELS = {
 };
 const EVENTS = {
     state: 'ep:state',
-    setupProgress: 'ep:setup-progress',
     reflectionRequest: 'ep:reflection-request',
     reflectionSettled: 'ep:reflection-settled',
     maintenanceProgress: 'ep:maintenance-progress',
@@ -33,7 +31,6 @@ const listen = channel => fn => ipcRenderer.on(channel, (event, payload) => fn(p
 contextBridge.exposeInMainWorld('educationPerfected', {
     getState: () => invoke(CHANNELS.getState),
     refreshSetup: () => invoke(CHANNELS.refreshSetup),
-    downloadBrowser: () => invoke(CHANNELS.downloadBrowser),
     saveLogin: (email, password) => invoke(CHANNELS.saveLogin, email, password),
     forgetLogin: () => invoke(CHANNELS.forgetLogin),
     startSession: () => invoke(CHANNELS.startSession),
@@ -44,7 +41,6 @@ contextBridge.exposeInMainWorld('educationPerfected', {
     applyUpdate: () => invoke(CHANNELS.applyUpdate),
     uninstall: choices => invoke(CHANNELS.uninstall, choices),
     onState: listen(EVENTS.state),
-    onSetupProgress: listen(EVENTS.setupProgress),
     onReflectionRequest: listen(EVENTS.reflectionRequest),
     onReflectionSettled: listen(EVENTS.reflectionSettled),
     onMaintenanceProgress: listen(EVENTS.maintenanceProgress),

@@ -3,12 +3,12 @@
 // without the Electron binary via createElectronApp (scripts/app-shell-test.js).
 'use strict';
 
+const fs = require('node:fs');
 const path = require('node:path');
 
 const IPC = {
     getState: 'ep:get-state',
     refreshSetup: 'ep:refresh-setup',
-    downloadBrowser: 'ep:download-browser',
     saveLogin: 'ep:save-login',
     forgetLogin: 'ep:forget-login',
     startSession: 'ep:start-session',
@@ -20,6 +20,66 @@ const IPC = {
     uninstall: 'ep:uninstall',
 };
 
+// The embedded browser view's persistent partition: the EP login survives app
+// restarts in the app's own profile, never touching a system browser.
+const BROWSER_PARTITION = 'persist:educationperfected';
+
+// All app-owned data lives under ~/.educationperfected so one directory can be
+// inspected, backed up and removed on uninstall. The Electron userData folder
+// (web sessions, caches) moves there before Electron reads it; a folder left
+// by an older version at the OS default location migrates across first.
+function relocateUserData(app) {
+    const root = path.join(app.getPath('home'), '.educationperfected');
+    const target = path.join(root, 'app-data');
+    const legacy = app.getPath('userData');
+    if (legacy !== target && !fs.existsSync(target) && fs.existsSync(legacy)) {
+        try {
+            fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+            fs.renameSync(legacy, target);
+        } catch {
+            // Cross-device or locked files: copy what can be copied, then leave
+            // whatever remains; a fresh profile beats a failed launch.
+            try { fs.cpSync(legacy, target, { recursive: true }); } catch { /* keep the default-free target */ }
+        }
+    }
+    app.setPath('userData', target);
+}
+
+// Chromium writes the chosen endpoint to <userData>/DevToolsActivePort when
+// remote debugging opens on port 0. The session's engine attaches over that
+// loopback WebSocket instead of launching a separate browser.
+function readDevtoolsEndpoint(app, { retries = 50, delayMs = 200 } = {}) {
+    const file = path.join(app.getPath('userData'), 'DevToolsActivePort');
+    return new Promise((resolve, reject) => {
+        let attempts = 0;
+        const read = () => {
+            attempts += 1;
+            let text = null;
+            try { text = fs.readFileSync(file, 'utf8'); } catch { /* not written yet */ }
+            const lines = text ? text.trim().split('\n') : [];
+            if (lines.length >= 2 && lines[0] && lines[1]) {
+                resolve(`ws://127.0.0.1:${lines[0].trim()}${lines[1].trim()}`);
+                return;
+            }
+            if (attempts >= retries) {
+                reject(new Error('The embedded browser did not open its control channel in time.'));
+                return;
+            }
+            setTimeout(read, delayMs);
+        };
+        read();
+    });
+}
+
+// The guest page presents itself as plain Chrome: EP and its sign-in page see
+// the same browser family the CLI's pinned Chrome provides, not an Electron shell.
+function applyBrowserUserAgent(electron) {
+    if (!electron.session || typeof electron.session.fromPartition !== 'function') return;
+    const osToken = { win32: 'Windows NT 10.0; Win64; x64', darwin: 'Macintosh; Intel Mac OS X 10_15_7', linux: 'X11; Linux x86_64' }[process.platform] || 'X11; Linux x86_64';
+    electron.session.fromPartition(BROWSER_PARTITION)
+        .setUserAgent(`Mozilla/5.0 (${osToken}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`);
+}
+
 function createElectronApp({ electron, session }) {
     const { app, BrowserWindow, ipcMain } = electron;
     let window = null;
@@ -30,7 +90,6 @@ function createElectronApp({ electron, session }) {
     };
     const onEvent = (name, payload) => {
         if (name === 'state') send('ep:state', payload);
-        else if (name === 'setup-progress') send('ep:setup-progress', payload);
         else if (name === 'reflection-request') send('ep:reflection-request', payload);
         else if (name === 'reflection-settled') send('ep:reflection-settled', payload);
         else if (name === 'maintenance-progress') send('ep:maintenance-progress', payload);
@@ -40,10 +99,12 @@ function createElectronApp({ electron, session }) {
 
     function createWindow() {
         window = new BrowserWindow({
-            width: 540,
-            height: 780,
-            minWidth: 420,
-            minHeight: 600,
+            // Master-detail: the control column on the left, the embedded
+            // browser view (a sandboxed webview guest) filling the rest.
+            width: 1180,
+            height: 800,
+            minWidth: 920,
+            minHeight: 560,
             title: 'EducationPerfected',
             icon: path.join(__dirname, '..', 'branding', 'icon-256.png'),
             backgroundColor: '#0f1826',
@@ -54,6 +115,7 @@ function createElectronApp({ electron, session }) {
                 nodeIntegration: false,
                 sandbox: true,
                 spellcheck: false,
+                webviewTag: true,
             },
         });
         window.on('closed', () => { window = null; });
@@ -64,7 +126,6 @@ function createElectronApp({ electron, session }) {
     function registerIpc() {
         ipcMain.handle(IPC.getState, () => session.getState());
         ipcMain.handle(IPC.refreshSetup, () => session.refreshSetup());
-        ipcMain.handle(IPC.downloadBrowser, () => session.downloadBrowser());
         // Login fields travel as two arguments so the preload never builds objects.
         ipcMain.handle(IPC.saveLogin, (event, email, password) => session.saveLogin({ email, password }));
         ipcMain.handle(IPC.forgetLogin, () => session.forgetLogin());
@@ -135,11 +196,16 @@ function createElectronApp({ electron, session }) {
     }
 
     function start() {
+        relocateUserData(app);
         if (process.env.EP_APP_SMOKE === '1') {
             // CI runners have no usable GPU; the smoke proves the window,
             // preload and IPC, not graphics. Test-mode switch only.
             app.commandLine.appendSwitch('disable-gpu');
         }
+        // Loopback-only debugging port (0 = auto-assigned, written to
+        // DevToolsActivePort): the engine attaches to the embedded browser
+        // view through it. This switch must be set before the app is ready.
+        app.commandLine.appendSwitch('remote-debugging-port', '0');
         registerIpc();
         app.on('before-quit', event => {
             if (!quitting) {
@@ -150,6 +216,7 @@ function createElectronApp({ electron, session }) {
         // No macOS keep-alive: closing the window closes the managed browser too.
         app.on('window-all-closed', () => { if (!quitting) void quit(); });
         app.whenReady().then(async () => {
+            applyBrowserUserAgent(electron);
             if (process.env.EP_APP_SMOKE === '1') return smoke();
             createWindow();
             // Probe setup before first paint settles so the wizard/main screen is right.
@@ -162,11 +229,14 @@ function createElectronApp({ electron, session }) {
 
 if (require.main === module) {
     const { createAppSession } = require('./session');
-    let forwardedEvent = null;
-    const session = createAppSession({ onEvent: (name, payload) => forwardedEvent && forwardedEvent(name, payload) });
-    session.setOnEvent = fn => { forwardedEvent = fn; };
     const electron = require('electron');
+    let forwardedEvent = null;
+    const session = createAppSession({
+        onEvent: (name, payload) => forwardedEvent && forwardedEvent(name, payload),
+        devtoolsEndpoint: () => readDevtoolsEndpoint(electron.app),
+    });
+    session.setOnEvent = fn => { forwardedEvent = fn; };
     createElectronApp({ electron, session }).start();
 }
 
-module.exports = { createElectronApp, IPC };
+module.exports = { createElectronApp, readDevtoolsEndpoint, applyBrowserUserAgent, BROWSER_PARTITION, IPC };

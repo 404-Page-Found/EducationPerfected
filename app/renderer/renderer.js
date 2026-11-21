@@ -79,13 +79,16 @@ function show(name) {
 function render(state) {
     latest = state;
     $('version').textContent = state.version ? `v${state.version}` : '';
+    // The embedded browser view takes over the pane once a session is opening;
+    // the placeholder covers it before that and after it closes.
+    $('browser-placeholder').hidden = state.session === 'starting' || state.session === 'ready';
     if (!state.setup || state.setup.browserReady === null) { show('loading'); return; }
     if (state.session === 'failed') {
         show('failed');
         $('failed-error').textContent = state.sessionError || 'Unknown startup failure.';
         return;
     }
-    if (!state.setup.browserReady || !state.setup.wizardDone || state.session === 'idle' || state.session === 'closed') {
+    if (!state.setup.wizardDone || state.session === 'idle' || state.session === 'closed') {
         show('setup');
         renderSetup(state);
         return;
@@ -100,14 +103,8 @@ function render(state) {
 }
 
 function renderSetup(state) {
-    const browserCard = $('setup-browser-card');
     const loginCard = $('setup-login-card');
     const doneCard = $('setup-done-card');
-    if (!state.setup.browserReady) {
-        browserCard.hidden = false; loginCard.hidden = true; doneCard.hidden = true;
-        return;
-    }
-    browserCard.hidden = true;
     if (!state.setup.wizardDone && !state.setup.hasLogin && state.session === 'idle') {
         loginCard.hidden = false; doneCard.hidden = true;
         return;
@@ -132,8 +129,8 @@ function renderMain(state) {
         ? 'A login is saved in your OS credential store.'
         : 'No login saved. You sign in manually in the browser.';
     $('browser-status').textContent = state.setup.browserReady
-        ? 'Pinned Chrome is downloaded and shared with the CLI.'
-        : 'Pinned Chrome is not downloaded.';
+        ? 'The app drives its own embedded browser. The terminal CLI\u2019s pinned Chrome is downloaded and shared with it.'
+        : 'The app drives its own embedded browser. The terminal CLI downloads its pinned Chrome separately on first run.';
     renderMaintenance(state);
 }
 
@@ -289,24 +286,6 @@ $('refresh-words').addEventListener('click', () => run('refresh'));
 $('apply-mode').addEventListener('click', () => run('mode', $('mode').value));
 $('apply-accuracy').addEventListener('click', () => run('accuracy', $('accuracy').value));
 $('apply-delay').addEventListener('click', () => run('delay', $('delay').value));
-
-$('download-browser').addEventListener('click', async () => {
-    $('download-error').hidden = true;
-    $('download-browser').disabled = true;
-    $('download-progress').hidden = false;
-    try { await api.downloadBrowser(); }
-    catch (error) {
-        $('download-error').textContent = String(error && error.message ? error.message : error);
-        $('download-error').hidden = false;
-        $('download-browser').disabled = false;
-    }
-});
-
-api.onSetupProgress(line => {
-    $('download-line').textContent = line;
-    const match = /(\d+)%/.exec(line);
-    if (match) $('download-fill').style.width = `${match[1]}%`;
-});
 
 $('save-login').addEventListener('click', async () => {
     $('login-error').hidden = true;

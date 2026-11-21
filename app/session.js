@@ -3,12 +3,10 @@
 // BrowserWindow and IPC onto this.
 //
 // Owns:
-//  - first-run setup probing (pinned browser install + saved OS-credential login)
-//  - the pinned Chrome download with progress (same ensureBrowser path as the
-//    packaged CLI; the window's Download button click is the consent)
-//  - the engine session on the shared core (index.js launchProgram), with the
-//    packaged app's browser resolution (PUPPETEER_EXECUTABLE_PATH) and an owned
-//    runtime directory
+//  - first-run setup probing (saved OS-credential login + the wizard marker)
+//  - the engine session on the shared core (index.js launchProgram), driving
+//    the window's own embedded browser view over the app's loopback debugging
+//    endpoint (connectBrowser), never a separate downloaded browser
 //  - the allowlisted control action set, mirroring the in-browser panel
 //    (start/stop/status/mode/refresh/accuracy/delay; no developer commands, #283)
 //  - the Reflection fill text approval as a window dialog flow
@@ -23,13 +21,10 @@ const ACTIONS = new Set(['status', 'start', 'stop', 'mode', 'refresh', 'accuracy
 const MODES = new Set(['auto', 'semi']);
 
 function createAppSession({
-    // The core import must stay lazy: requiring index.js loads Puppeteer, and
-    // startSession sets PUPPETEER_EXECUTABLE_PATH for the pinned browser first.
+    // The core import must stay lazy: requiring index.js loads Puppeteer.
     launchProgram = (...args) => require('../index').launchProgram(...args),
-    ensureBrowser = require('../packaging/download-browser').ensureBrowser,
     installedBrowser = require('../packaging/download-browser').installedBrowser,
     store = require('../lib/credential-store').createCredentialStore(),
-    createRuntimeDirectory = require('../lib/runtime-directory').createRuntimeDirectory,
     validateReflection = require('../lib/reflection-handler').validReflectionText,
     storageRoot = require('../lib/storage-maintenance').storageRoot,
     detectInstall = require('../lib/install-record').detectInstall,
@@ -50,13 +45,28 @@ function createAppSession({
     fetchImpl = globalThis.fetch,
     accuracy = {},
     onEvent = () => {},
+    // The loopback WebSocket endpoint of the app's own browser shell, supplied
+    // by main.js from Chromium's DevToolsActivePort file.
+    devtoolsEndpoint = null,
+    // The engine attaches to the embedded browser view instead of launching a
+    // browser: Puppeteer connects over the endpoint, and the automation page
+    // is the webview guest - never the app's own control page (a file:// URL).
+    connectBrowser = null,
+    selectPage = null,
 } = {}) {
+    const connectEmbeddedBrowser = connectBrowser || (async () => {
+        if (typeof devtoolsEndpoint !== 'function') throw new Error('The embedded browser is not available in this copy.');
+        const endpoint = await devtoolsEndpoint();
+        return require('puppeteer').connect({ browserWSEndpoint: endpoint, defaultViewport: null });
+    });
+    const pickAutomationPage = selectPage || (pages => pages.find(page => {
+        const url = page.url();
+        return !url.startsWith('file://') && !url.startsWith('devtools://');
+    }) || null);
     let setup = { browserReady: null, hasLogin: null, wizardDone: false };
     let sessionState = 'idle'; // idle | starting | ready | failed | closed
     let sessionError = null;
     let controls = null;
-    let runtime = null;
-    let downloading = false;
     let pendingReflection = null;
     let reflectionSeq = 0;
     let launching = null;
@@ -161,14 +171,6 @@ function createAppSession({
         controls = null;
         settlePendingReflection(false, false);
         emitState();
-    }
-
-    async function cleanupRuntime(confirmed) {
-        const owned = runtime;
-        runtime = null;
-        if (owned) {
-            try { owned.remove(confirmed); } catch { /* retained files are swept on next launch */ }
-        }
     }
 
     // The first-run wizard runs once per install; afterwards the app opens the
@@ -303,7 +305,7 @@ function createAppSession({
                 const result = await uninstallCommand({
                     store,
                     ownDirectory: null,
-                    cleanupOwn: async () => { await cleanupRuntime(true); },
+                    cleanupOwn: async () => {},
                     home,
                     executable: info.cliExecutable,
                     platform,
@@ -349,20 +351,6 @@ function createAppSession({
             return getState();
         },
 
-        async downloadBrowser() {
-            if (downloading) throw new Error('The browser download is already running.');
-            downloading = true;
-            try {
-                const output = { write: line => emit('setup-progress', String(line)) };
-                // The window's Download button click is the recorded consent, so the
-                // terminal prompt is bypassed here.
-                await ensureBrowser({ consent: async () => true, output, home });
-                setup = { ...setup, browserReady: true };
-                emitState();
-                return getState();
-            } finally { downloading = false; }
-        },
-
         async saveLogin(record) {
             await store.save(record); // the store validates email/password
             setup = { ...setup, hasLogin: true };
@@ -379,23 +367,20 @@ function createAppSession({
 
         async startSession() {
             if (sessionState === 'starting' || sessionState === 'ready') return getState();
-            if (!setup.browserReady) throw new Error('Finish first-run setup before starting.');
+            if (!setup.wizardDone) throw new Error('Finish first-run setup before starting.');
             closeRequested = false;
             sessionState = 'starting';
             sessionError = null;
             emitState();
             try {
-                // Same browser resolution as the packaged CLI: the pinned Chrome
-                // from the first-run download, never a Puppeteer cache or a
-                // system browser. The install was consented to in setup, so the
-                // consent callback here only covers a deleted cache.
-                env.PUPPETEER_BROWSER = 'chrome';
-                env.PUPPETEER_EXECUTABLE_PATH = await ensureBrowser({ consent: async () => true, output: { write: line => emit('setup-progress', String(line)) }, home });
-                runtime = createRuntimeDirectory();
-                env.PUPPETEER_TMP_DIR = runtime.directory;
+                // The engine attaches to the embedded browser view: no separate
+                // browser download, no Puppeteer cache, no system browser. The
+                // guest page is selected for it (never the app's control page).
                 launching = Promise.resolve().then(() => launchProgram({
-                    onBrowserClosed: () => { void cleanupRuntime(true); resetSession('closed'); },
-                    onBrowserDisconnected: () => { void cleanupRuntime(true); resetSession('closed'); },
+                    connectBrowser: connectEmbeddedBrowser,
+                    selectPage: pickAutomationPage,
+                    onBrowserClosed: () => { resetSession('closed'); },
+                    onBrowserDisconnected: () => { resetSession('closed'); },
                     reflectionTextProvider,
                     accuracy,
                 }));
@@ -407,7 +392,6 @@ function createAppSession({
                 if (closeRequested) {
                     teardown = (async () => {
                         try { await launched.close(); } catch (error) { lastCloseError = error; }
-                        await cleanupRuntime(true);
                         resetSession('closed');
                     })();
                     try { await teardown; } finally { teardown = null; }
@@ -419,7 +403,6 @@ function createAppSession({
                 return getState();
             } catch (error) {
                 launching = null;
-                await cleanupRuntime(true);
                 resetSession('failed', String(error && error.message ? error.message : error));
                 throw error;
             }
@@ -474,7 +457,6 @@ function createAppSession({
             }
             settlePendingReflection(false, false);
             controls = null;
-            await cleanupRuntime(true);
             if (sessionState !== 'failed') { sessionState = 'closed'; sessionError = null; }
             emitState();
             return getState();
