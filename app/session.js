@@ -63,6 +63,10 @@ function createAppSession({
     let setup = { browserReady: null, hasLogin: null, wizardDone: false };
     let sessionState = 'idle'; // idle | starting | ready | failed | closed
     let sessionError = null;
+    // Engine-reported startup phase (index.js onStartupPhase). 'waiting-for-sign-in'
+    // means the page is open and the program waits for a manual login; the window
+    // says so instead of showing an indefinite "opening" message.
+    let startupPhase = null;
     let controls = null;
     let pendingReflection = null;
     let reflectionSeq = 0;
@@ -98,6 +102,7 @@ function createAppSession({
             setup: { ...setup },
             session: sessionState,
             sessionError,
+            startupPhase,
             status: controls ? safeStatus() : null,
             version: require('../package.json').version,
             maintenance: {
@@ -165,6 +170,7 @@ function createAppSession({
     function resetSession(state, error) {
         sessionState = state;
         sessionError = error || null;
+        startupPhase = null;
         controls = null;
         settlePendingReflection(false, false);
         emitState();
@@ -368,6 +374,7 @@ function createAppSession({
             closeRequested = false;
             sessionState = 'starting';
             sessionError = null;
+            startupPhase = null;
             emitState();
             try {
                 // The engine attaches to the embedded browser view: no separate
@@ -376,6 +383,7 @@ function createAppSession({
                 launching = Promise.resolve().then(() => launchProgram({
                     connectBrowser: connectEmbeddedBrowser,
                     selectPage: pickAutomationPage,
+                    onStartupPhase: phase => { startupPhase = phase; emitState(); },
                     onBrowserClosed: () => { resetSession('closed'); },
                     onBrowserDisconnected: () => { resetSession('closed'); },
                     reflectionTextProvider,
@@ -396,6 +404,7 @@ function createAppSession({
                 }
                 controls = launched;
                 sessionState = 'ready';
+                startupPhase = null;
                 emitState();
                 return getState();
             } catch (error) {

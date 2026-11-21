@@ -4,6 +4,8 @@
 
 - Dash verification and documentation (#230): re-scopes the verify-and-document issue to the three live `EP_DASH_INSPECT` round captures (choice 19 Nov 2026, typed #272, number-box #282). See `docs/question-types.md#dash-timed-word-to-word-sprint` for the acceptance mapping, pacing (`delay off` provisional, shared per-type ranges) and accuracy (perfect provisional, choice-neighbor/typed-typo mistake paths). The classic `/dash-task` reconstruction is kept only for the classic-path empty-word-list warning; timer/score/results selectors stay fixture-invented (no live timer candidates) and end-to-end sprint gaps stay uncaptured.
 
+- Desktop app fixes after the first installed run: the window no longer says "Opening the browser" forever when the browser is in fact open and waiting for a manual sign-in (the engine now reports that phase and the window says to sign in on the right), and a "Reload the page" control on the opening screen and in Settings hard-reloads the embedded page bypassing its cache, recovering from a broken or stale page render. The Windows setup exe no longer adds an "Uninstall EducationPerfected" shortcut to the Start menu (uninstall stays in Settings > Apps and in the app); upgrades remove the shortcut from existing installs.
+
 ## v2026.11.22
 
 Second V2026 stable release, prepared but not yet published. Replaces the unpublished v2026.11.21 draft. Full PR list: [v2026.11.16...v2026.11.22](https://github.com/404-Page-Found/EducationPerfected/compare/v2026.11.16...v2026.11.22).

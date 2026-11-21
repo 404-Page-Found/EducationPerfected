@@ -393,7 +393,7 @@ async function resolveCredentials(watchForSession) {
 
 // ===== Program ===== //
 
-async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected = () => {}, legacySignals = false, gapsFillOnly = false, choiceSelectOnly = false, gapsSubmitOnce = false, textboxFillOnly = false, dropdownSubmitOnce = false, multiSelectOnly = false, reflectionTextProvider, accuracy = {}, connectBrowser = null, selectPage = null } = {}) {
+async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected = () => {}, onStartupPhase = () => {}, legacySignals = false, gapsFillOnly = false, choiceSelectOnly = false, gapsSubmitOnce = false, textboxFillOnly = false, dropdownSubmitOnce = false, multiSelectOnly = false, reflectionTextProvider, accuracy = {}, connectBrowser = null, selectPage = null } = {}) {
     // F4 popup is the only normal-run dropdown input path. The older
     // Home/ArrowDown mechanism remains only in explicit synthetic regression
     // fixtures and the local EP-free diagnostic; there is no env rollback.
@@ -866,6 +866,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // given its 30s check above. When the session was detected already (the manual
             // login won its race), the element is on screen: this resolves at once and the
             // run proceeds.
+            // The desktop app surfaces this phase in its window: the page is open and the
+            // program is now waiting for a manual sign-in, which a bare "opening" spinner
+            // misreports as the browser still starting.
+            onStartupPhase('waiting-for-sign-in');
             await page.waitForSelector(DIR.home_css, { timeout: 0 });
 
 
