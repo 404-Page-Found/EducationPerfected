@@ -8,25 +8,8 @@ target=$1; version=$2; src=$3; out=$4
 [[ -f "$src" ]]
 payload="$4/app-payload"
 [[ -d "$payload" ]]
-# Install-time setup runs the installed CLI's own browser-only setup step as
-# the installing user (never root's home). A failed download (offline,
-# interrupted) must not fail the install: the app's first-run wizard probes
-# and offers the same download as the repair path.
-read -r -d '' POSTINST <<'SCRIPT' || true
-#!/bin/sh
-# The installing user is who ran sudo; never guess another logged-in account -
-# a wrong guess would download 200 MB into the wrong home. When the user
-cannot be determined, skip: the app's first-run setup is the repair path.
-user=${SUDO_USER:-}
-home=$(getent passwd "$user" 2>/dev/null | cut -d: -f6)
-if [ -n "$user" ] && [ "$user" != "root" ] && [ -n "$home" ]; then
-  echo "EducationPerfected: downloading the pinned Chrome browser for $user (about 200 MB from Google; downloading accepts Google's terms)."
-  su -s /bin/sh "$user" -c "HOME='$home' /usr/bin/educationperfected setup --browser-only" || echo "EducationPerfected: the browser download did not finish; the app's first-run setup will offer it again."
-else
-  echo "EducationPerfected: no non-root installing user found; the app's first-run setup will download the browser."
-fi
-exit 0
-SCRIPT
+# The app payload includes Electron's Chromium. Package file extraction installs
+# the browser; do not run the terminal CLI's separate Chrome download.
 case "$version" in (*[!0-9.]*|'') echo "version must be numeric parts"; exit 1;; esac
 identical() { cmp -s "$1" "$2" || { echo "package payload is not byte-identical to the validated candidate: $1"; exit 1; }; }
 mkdir -p "$out"
@@ -34,30 +17,14 @@ out=$(cd "$out" && pwd)
 case "$target" in
   macos-*)
     command -v pkgbuild >/dev/null || { echo "pkgbuild not found on this runner"; exit 1; }
-    payload_root=$(mktemp -d); scriptsdir=$(mktemp -d)
+    payload_root=$(mktemp -d)
     mkdir -p "$payload_root/usr/local/bin" "$payload_root/Applications"
     install -m 755 "$src" "$payload_root/usr/local/bin/educationperfected"
     cp -R "$payload/EducationPerfected.app" "$payload_root/Applications/EducationPerfected.app"
     # Install record: uninstall reads this to remove exactly what this install created.
     printf '%s\n' '{"version":1,"method":"pkg","files":["/usr/local/bin/educationperfected","/usr/local/bin/educationperfected-install.json"],"directories":["/Applications/EducationPerfected.app"],"receipt":"com.404pf.educationperfected"}' > "$payload_root/usr/local/bin/educationperfected-install.json"
-    # Install-time setup as the console user, never root.
-    cat > "$scriptsdir/postinstall" <<'MACPOST'
-#!/bin/bash
-console_user=$(/usr/bin/stat -f %Su /dev/console)
-if [ -n "$console_user" ] && [ "$console_user" != "root" ] && [ "$console_user" != "loginwindow" ]; then
-  user_home=$(/usr/bin/dscl . -read "/Users/$console_user" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
-  if [ -n "$user_home" ]; then
-    echo "EducationPerfected: downloading the pinned Chrome browser for $console_user (about 200 MB from Google; downloading accepts Google's terms)."
-    /usr/bin/sudo -u "$console_user" HOME="$user_home" /usr/local/bin/educationperfected setup --browser-only || echo "EducationPerfected: the browser download did not finish; the app's first-run setup will offer it again."
-  fi
-else
-  echo "EducationPerfected: no console user found; the app's first-run setup will download the browser."
-fi
-exit 0
-MACPOST
-    chmod 755 "$scriptsdir/postinstall"
     pkg="$out/educationperfected-$target.pkg"
-    pkgbuild --root "$payload_root" --scripts "$scriptsdir" --identifier com.404pf.educationperfected --version "$version" --install-location / "$pkg" >/dev/null
+    pkgbuild --root "$payload_root" --identifier com.404pf.educationperfected --version "$version" --install-location / "$pkg" >/dev/null
     check=$(mktemp -d)
     pkgutil --expand-full "$pkg" "$check/expanded" >/dev/null
     identical "$check/expanded/Payload/usr/local/bin/educationperfected" "$src"
@@ -87,7 +54,6 @@ case "$target" in
     # Install record: uninstall reads this to remove exactly what this install created.
     printf '%s\n' '{"version":1,"method":"deb","files":["/usr/bin/educationperfected","/usr/bin/educationperfected-install.json"],"directories":["/usr/lib/educationperfected"]}' > "$work/deb/usr/bin/educationperfected-install.json"
     printf 'Package: educationperfected\nVersion: %s\nArchitecture: %s\nMaintainer: 404-Page-Found\nDescription: Education Perfect helper CLI and desktop app (packaged binary)\n' "$version" "$debarch" > "$work/deb/DEBIAN/control"
-    printf '%s\n' "$POSTINST" > "$work/deb/DEBIAN/postinst"; chmod 755 "$work/deb/DEBIAN/postinst"
     dpkg-deb --build --root-owner-group "$work/deb" "$out/educationperfected_${version}_${debarch}.deb" >/dev/null
     ex=$(mktemp -d)
     dpkg-deb --extract "$out/educationperfected_${version}_${debarch}.deb" "$ex"
@@ -119,8 +85,6 @@ install -m 755 %{SOURCE0} %{buildroot}/usr/bin/educationperfected
 tar -xf %{SOURCE1} -C %{buildroot}
 # Install record: uninstall reads this to remove exactly what this install created.
 printf '%s\\n' '{"version":1,"method":"rpm","files":["/usr/bin/educationperfected","/usr/bin/educationperfected-install.json"],"directories":["/usr/lib/educationperfected"]}' > %{buildroot}/usr/bin/educationperfected-install.json
-%post
-$POSTINST
 %files
 /usr/bin/educationperfected
 /usr/bin/educationperfected-install.json

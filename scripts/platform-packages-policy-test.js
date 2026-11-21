@@ -2,6 +2,14 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const build=fs.readFileSync(path.join(__dirname,'build-packages.sh'),'utf8');
 for(const required of ['pkgbuild','com.404pf.educationperfected','dpkg-deb --build','rpmbuild -bb','rpm2cpio','pkgutil --expand-full','identical "$ex/usr/bin/educationperfected" "$src"','identical "$check/expanded/Payload/usr/local/bin/educationperfected" "$src"','educationperfected-install.json','"method":"pkg"','"method":"deb"','"method":"rpm"'])assert.ok(build.includes(required),required);
+// All desktop OS packages carry Electron's browser in the app files. None
+// should download the terminal CLI's other browser as an installer side effect.
+assert.doesNotMatch(build, /setup\s+--browser-only|POSTINST|MACPOST/, 'no terminal browser download in package hooks');
+assert.doesNotMatch(build, /--scripts|DEBIAN\/postinst|^%post$/m, 'no obsolete browser-download post-install scripts');
+for (const required of [
+ 'cp -R "$payload/EducationPerfected.app" "$payload_root/Applications/EducationPerfected.app"',
+ 'cp -R "$payload" "$1/usr/lib/educationperfected/app"',
+]) assert.ok(build.includes(required), 'the complete embedded browser payload still ships: ' + required);
 const publish=fs.readFileSync(path.join(__dirname,'../.github/workflows/publish.yml'),'utf8');
 for(const required of ['Install rpm tooling for Linux package lanes','apt-get install -y rpm rpm2cpio','Build and byte-verify platform packages','scripts/build-packages.sh','Pack the npm installer package','npm pack','Exercise install.sh end-to-end','Exercise the npm package end-to-end','Exercise install.ps1 end-to-end','EP_INSTALL_BASE_URL'])assert.ok(publish.includes(required),required);
 const sh=fs.readFileSync(path.join(__dirname,'../installer/install.sh'),'utf8');

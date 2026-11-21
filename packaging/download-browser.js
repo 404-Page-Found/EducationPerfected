@@ -16,8 +16,8 @@ function hostPin(platform=process.platform,arch=process.arch){
  if(url.protocol!=='https:'||url.hostname!=='storage.googleapis.com'||url.pathname!==`/chrome-for-testing-public/${pins.version}/${name}/chrome-${name}.zip`||url.search||url.hash)throw new Error('Invalid fixed Google browser source');
  return pin;
 }
-// The download notice: interactive setup shows it before asking; OS installers
-// show it before running the non-interactive `setup --browser-only` step.
+// The terminal CLI download notice: interactive setup shows it before asking.
+// OS installers ship the desktop app's embedded browser, not this download.
 function downloadNotice(home=os.homedir()){
  return 'EducationPerfected needs a one-time Chrome for Testing '+pins.version+' download (about 200 MB) from Google, stored in '+path.join(home,'.educationperfected')+'.\nGoogle terms: https://policies.google.com/terms and https://www.google.com/chrome/terms/ (downloading accepts them).';
 }

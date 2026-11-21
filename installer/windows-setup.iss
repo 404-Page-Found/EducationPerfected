@@ -35,12 +35,8 @@ Name: "{group}\EducationPerfected"; Filename: "{app}\educationperfected.exe"
 Name: "{group}\EducationPerfected App"; Filename: "{app}\app\EducationPerfected.exe"
 Name: "{group}\Uninstall EducationPerfected"; Filename: "{uninstallexe}"
 
-[Run]
-; Install-time setup: the pinned Chrome download, non-interactive. Consent is
-; presented here; the app's first-run wizard is the repair path on failure.
-; Inno does not surface a [Run] program's exit code as an installer error
-; (only a launch failure), so a failed download cannot fail the installation.
-Filename: "{app}\educationperfected.exe"; Parameters: "setup --browser-only"; Description: "Download the pinned Chrome browser now (about 200 MB from Google; downloading accepts Google's terms). Required before first use."; Flags: postinstall runasoriginaluser skipifsilent waituntilterminated
+; The app payload includes Electron's Chromium. [Files] installs the browser
+; before the finish page. Do not launch the terminal CLI's separate download.
 
 [UninstallDelete]
 Type: files; Name: "{app}\educationperfected-install.json"

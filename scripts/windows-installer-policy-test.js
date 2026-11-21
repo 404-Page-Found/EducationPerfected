@@ -12,6 +12,11 @@ for(const required of [
  'MB_DEFBUTTON2','forget-credentials','DelTree','{%USERPROFILE}\\.educationperfected',
  'WriteInstallRecord','JsonEscape','educationperfected-install.json','"method":"setup-exe"','"uninstaller"','SaveStringToFile',
 ])assert.ok(iss.includes(required),required);
+// The desktop browser is part of AppPayload, copied by [Files] before the
+// finish page. A leftover [Run] hook starts an unrelated CLI download in a
+// console after setup finishes, even though the app already has its browser.
+assert.doesNotMatch(iss, /^\[Run\]/m, 'no post-setup processes or terminal browser downloads');
+assert.doesNotMatch(iss, /setup\s+--browser-only|Flags:[^\r\n]*postinstall/i, 'no CLI setup on the finish page');
 assert.equal((iss.match(/MB_DEFBUTTON2/g)||[]).length,2,'both uninstall prompts default to No');
 assert.doesNotMatch(iss,/PrivilegesRequired=(admin|poweruser)/);
 assert.ok(!iss.includes('ChangesUninstall'),'not a valid Inno directive; ISCC aborts on it');
