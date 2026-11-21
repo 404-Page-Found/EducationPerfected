@@ -15,6 +15,9 @@ const IPC = {
     completeWizard: 'ep:complete-wizard',
     action: 'ep:action',
     reflectionRespond: 'ep:reflection-respond',
+    checkUpdate: 'ep:check-update',
+    applyUpdate: 'ep:apply-update',
+    uninstall: 'ep:uninstall',
 };
 
 function createElectronApp({ electron, session }) {
@@ -30,6 +33,7 @@ function createElectronApp({ electron, session }) {
         else if (name === 'setup-progress') send('ep:setup-progress', payload);
         else if (name === 'reflection-request') send('ep:reflection-request', payload);
         else if (name === 'reflection-settled') send('ep:reflection-settled', payload);
+        else if (name === 'maintenance-progress') send('ep:maintenance-progress', payload);
     };
     // Session events must reach the window; session was created with our forwarder.
     if (typeof session.setOnEvent === 'function') session.setOnEvent(onEvent);
@@ -68,6 +72,25 @@ function createElectronApp({ electron, session }) {
         ipcMain.handle(IPC.completeWizard, () => session.completeWizard());
         ipcMain.handle(IPC.action, (event, name, value) => session.action(name, value));
         ipcMain.handle(IPC.reflectionRespond, (event, id, text) => session.respondReflection(id, text));
+        ipcMain.handle(IPC.checkUpdate, () => session.checkUpdate());
+        // Update and uninstall handoffs replace or remove the running app's own
+        // files, so when the session says the handoff needs it the app closes
+        // right after the IPC reply lands.
+        ipcMain.handle(IPC.applyUpdate, async () => {
+            const result = await session.applyUpdate();
+            if (result && result.quitRequired) quitAfterReply();
+            return result;
+        });
+        ipcMain.handle(IPC.uninstall, async (event, choices) => {
+            const result = await session.uninstall(choices);
+            if (result && result.quitRequired) quitAfterReply();
+            return result;
+        });
+    }
+
+    function quitAfterReply() {
+        const timer = setTimeout(() => { void quit(); }, 750);
+        if (typeof timer.unref === 'function') timer.unref();
     }
 
     // Headless launch proof for CI (scripts/app-launch-smoke.js): the window,

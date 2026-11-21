@@ -135,6 +135,9 @@ function windowsHelperScript({ executable, staged, backup, version, receipt, sta
     }
     return [
         '@echo off',
+        // cmd reads batch files in the console OEM code page; without this a
+        // non-ASCII profile path decodes wrong and no longer matches the file.
+        'chcp 65001 >nul',
         'setlocal',
         'set "EXE=' + executable + '"',
         'set "STAGED=' + staged + '"',
@@ -322,4 +325,7 @@ async function updateCommand({
     }
 }
 
-module.exports = { updateCommand, releaseAssetName, parseStableVersion, compareVersions, parseSha256Sums, selectUpdatePlan, promptUpdate, defaultHealthcheck, windowsHelperScript, RELEASES_API, SUMS_NAME };
+// latestStableRelease, checkAssetUrl and stageVerifiedAsset are exported for the
+// desktop app's installer-based update (packaging/app-update.js), which reuses
+// this same selection and verification path against the same release assets.
+module.exports = { updateCommand, releaseAssetName, parseStableVersion, compareVersions, parseSha256Sums, selectUpdatePlan, promptUpdate, defaultHealthcheck, windowsHelperScript, latestStableRelease, checkAssetUrl, stageVerifiedAsset, RELEASES_API, SUMS_NAME };

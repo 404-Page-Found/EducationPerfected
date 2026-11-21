@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Desktop app update and uninstall (#8 stage 2, maintenance half): the app's Settings gains the two commands that were terminal-only. Update checks the same published stable releases as the CLI's `update`, then downloads the same OS installer that installed the app (setup exe / .pkg / .deb / .rpm), verifies it against the release's SHA256SUMS with the CLI updater's own selection and verification helpers, and hands off and closes: a detached Windows helper waits for the app to exit and runs the setup exe silently (a one-line receipt is shown once on the next launch), the .pkg opens in the macOS Installer, and the Linux package installs through pkexec with the exact sudo command shown when no desktop elevation exists. The installer upgrades the app and the `educationperfected` command together under each OS's own privilege model, so the root-owned .pkg/.deb/.rpm locations the CLI update must refuse need no in-place swap from the app. Uninstall runs the CLI's unified uninstall machinery unchanged: the window's dialog replaces the typed terminal prompts (same per-item choices, each still default No), graphical elevation (pkexec / an administrator-privileges shell) stands in for sudo, and the setup exe's Inno uninstaller owns its own flow exactly as in the CLI. Both controls stay disabled in a copy an OS installer did not install (a source or development copy), which keeps the terminal commands; on a Linux desktop without pkexec the app shows the exact sudo command instead.
+
 ## v2026.11.21
 
 Second V2026 stable release. Full PR list: [v2026.11.16...v2026.11.21](https://github.com/404-Page-Found/EducationPerfected/compare/v2026.11.16...v2026.11.21).
