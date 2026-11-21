@@ -41,8 +41,15 @@ Every single-surface reader (gaps, highlight, working-formula, textbox/number-bo
 
 ## Not admitted (documented, needs a product decision or live evidence)
 
-- FILE_UPLOADER_COMPONENT and SOUND_RECORDER_COMPONENT: `UploaderComponent.outputForMarking` (which `FileUploaderComponent` and `SoundRecorderComponent` both inherit, chunk606 module 5615) returns a constant full-marks record {score 1, max 1, weight 1} whether or not the student uploads or records anything. Auto-marking would not be harmed by skipping them, but the upload/recording is a real student response (likely teacher-reviewed); whether the program may submit past it is a product decision, not a source-provable safety fact. Decision (19 November 2026): keep refusing both.
+- FILE_UPLOADER_COMPONENT and SOUND_RECORDER_COMPONENT: `UploaderComponent.outputForMarking` (which `FileUploaderComponent` and `SoundRecorderComponent` both inherit, chunk606 module 5615) returns a constant full-marks record {score 1, max 1, weight 1} whether or not the student uploads or records anything. Auto-marking would not be harmed by skipping them, but the upload/recording is a real student response (likely teacher-reviewed); whether the program may submit past it is a product decision, not a source-provable safety fact. Decision (19 November 2026, re-affirmed for #231 close): keep refusing both.
 - SCRATCH_PAD_COMPONENT: admitted only when the cached runtime component proves it unmarked (above); a marked pad is answer-bearing and refuses.
+- FORMULA_COMPONENT: own FormulaComponent class (input, `checkAnswer` + working-step comparison) with no reader path; a slide carrying it refuses. Not in scope for #231 close.
+
+## Resolution (fail-closed-with-report)
+
+- Chosen policy: keep fail-closed. Proven-safe partial answering and opt-in partial submit stay rejected until per-component Submit grading is proven on a real mixed slide.
+- Canonical runtime lists: `lib/companion-components.js` (presentation pair, known codes, answer-bearing codes, `formatAccompanyingCode` / `diagnosticComponentType`). In-page readers keep self-contained mirrors of those sets; `scripts/companion-components-test.js` asserts they stay in sync.
+- Every companion refusal names the recognized code (or `redacted type` / `UNLISTED_COMPONENT`) with a content-free `accompanying-component` diagnostic; the orchestrator retags to `slide-surfaces-refusal`. No path fills or submits part of a mixed slide.
 
 ## Live evidence still blocking full partial-answering (issue options 2/3)
 
