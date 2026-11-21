@@ -25,6 +25,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path $stub | Out-Null
           Set-Content -Path (Join-Path $stub 'educationperfected.exe') -Value 'stub executable, compile proof only'
           $src = Join-Path $stub 'educationperfected.exe'
+          # Stub app payload: the [Files] entry recurses into it, so it needs one file.
+          $payload = Join-Path $stub 'app-payload'
+          New-Item -ItemType Directory -Force -Path $payload | Out-Null
+          Set-Content -Path (Join-Path $payload 'stub.txt') -Value 'stub app payload, compile proof only'
           $iss = Join-Path $root 'installer\windows-setup.iss'
-          & $iscc "/DAppVersion=0.0.0" "/DSourceExe=$src" "/DOutputDir=$stub" $iss | Out-Host
+          & $iscc "/DAppVersion=0.0.0" "/DSourceExe=$src" "/DAppPayload=$payload" "/DOutputDir=$stub" $iss | Out-Host
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

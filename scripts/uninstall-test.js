@@ -124,8 +124,20 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
  // .pkg removes the recorded files and forgets the receipt, both with sudo.
  {
   const s=await runProgramScenario({method:'pkg',record:{receipt:'com.404pf.educationperfected'},platform:'darwin',choices:{program:true}});
-  assert.deepEqual(s.spawns.map(([c,a])=>[c,...a]),[['sudo','rm','-f',s.exe,s.recordFile],['sudo','pkgutil','--forget','com.404pf.educationperfected']]);
+  assert.deepEqual(s.spawns.map(([c,a])=>[c,...a]),[['sudo','rm','-rf',s.exe,s.recordFile],['sudo','pkgutil','--forget','com.404pf.educationperfected']]);
   assert.ok(s.output.includes('installer receipt forgotten'));
+  cleanup(s);
+ }
+ // .pkg with the desktop app recorded: the .app directory goes in the same recursive removal.
+ {
+  const s=await runProgramScenario({method:'pkg',record:{receipt:'com.404pf.educationperfected',directories:['/Applications/EducationPerfected.app']},platform:'darwin',choices:{program:true}});
+  assert.deepEqual(s.spawns.map(([c,a])=>[c,...a]),[['sudo','rm','-rf',s.exe,s.recordFile,'/Applications/EducationPerfected.app'],['sudo','pkgutil','--forget','com.404pf.educationperfected']]);
+  cleanup(s);
+ }
+ // A record claiming unrelated directories: recursive removal is allowlisted to the installer-recorded app bundle.
+ {
+  const s=await runProgramScenario({method:'pkg',record:{receipt:'com.404pf.educationperfected',directories:['/System/Library','/Users']},platform:'darwin',choices:{program:true}});
+  assert.deepEqual(s.spawns.map(([c,a])=>[c,...a]),[['sudo','rm','-rf',s.exe,s.recordFile],['sudo','pkgutil','--forget','com.404pf.educationperfected']]);
   cleanup(s);
  }
  // Windows install.ps1: detached helper, PATH entry and files passed through, exe still present.

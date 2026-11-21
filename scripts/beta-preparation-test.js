@@ -68,6 +68,14 @@ fs.writeFileSync(path.join(out,${JSON.stringify(targets[target].executable)}),'s
 fs.writeFileSync(path.join(out,'manifest.json'),JSON.stringify({browserMode:'direct-google-download',browserVersion:process.env.EP_BAD_PIN==='1'?'wrong':'synthetic'}));
 fs.writeFileSync(path.join(out,'sea.json'),JSON.stringify({assets:{manifest:'inert',native:'inert',...(process.env.EP_BAD_ASSET==='1'?{browser:'bad'}:{})}}));
 `);
+        // The downloadable flow also builds the app payload; stub it like the builders.
+        fs.writeFileSync(path.join(checkout,'packaging','build-app.js'),`
+const fs=require('node:fs'),path=require('node:path');
+const out=process.argv[3];
+fs.mkdirSync(path.join(out,'app-payload'),{recursive:true});
+fs.writeFileSync(path.join(out,'app-payload','synthetic-app'),'synthetic app payload');
+fs.writeFileSync(path.join(out,'THIRD-PARTY-NOTICES','ELECTRON-VERSION.txt'),'synthetic electron notice');
+`);
         const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.toUpperCase().startsWith('GIT_')&&key!=='GITHUB_SHA'));
         const gitPath=process.platform==='win32'?String.raw`C:\Program Files\Git\cmd\git.exe`:'/usr/bin/git';
         const git=(...args)=>execFileSync(gitPath,args,{cwd:checkout,env,encoding:'utf8'}).trim();

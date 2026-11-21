@@ -16,9 +16,14 @@ function hostPin(platform=process.platform,arch=process.arch){
  if(url.protocol!=='https:'||url.hostname!=='storage.googleapis.com'||url.pathname!==`/chrome-for-testing-public/${pins.version}/${name}/chrome-${name}.zip`||url.search||url.hash)throw new Error('Invalid fixed Google browser source');
  return pin;
 }
+// The download notice: interactive setup shows it before asking; OS installers
+// show it before running the non-interactive `setup --browser-only` step.
+function downloadNotice(home=os.homedir()){
+ return 'EducationPerfected needs a one-time Chrome for Testing '+pins.version+' download (about 200 MB) from Google, stored in '+path.join(home,'.educationperfected')+'.\nGoogle terms: https://policies.google.com/terms and https://www.google.com/chrome/terms/ (downloading accepts them).';
+}
 async function promptDownload({input=process.stdin,output=process.stdout,home=os.homedir()}={}){
  if(!input.isTTY||!output.isTTY){output.write('First browser download needs an interactive terminal. Open this executable in a terminal and retry.\n');throw new Error('First browser download needs an interactive terminal');}
- output.write('EducationPerfected needs a one-time Chrome for Testing '+pins.version+' download (about 200 MB) from Google, stored in '+path.join(home,'.educationperfected')+'.\nGoogle terms: https://policies.google.com/terms and https://www.google.com/chrome/terms/ (downloading accepts them).\nDownload now? [Y/n]: ');
+ output.write(downloadNotice(home)+'\nDownload now? [Y/n]: ');
  const rl=require('node:readline').createInterface({input,output});
  try { return await new Promise(resolve=>{rl.once('line',line=>{const answer=line.trim().toLowerCase();resolve(answer===''||answer==='y'||answer==='yes');});rl.once('close',()=>resolve(false));}); }
  finally {rl.close();}
@@ -96,4 +101,4 @@ async function ensureBrowser({consent=promptDownload,install,api,home=os.homedir
   return existing();
  } finally {clearTimeout(timer);process.removeListener('exit',cleanup);cleanup();}
 }
-module.exports={createProgress,hostPin,ensureBrowser,installedBrowser,promptDownload,checkExtractor};
+module.exports={createProgress,hostPin,ensureBrowser,installedBrowser,promptDownload,downloadNotice,checkExtractor};

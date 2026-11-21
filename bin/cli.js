@@ -152,6 +152,14 @@ if (require.main === module) {
     else if(['setup','check-credentials','forget-credentials'].includes(parsed.command)){
         (async()=>{
             if(parsed.command==='setup'){
+                if(parsed.browserOnly){
+                    // Install-time variant: the OS installer presented the
+                    // notice, so consent is implied and no login prompt runs.
+                    console.log(require('../packaging/download-browser').downloadNotice());
+                    await require('../packaging/download-browser').ensureBrowser({consent:async()=>true});
+                    console.log('Browser ready. Save a login from the app, or run: educationperfected setup');
+                    return;
+                }
                 await require('../packaging/download-browser').ensureBrowser();
                 console.log('Browser ready. Saving a login is optional; leave email empty to skip.');
             }

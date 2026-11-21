@@ -6,6 +6,10 @@ for(const flag of ['-h','--help'])assert.equal(parseCommand([flag]).command,'hel
 for(const flag of ['-v','--version'])assert.equal(parseCommand([flag]).command,'version');
 for(const command of ['setup','check-credentials','forget-credentials','update','uninstall'])assert.equal(parseCommand(['--'+command]).error,`Use ${command} instead of --${command}.`);
 assert.ok(parseCommand(['setup','help']).error);assert.ok(parseCommand(['nonsense']).error);
+// Install-time variant: setup --browser-only is the one two-operand subcommand.
+assert.deepEqual(parseCommand(['setup','--browser-only']),{command:'setup',browserOnly:true});
+assert.ok(parseCommand(['setup','--bogus']).error);
+assert.ok(parseCommand(['uninstall','--browser-only']).error);
 // Top-level accuracy subcommand (issue #229): operand forms map onto the run's
 // accuracy options for this invocation only; bare/status stays read-only.
 assert.equal(parseCommand(['accuracy']).command,'accuracy-status');
@@ -52,7 +56,7 @@ async function probe(args,downloadFails=false,updateFails=false){
   if(id==='./update')return {updateCommand:async options=>{assert.equal(options.executable,'fixed.exe');events.push('update');if(updateFails)throw Error('inert update failure');}};
   if(id==='../lib/credential-store')return {createCredentialStore:()=>({inert:true})};
   if(id==='./uninstall')return {uninstallCommand:async options=>{assert.equal(options.ownDirectory,'/inert-runtime');assert.equal(options.store.inert,true);events.push('uninstall');await options.cleanupOwn();return {incomplete:false};}};
-  if(id==='./download-browser')return {ensureBrowser:async()=>{events.push('acquire');if(downloadFails)throw Error('inert cancellation');}};
+  if(id==='./download-browser')return {ensureBrowser:async(options)=>{events.push(options&&options.consent?(await options.consent())===true?'acquire-implied':'acquire-refused':'acquire');if(downloadFails)throw Error('inert cancellation');},downloadNotice:()=>'inert notice'};
   if(id==='../bin/cli')return {credentialCommand:async command=>{events.push(command);},runCli:async()=>{throw Error('Must not launch browser');}};
   if(id==='../lib/diagnostics')return {diagnostic:()=> 'inert'};
   return require(id);
@@ -71,6 +75,12 @@ async function probe(args,downloadFails=false,updateFails=false){
  assert.deepEqual((await probe(['uninstall'])).events,['runtime','uninstall','cleanup','cleanup']);
  assert.deepEqual((await probe(['setup'])).events,['runtime','acquire','--setup','cleanup']);
  assert.deepEqual((await probe(['setup'],true)).events,['runtime','acquire','cleanup']);
+ // Install-time variant: implied consent, the notice, and no login prompt.
+ const browserOnly=await probe(['setup','--browser-only']);
+ assert.deepEqual(browserOnly.events,['runtime','acquire-implied','cleanup']);
+ assert.ok(browserOnly.out.includes('inert notice'));
+ assert.ok(browserOnly.out.some(line=>String(line).includes('Browser ready')));
+ assert.deepEqual((await probe(['setup','--browser-only'],true)).events,['runtime','acquire-implied','cleanup']);
  for(const command of ['check-credentials','forget-credentials'])assert.deepEqual((await probe([command])).events,['runtime','--'+command,'cleanup']);
  // accuracy status stays read-only in the packaged bootstrap: no runtime, no browser.
  for(const args of [['accuracy'],['accuracy','status']]){
