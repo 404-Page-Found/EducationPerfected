@@ -238,12 +238,12 @@ This is a purely hobby-driven project, so consistent development and maintenance
 - Dedicated anti-cheat bypass features
 - Even better answer parsing
 
-A dedicated desktop app is a planned phase of this repository, tracked in [issue #8](https://github.com/404-Page-Found/EducationPerfected/issues/8), after the packaged CLI. Thanks to [Garv](https://github.com/garv-shah) for discovering the exploit that made V1 fully-auto answer possible.
+The dedicated desktop app ships with the OS installers; its remaining goals are tracked in [issue #8](https://github.com/404-Page-Found/EducationPerfected/issues/8). Thanks to [Garv](https://github.com/garv-shah) for discovering the exploit that made V1 fully-auto answer possible.
 
 ## Release, licensing, and disclaimer
 
 - **Licensing and rights:** the code is under the [MIT license](LICENSE). The scope note and rights status are in [release/license-and-rights.md](release/license-and-rights.md).
 - **Release status:** [release/README.md](release/README.md) indexes the release gates and native validation.
 - **Downloadable stable-release preparation:** see [release/README.md](release/README.md#downloadable-stable-release-preparation-moved-from-readme). The policy is in [release/downloadable-beta-policy.md](release/downloadable-beta-policy.md).
-- **Packaged maintenance:** see [runtime storage and uninstall](release/runtime-storage.md). `uninstall` requires typed confirmation and keeps each item unless you choose otherwise. `update` uses published stable GitHub Releases with verified checksums.
+- **Packaged maintenance:** see [runtime storage and uninstall](release/runtime-storage.md). `uninstall` requires typed confirmation and keeps each item unless you choose otherwise. `update` uses published stable GitHub Releases with verified checksums. The desktop app's Settings runs the same update and uninstall; both stay hidden in a source or development copy, which keeps the terminal commands.
 - **Disclaimer:** read the [detailed disclaimer](docs/disclaimer.md) before use: automating schoolwork can breach school or service rules, and may be detected, marked wrong, or acted on. The software is provided as-is, at your own risk.
