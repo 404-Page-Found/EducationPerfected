@@ -26,8 +26,7 @@ const executables = {
 if (!Object.hasOwn(executables, process.platform)) throw new Error('Unsupported app platform: ' + process.platform);
 const executable = path.join(payload, executables[process.platform]);
 if (!executable.startsWith(payload + path.sep)) throw new Error('Executable escaped the payload directory');
-// NOSONAR: the path is the fixed per-platform name inside a directory required to be named app-payload, containment-checked above.
-assert.ok(fs.statSync(executable).isFile(), 'app executable missing: ' + executable);
+assert.ok(fs.statSync(executable).isFile(), 'app executable missing: ' + executable); // NOSONAR: the path is the fixed per-platform name inside a directory required to be named app-payload, containment-checked above.
 
 // An isolated HOME keeps POSIX runs hermetic: no profile, credential-store
 // or app-data state from the runner, and nothing left behind there either.
