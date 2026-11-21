@@ -35,27 +35,31 @@ const env = {
     USERPROFILE: work,
     XDG_CONFIG_HOME: work,
     XDG_CACHE_HOME: work,
+    ELECTRON_ENABLE_LOGGING: '1',
 };
 delete env.ELECTRON_RUN_AS_NODE;
 
-const child = cp.spawn(executable, [], { env, stdio: ['ignore', 'pipe', 'pipe'] });
-let out = '';
-child.stdout.on('data', chunk => { out += chunk; });
-child.stderr.on('data', chunk => { out += chunk; });
+// Child output goes to a log file, never a pipe: a Windows GUI-subsystem
+// executable can abort at startup when its console handles are pipes.
+const logPath = path.join(work, 'smoke-output.log');
+const logFd = fs.openSync(logPath, 'a');
+const child = cp.spawn(executable, [], { env, stdio: ['ignore', logFd, logFd] });
+child.on('close', () => fs.closeSync(logFd));
+const output = () => (fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : '').slice(-2000);
 const kill = setTimeout(() => {
     child.kill('SIGKILL');
 }, 120000);
 
 child.on('error', error => {
     clearTimeout(kill);
-    console.error(out);
-    throw error;
+    console.error(output());
+    process.exitCode = 1;
 });
 
 child.on('close', (code, signal) => {
     clearTimeout(kill);
     try {
-        assert.ok(fs.existsSync(reportPath), 'the app wrote no smoke report (exit ' + code + ', signal ' + signal + '): ' + out.slice(-2000));
+        assert.ok(fs.existsSync(reportPath), 'the app wrote no smoke report (exit ' + code + ', signal ' + signal + '): ' + output());
         const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
         assert.ok(report.ok, 'the app reported a failed launch: ' + report.error);
         const version = require('../package.json').version;

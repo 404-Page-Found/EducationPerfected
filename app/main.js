@@ -84,6 +84,9 @@ function createElectronApp({ electron, session }) {
                 window.webContents.once('did-fail-load', (event, code, description) => {
                     reject(new Error('renderer failed to load: ' + code + ' ' + description));
                 });
+                window.webContents.once('render-process-gone', (event, details) => {
+                    reject(new Error('renderer process gone: ' + details.reason));
+                });
             });
             const state = await window.webContents.executeJavaScript('window.educationPerfected.getState()');
             if (!state || state.session !== 'idle' || typeof state.version !== 'string') {
@@ -109,6 +112,11 @@ function createElectronApp({ electron, session }) {
     }
 
     function start() {
+        if (process.env.EP_APP_SMOKE === '1') {
+            // CI runners have no usable GPU; the smoke proves the window,
+            // preload and IPC, not graphics. Test-mode switch only.
+            app.commandLine.appendSwitch('disable-gpu');
+        }
         registerIpc();
         app.on('before-quit', event => {
             if (!quitting) {
