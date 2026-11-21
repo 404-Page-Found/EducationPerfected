@@ -5,7 +5,7 @@ const {browserStderr,browserLogFile,LIMIT}=require('./windows-browser-stderr'),{
  assert.deepEqual(names,['ChildProcess.Crashed.UtilityProcessExitCode','ChildProcess.LaunchFailed.UtilityProcessErrorCode','ChildProcess.LaunchFailed.WinLastError','ChildProcess.LaunchFailed.UtilityProcessHash','ChildProcess.Crashed.UtilityProcessHash','ChildProcess.Launched.UtilityProcessHash']);
  const metric={name:names[0],count:1,buckets:[{low:5,high:6,count:1}],private:'must-not-print'};
  assert.deepEqual(boundedHistogram(metric,names[0]),{state:'read',count:1,buckets:[{low:5,high:6,count:1}]});
- for(const bad of [{...metric,buckets:[null]},{...metric,buckets:[7]},{...metric,name:'private'},{...metric,count:NaN},{...metric,buckets:Array(17).fill(metric.buckets[0])},{...metric,buckets:[{low:5,high:5,count:1}]}])assert.equal(boundedHistogram(bad,names[0]).state,'invalid');
+ for(const bad of [{...metric,buckets:[null]},{...metric,buckets:[7]},{...metric,name:'private'},{...metric,count:Number.NaN},{...metric,buckets:Array(17).fill(metric.buckets[0])},{...metric,buckets:[{low:5,high:5,count:1}]}])assert.equal(boundedHistogram(bad,names[0]).state,'invalid');
  let resolveLate,lateDetached=false;
  const late=createSession({target:()=>({createCDPSession:()=>new Promise(resolve=>{resolveLate=resolve;})})},1);
  await assert.rejects(late,/session deadline/);resolveLate({detach:async()=>{lateDetached=true;}});

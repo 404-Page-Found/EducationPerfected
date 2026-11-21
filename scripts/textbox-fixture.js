@@ -5,7 +5,7 @@
 // resolves {expression} templates in place on answerOptions, so an item with
 // `raw` keeps the template in def/metadata while answerOptions is resolved.
 function installInputBoxFixture(config) {
-    const injectorFrom = template => ({ parts: template.split(/({[^}]+})/g).map(part => part.startsWith('{') && part.endsWith('}') ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
+    const injectorFrom = template => ({ parts: template.split(/(\{[^{}]+})/g).map(part => part.startsWith('{') && part.endsWith('}') ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
     const old = document.querySelector('.multi-choice-component');
     const self = window.angular.element(old).scope().self, q = self.model._currentQuestion;
     self.model.gameMode = 3;

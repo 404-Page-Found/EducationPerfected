@@ -7,7 +7,7 @@
 // dropdowns; numberBoxItems overrides the six-box list (Page's live
 // seven-box/one-text-box composition passes seven).
 function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxItem, dropdownAnswers, numberBoxItems, keepMulti) {
-    const injectorFrom = template => ({ parts: template.split(/({[^}]+})/g).map(part => /^\{[^}]+\}$/.test(part) ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
+    const injectorFrom = template => ({ parts: template.split(/(\{[^{}]+})/g).map(part => /^\{[^{}]+\}$/.test(part) ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
     const old = document.querySelector('.multi-choice-component');
     const self = window.angular.element(old).scope().self, q = self.model._currentQuestion, base = {}, group = document.createElement('div');
     self.model.gameMode = 3;

@@ -3,7 +3,7 @@
 // keep {expression} templates while metadata/original/shuffled/DOM carry the
 // resolved values, with one desc/correct injector per option (chunk606).
 function installDropdownFixture(count=5,variant){
-    const injectorFrom=template=>({parts:template.split(/({[^}]+})/g).map(part=>part.startsWith('{')&&part.endsWith('}')?{temporaryVariable:{expression:part.slice(1,-1)}}:{text:part})});
+    const injectorFrom=template=>({parts:template.split(/(\{[^{}]+})/g).map(part=>part.startsWith('{')&&part.endsWith('}')?{temporaryVariable:{expression:part.slice(1,-1)}}:{text:part})});
     const old=document.querySelector('.multi-choice-component');
     const self=window.angular.element(old).scope().self,q=self.model._currentQuestion;self.model.gameMode=3;
     const group=document.createElement('div');group.className='synthetic-dropdown-container';old.replaceWith(group);

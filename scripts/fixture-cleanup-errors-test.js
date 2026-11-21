@@ -14,7 +14,7 @@ const { finishFixtureCleanup } = require('./fixture-cleanup-errors');
  assert.equal(later,true);
  for (const value of [null,undefined,0,false,'plain rejection']) {
   let ran=false, caught=false;
-  try {await finishFixtureCleanup(null,[()=>Promise.reject(value),()=>{ran=true;}],()=>{});}
+  try {await finishFixtureCleanup(null,[()=>Promise.reject(value),()=>{ran=true;}],()=>{});} // NOSONAR: intentional non-Error rejections prove cleanup preserves any rejection value and still runs later steps
   catch(error) {caught=true;assert.equal(error,value);}
   assert.equal(caught,true);assert.equal(ran,true);
  }

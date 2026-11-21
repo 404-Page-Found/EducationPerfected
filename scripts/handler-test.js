@@ -328,7 +328,7 @@ async function testDetectorRegressions(page, origin) {
             return { contentID: q.contentID, questionIndex: q.questionIndex };
         });
         for (const field of ['contentID', 'questionIndex']) {
-            for (const bad of [null, NaN, Infinity, '0', -1, {}, []]) {
+            for (const bad of [null, Number.NaN, Infinity, '0', -1, {}, []]) {
                 await page.evaluate(({ field, bad, original }) => {
                     const q = window.angular.element().scope().self.model._currentQuestion;
                     Object.assign(q, original); q[field] = bad;

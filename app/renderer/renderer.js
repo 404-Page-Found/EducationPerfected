@@ -304,8 +304,13 @@ $('download-browser').addEventListener('click', async () => {
 
 api.onSetupProgress(line => {
     $('download-line').textContent = line;
-    const match = /(\d+)%/.exec(line);
-    if (match) $('download-fill').style.width = `${match[1]}%`;
+    const pctIndex = String(line).indexOf('%');
+    if (pctIndex > 0) {
+        let start = pctIndex;
+        while (start > 0 && String(line)[start - 1] >= '0' && String(line)[start - 1] <= '9') start--;
+        const digits = String(line).slice(start, pctIndex);
+        if (digits) $('download-fill').style.width = `${digits}%`;
+    }
 });
 
 $('save-login').addEventListener('click', async () => {

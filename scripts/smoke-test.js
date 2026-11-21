@@ -184,7 +184,7 @@ async function driveDashSprint(page, origin, { route, label, rounds, totalLabel,
         return el && el.textContent.trim() !== start;
     }, { timeout: 4000 }, timerStart);
     const timerAfter = await page.$eval('.dash-timer', el => el.textContent.trim());
-    assert.ok(parseInt(timerAfter, 10) < parseInt(timerStart, 10), `${label} timer must decrement during the sprint, got ${timerStart} -> ${timerAfter}`);
+    assert.ok(Number.parseInt(timerAfter, 10) < Number.parseInt(timerStart, 10), `${label} timer must decrement during the sprint, got ${timerStart} -> ${timerAfter}`);
     check(`${label}: timer decrements during the sprint (${timerStart} -> ${timerAfter})`);
     let expectedScore = 0;
     const lastBase = rounds[rounds.length - 1][0];
