@@ -75,5 +75,9 @@ jobs:
           echo '--- file type'; file "$EXE" 2>/dev/null | head -1
           echo '--- run-as-node'; ELECTRON_RUN_AS_NODE=1 "$EXE" -p "process.versions.electron + ' ' + process.arch"; echo "run-as-node exit=$?"
           echo '--- plain launch with logging'; ELECTRON_ENABLE_LOGGING=1 timeout 20 "$EXE" 2>&1 | tail -30; echo "plain exit=$?"
+          W="$RUNNER_TEMP/ep-smoke-env"; mkdir -p "$W"
+          echo '--- smoke env, normal profile'; EP_APP_SMOKE=1 EP_APP_SMOKE_REPORT="$W/r1.json" timeout 60 "$EXE" 2>&1 | tail -5; echo "exit=$?"; cat "$W/r1.json" 2>/dev/null
+          echo '--- smoke env, isolated profile'; EP_APP_SMOKE=1 EP_APP_SMOKE_REPORT="$W/r2.json" HOME="$W" USERPROFILE="$W" XDG_CONFIG_HOME="$W" XDG_CACHE_HOME="$W" timeout 60 "$EXE" 2>&1 | tail -5; echo "exit=$?"; cat "$W/r2.json" 2>/dev/null
+          echo '--- no smoke env, isolated profile'; HOME="$W" USERPROFILE="$W" XDG_CONFIG_HOME="$W" XDG_CACHE_HOME="$W" timeout 15 "$EXE" 2>&1 | tail -5; echo "exit=$?"
       - name: Launch the built app and require a clean self-quit
         run: node scripts/app-launch-smoke.js build/app-launch/app-payload
