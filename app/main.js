@@ -194,6 +194,7 @@ function createElectronApp({ electron, session }) {
             // Maintenance must stay reachable even when startup fails. No
             // install identity is invented and no update request is made.
             const maintenanceScreens = await window.webContents.executeJavaScript(`(() => {
+                clearInterval(statePoll);
                 const original = ${JSON.stringify(state)};
                 const checked = [];
                 for (const session of ['idle', 'failed', 'ready']) {
@@ -207,11 +208,11 @@ function createElectronApp({ electron, session }) {
                 return checked;
             })()`);
             if (process.env.EP_APP_SMOKE_SCREENSHOT) {
-                await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
-                fs.writeFileSync(process.env.EP_APP_SMOKE_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
-                await window.webContents.executeJavaScript(`render({ ...${JSON.stringify(state)}, setup: { browserReady: false, hasLogin: false, wizardDone: true }, session: 'failed', sessionError: 'Offline startup-failure fixture' })`);
-                await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
-                fs.writeFileSync(process.env.EP_APP_SMOKE_SCREENSHOT + '.failed.png', (await window.webContents.capturePage()).toPNG());
+                for (const fixtureState of ['ready', 'failed']) {
+                    await window.webContents.executeJavaScript(`render({ ...${JSON.stringify(state)}, setup: { browserReady: false, hasLogin: false, wizardDone: true }, session: ${JSON.stringify(fixtureState)}, sessionError: 'Offline startup-failure fixture' })`);
+                    await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+                    fs.writeFileSync(process.env.EP_APP_SMOKE_SCREENSHOT + '.' + fixtureState + '.png', (await window.webContents.capturePage()).toPNG());
+                }
             }
             report = { ok: true, state, embeddedPage: true, maintenanceScreens };
         } catch (error) {

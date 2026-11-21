@@ -169,7 +169,7 @@ function renderMaintenance(state) {
     $('maintenance-log').hidden = !uninstallLogLines.length;
     $('maintenance-log').textContent = uninstallLogLines.join('\n');
     // One quiet background check per app run once the main screen is up.
-    if (maintenance.install && !updateCheckedOnce && !update.checking && !update.applying && !update.plan && !update.upToDate && !update.error) {
+    if (state.session === 'ready' && maintenance.install && !updateCheckedOnce && !update.checking && !update.applying && !update.plan && !update.upToDate && !update.error) {
         updateCheckedOnce = true;
         api.checkUpdate().catch(() => {});
     }
@@ -356,7 +356,7 @@ $('reflection-cancel').addEventListener('click', () => {
 
 // --- State flow: pushed updates plus a slow poll for run progress ---
 api.onState(state => render(state));
-setInterval(async () => {
+const statePoll = setInterval(async () => {
     try { render(await api.getState()); } catch { /* window closing */ }
 }, 1000);
 
