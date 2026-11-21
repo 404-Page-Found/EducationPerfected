@@ -18,6 +18,10 @@
 
     <section id="loading-screen" class="screen">
         <p>Loading…</p>
+        <div class="row">
+            <button id="reload-browser">Reload the page</button>
+        </div>
+        <p class="fine">If the page on the right looks broken or never finishes, reload it. This reloads the same page in the built-in browser; nothing is answered or submitted by reloading.</p>
     </section>
 
     <section id="setup-screen" class="screen" hidden>
@@ -82,6 +86,9 @@
                 <button id="forget-login">Forget saved login</button>
             </div>
             <p id="browser-status" class="fine">…</p>
+            <div class="row">
+                <button id="reload-browser-settings">Reload the browser page</button>
+            </div>
             <p class="fine">The terminal CLI stays available as the <code>educationperfected</code> command; both share the same saved login and settings. The app uses its embedded browser; the CLI uses a separate Chrome download.</p>
 
         </details>

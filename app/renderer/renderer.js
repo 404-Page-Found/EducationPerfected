@@ -96,7 +96,11 @@ function render(state) {
     }
     if (state.session === 'starting') {
         show('loading');
-        screens.loading.querySelector('p').textContent = 'Opening the browser…';
+        // Once the engine reports it is parked on the login wait, the browser is
+        // open: say so, so a stuck or broken page is not read as still loading.
+        screens.loading.querySelector('p').textContent = state.startupPhase === 'waiting-for-sign-in'
+            ? 'The browser is open. Sign in to Education Perfect on the right.'
+            : 'Opening the browser\u2026';
         return;
     }
     show('main');
@@ -353,6 +357,17 @@ $('reflection-fill').addEventListener('click', () => {
 $('reflection-cancel').addEventListener('click', () => {
     if (reflectionId !== null) api.respondReflection(reflectionId, false).catch(() => {});
 });
+
+// The embedded page recovery control: a hard reload of the guest, bypassing its
+// cache. Offered while the session opens (a broken or stale page is the visible
+// failure there) and while it runs. It reloads the same page the engine drives;
+// nothing is submitted by reloading.
+for (const id of ['reload-browser', 'reload-browser-settings']) {
+    const button = $(id);
+    if (button) button.addEventListener('click', () => {
+        try { $('browser').reloadIgnoringCache(); } catch { /* guest not attached yet */ }
+    });
+}
 
 // --- State flow: pushed updates plus a slow poll for run progress ---
 api.onState(state => render(state));

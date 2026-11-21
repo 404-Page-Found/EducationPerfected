@@ -31,8 +31,10 @@ Source: "{#AppPayload}\*"; DestDir: "{app}\app"; Flags: ignoreversion recursesub
 Name: "addtopath"; Description: "Add EducationPerfected to your PATH"; GroupDescription: "Extra options:"
 
 [Icons]
+; The Start menu gets the one app launcher and nothing else. Uninstall stays in
+; Settings > Apps (UninstallDisplayName) and in the app itself; no separate
+; uninstaller shortcut is created here.
 Name: "{group}\EducationPerfected"; Filename: "{app}\app\EducationPerfected.exe"
-Name: "{group}\Uninstall EducationPerfected"; Filename: "{uninstallexe}"
 
 ; The app payload includes Electron's Chromium. [Files] installs the browser
 ; before the finish page. Do not launch the terminal CLI's separate download.
@@ -41,6 +43,9 @@ Name: "{group}\Uninstall EducationPerfected"; Filename: "{uninstallexe}"
 ; Remove the previous separate app launcher on upgrade. The remaining shortcut
 ; is replaced by [Icons] to launch the desktop app, not the terminal CLI.
 Type: files; Name: "{group}\EducationPerfected App.lnk"
+; Up to v2026.11.22 the installer added a "Uninstall EducationPerfected"
+; Start-menu shortcut; remove it from existing installs on upgrade.
+Type: files; Name: "{group}\Uninstall EducationPerfected.lnk"
 
 [UninstallDelete]
 Type: files; Name: "{app}\educationperfected-install.json"
@@ -139,7 +144,7 @@ begin
   Json := '{"version":1,"method":"setup-exe"'
     + ',"files":["' + JsonEscape(ExpandConstant('{app}\educationperfected.exe')) + '","' + JsonEscape(ExpandConstant('{app}\educationperfected-install.json')) + '"]'
     + ',"directories":["' + JsonEscape(ExpandConstant('{app}\app')) + '"]'
-    + ',"shortcuts":["' + JsonEscape(ExpandConstant('{group}\EducationPerfected.lnk')) + '","' + JsonEscape(ExpandConstant('{group}\Uninstall EducationPerfected.lnk')) + '"]'
+    + ',"shortcuts":["' + JsonEscape(ExpandConstant('{group}\EducationPerfected.lnk')) + '"]'
     + ',"uninstaller":"' + JsonEscape(ExpandConstant('{app}\unins000.exe')) + '"'
     + PathPart + '}';
   SaveStringToFile(ExpandConstant('{app}\educationperfected-install.json'), Json, False);

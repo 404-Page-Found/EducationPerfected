@@ -27,9 +27,12 @@ assert.ok(!iss.includes('RegWriteStringValue'),'PATH writes must preserve REG_EX
 assert.ok(iss.includes('RegWriteExpandStringValue'),'PATH writes use RegWriteExpandStringValue');
 const icons = iss.split('[Icons]')[1].split('[')[0];
 assert.ok(icons.includes('Name: "{group}\\EducationPerfected"; Filename: "{app}\\app\\EducationPerfected.exe"'), 'the single launcher opens the desktop app');
+assert.ok(!icons.includes('Uninstall EducationPerfected'), 'no Start-menu Uninstall shortcut: uninstall lives in Settings > Apps and the app');
+assert.ok(!iss.split('WriteInstallRecord')[1].includes('Uninstall EducationPerfected'), 'the install record lists only the shortcuts the installer still creates');
 assert.equal((icons.match(/Filename: "\{app\}/g)||[]).length, 1, 'only one program launcher, no duplicate CLI launcher');
 const installDelete = iss.split('[InstallDelete]')[1].split(/^\[/m)[0];
 assert.ok(installDelete.includes('Type: files; Name: "{group}\\EducationPerfected App.lnk"'), 'upgrades remove the old separate app shortcut');
+assert.ok(installDelete.includes('Type: files; Name: "{group}\\Uninstall EducationPerfected.lnk"'), 'upgrades remove the old Start-menu Uninstall shortcut');
 const publish=fs.readFileSync(path.join(__dirname,'../.github/workflows/publish.yml'),'utf8');
 for(const required of [
  'Inno Setup 6\\ISCC.exe',"require('./package.json').version",'/DAppVersion','/DSourceExe',
