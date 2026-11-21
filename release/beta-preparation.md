@@ -39,7 +39,7 @@ No publication date is committed here.
 
 ## First hosted build
 
-See [the 12 November build-only result](beta-build-2026-11-12.md) for exact commit, lane logs, hashes and limits. No downloadable executable was retained.
+The 12 November build-only run recorded the exact commit, lane logs, hashes and limits. No downloadable executable was retained.
 
 ## Direct-download native validation follow-through
 
