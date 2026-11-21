@@ -135,14 +135,18 @@ async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=p
   if(choices.data){
    let safe=safeRuntimeRoot(tmp,ownDirectory);
    // Unknown root entries are not recursively deleted, nor followed as links.
-   try{if(fs.readdirSync(root).some(name=>!['tmp','browsers','MAINTENANCE.lock','config.json'].includes(name)))safe=false;}catch{safe=false;}
+   try{if(fs.readdirSync(root).some(name=>!['tmp','browsers','MAINTENANCE.lock','config.json','app-setup.json','app-update-result.txt'].includes(name)))safe=false;}catch{safe=false;}
    if(!safe){incomplete=true;output.write('Live/uncertain runtime files or unknown app data retained. Close all app/browser processes and inspect before retrying.\n');}
-   const config=path.join(root,'config.json');
-   try{
-    const stat=fs.lstatSync(config);
-    if(stat.isFile()&&!stat.isSymbolicLink()){fs.unlinkSync(config);output.write('Saved app settings removed.\n');}
-    else{incomplete=true;output.write('Unexpected settings path retained for inspection.\n');}
-   }catch(error){if(error.code!=='ENOENT'){incomplete=true;output.write('Saved app settings could not be removed.\n');}}
+   // config.json is the shared settings file; app-setup.json is the desktop
+   // app's wizard marker and app-update-result.txt its one-shot update receipt.
+   for(const name of ['config.json','app-setup.json','app-update-result.txt']){
+    const file=path.join(root,name);
+    try{
+     const stat=fs.lstatSync(file);
+     if(stat.isFile()&&!stat.isSymbolicLink()){fs.unlinkSync(file);if(name==='config.json')output.write('Saved app settings removed.\n');}
+     else{incomplete=true;output.write('Unexpected settings path retained for inspection.\n');}
+    }catch(error){if(error.code!=='ENOENT'){incomplete=true;output.write('Saved app settings could not be removed.\n');}}
+   }
    try{await cleanupOwn();}catch{incomplete=true;output.write('Owned runtime cleanup failed; retained for inspection.\n');}
    // Only remove empty containers. No recursive root or temp deletion.
    try{fs.rmdirSync(tmp);}catch(error){if(error.code!=='ENOENT')incomplete=true;}
@@ -154,7 +158,7 @@ async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=p
  output.write((incomplete?'Uninstall incomplete; retained data remains.':'Requested items removed.')+'\n');
  // Program removal runs last: on Windows a helper waits for this process to
  // exit, so nothing below may need the executable again.
- let programPending=false;
+ let programPending=false,programRemoved=false;
  if(choices.program&&plan){
   if(plan.kind==='helper-files'){
    startWindowsUninstallHelper({pid,mode:'files',log,files:plan.files,pathEntries:plan.pathEntries,shortcuts:plan.shortcuts,tmp:tmpDir,spawnDetached});
@@ -165,24 +169,27 @@ async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=p
   }else if(plan.kind==='posix-files'){
    let failed=null;
    for(const file of plan.files){try{fs.rmSync(file,{force:true});}catch(error){failed=file;incomplete=true;output.write('Could not remove '+file+': '+error.message+'\n');}}
-   if(!failed)output.write('Program removed.\n');
+   if(!failed){programRemoved=true;output.write('Program removed.\n');}
   }else if(plan.kind==='npm-direct'){
    const result=spawn('npm',['uninstall','-g',PACKAGE_NAME],{stdio:'inherit'});
    if(result.error||result.status!==0){incomplete=true;output.write('npm uninstall failed; run it by hand: npm uninstall -g '+PACKAGE_NAME+'\n');}
-   else output.write('Program removed (npm uninstall -g '+PACKAGE_NAME+').\n');
+   else{programRemoved=true;output.write('Program removed (npm uninstall -g '+PACKAGE_NAME+').\n');}
   }else if(plan.kind==='package'){
    const result=spawn(plan.command[0],plan.command.slice(1),{stdio:'inherit'});
    if(result.error||result.status!==0){incomplete=true;output.write('Package removal failed; run it by hand: '+plan.command.join(' ')+'\n');}
-   else output.write('Program removed ('+plan.command.join(' ')+').\n');
+   else{programRemoved=true;output.write('Program removed ('+plan.command.join(' ')+').\n');}
   }else if(plan.kind==='pkg'){
    const remove=spawn('sudo',['rm','-rf',...plan.files,...plan.directories],{stdio:'inherit'});
    const forget=remove.error||remove.status!==0?null:spawn('sudo',['pkgutil','--forget',plan.receipt],{stdio:'inherit'});
    if(remove.error||remove.status!==0||(forget&&(forget.error||forget.status!==0))){incomplete=true;output.write('Package removal failed; remove the files and forget the receipt by hand: sudo rm -rf '+[...plan.files,...plan.directories].join(' ')+' && sudo pkgutil --forget '+plan.receipt+'\n');}
-   else output.write('Program removed (files deleted, installer receipt forgotten).\n');
+   else{programRemoved=true;output.write('Program removed (files deleted, installer receipt forgotten).\n');}
   }
  }
  if(programPending)output.write('The program removal finishes in the background after this program exits. Log: '+log+'\n');
  else if(!plan)output.write('Delete the executable manually: '+executable+'\n');
- return {incomplete,programPending};
+ // programRemoved is the shutdown signal for callers whose own files were
+ // removed: it is independent of retained login/data (incomplete), so a
+ // successful program removal is never hidden by an unrelated retention.
+ return {incomplete,programPending,programRemoved};
 }
 module.exports={uninstallCommand,confirmUninstall,confirmInnoUninstall,safeRuntimeRoot,removalPlan};

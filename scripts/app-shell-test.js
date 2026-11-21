@@ -25,6 +25,9 @@ function fakeSession() {
         completeWizard: record('completeWizard'),
         action: record('action'),
         respondReflection: record('respondReflection'),
+        checkUpdate: record('checkUpdate'),
+        applyUpdate: record('applyUpdate'),
+        uninstall: record('uninstall'),
         close: record('close'),
         setOnEvent(fn) { this.onEvent = fn; },
     };
@@ -74,6 +77,9 @@ async function main() {
         [IPC.completeWizard, 'completeWizard', []],
         [IPC.action, 'action', ['start', undefined]],
         [IPC.reflectionRespond, 'respondReflection', [7, 'text']],
+        [IPC.checkUpdate, 'checkUpdate', []],
+        [IPC.applyUpdate, 'applyUpdate', []],
+        [IPC.uninstall, 'uninstall', [{ login: true, data: false, browsers: false, program: true }]],
     ];
     const byName = (a, b) => String(a).localeCompare(String(b));
     assert.deepEqual([...handlers.keys()].sort(byName), expected.map(([channel]) => channel).sort(byName));
@@ -145,9 +151,9 @@ async function main() {
     try { require('../app/preload'); } finally { Module._load = originalLoad; }
     const api = exposed.educationPerfected;
     assert.deepEqual(Object.keys(api).sort(byName), [
-        'action', 'completeWizard', 'downloadBrowser', 'forgetLogin', 'getState',
-        'onReflectionRequest', 'onReflectionSettled', 'onSetupProgress', 'onState',
-        'refreshSetup', 'respondReflection', 'saveLogin', 'startSession',
+        'action', 'applyUpdate', 'checkUpdate', 'completeWizard', 'downloadBrowser', 'forgetLogin', 'getState',
+        'onMaintenanceProgress', 'onReflectionRequest', 'onReflectionSettled', 'onSetupProgress', 'onState',
+        'refreshSetup', 'respondReflection', 'saveLogin', 'startSession', 'uninstall',
     ].sort(byName));
     await api.action('start', undefined);
     await api.saveLogin('a@b.c', 'pw');

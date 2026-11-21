@@ -83,5 +83,23 @@ code { background: var(--button); padding: 1px 5px; border-radius: 4px; font-siz
     padding: 20px;
 }
 #reflection-modal[hidden] { display: none; }
-#reflection-modal .card { max-width: 460px; width: 100%; }
+#reflection-modal .card { max-width: 460px; width: 100%; margin: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
 #reflection-text { width: 100%; margin-bottom: 8px; }
+.card h3 { font-size: 13px; margin: 14px 0 6px; }
+pre.log {
+    background: var(--button);
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 12px;
+    max-height: 140px;
+    overflow: auto;
+    white-space: pre-wrap;
+}
+#uninstall-modal {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex; align-items: center; justify-content: center;
+}
+#uninstall-modal[hidden] { display: none; }
+#uninstall-modal .card { max-width: 460px; width: 100%; margin: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+#uninstall-choices label { display: block; margin: 6px 0; }

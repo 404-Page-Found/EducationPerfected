@@ -91,6 +91,14 @@ package, `/usr/local/bin` on macOS means the .pkg - and the inference is stated
 in the output. When no removal path is known, the CLI prints what it could not
 remove instead of guessing.
 
+The desktop app's Settings uninstall runs this same machinery: the window's
+dialog supplies the per-item choices (each still default No) instead of the
+typed terminal prompts, and where the terminal run would call `sudo`, the app
+elevates graphically - pkexec on Linux, an administrator-privileges shell on
+macOS. The setup exe's Inno uninstaller owns its own flow in both. The app
+finds the CLI and install record from its own install location; a copy not
+installed by an OS installer keeps the controls disabled.
+
 Per method: the setup exe delegates to its own Inno uninstaller (which removes
 the program, shortcuts and PATH entry and asks about the saved login and app
 data itself); npm runs `npm uninstall -g educationperfected`; `.deb` runs
@@ -103,6 +111,17 @@ a running program cannot remove itself - appends to
 `%TEMP%\educationperfected-uninstall.log` and deletes itself; the CLI prints
 that the removal finishes in the background. Package-manager and npm removals
 report failure with the exact manual command and mark the run incomplete.
+
+The desktop app's Settings update does not swap files in place. It downloads
+the same OS installer the release publishes for the install method (setup exe,
+.pkg, .deb or .rpm), verifies it against the release's SHA256SUMS exactly like
+the CLI update does for the raw binary, then hands off and closes: a detached
+cmd helper waits for the app to exit and runs the setup exe silently, writing
+`app-update-result.txt` in the app root for the next launch to show once; the
+.pkg opens in the macOS Installer; the .deb/.rpm installs through pkexec (or
+shows the exact sudo command and keeps the verified package when no desktop
+elevation exists). App and CLI always update together, so a root-owned install
+location never needs an in-place swap from the app.
 
 Native credential fixtures use an explicitly inert cached-browser receipt in
 disposable homes to exercise setup's cache-reuse path without launching that

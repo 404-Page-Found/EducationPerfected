@@ -16,6 +16,8 @@ const screens = {
 let latest = null;
 let startedOnce = false;
 let reflectionId = null;
+let updateCheckedOnce = false;
+const uninstallLogLines = [];
 
 // --- Wiring ---
 
@@ -132,7 +134,136 @@ function renderMain(state) {
     $('browser-status').textContent = state.setup.browserReady
         ? 'Pinned Chrome is downloaded and shared with the CLI.'
         : 'Pinned Chrome is not downloaded.';
+    renderMaintenance(state);
 }
+
+// Update and uninstall, driven by the same state the session publishes.
+function renderMaintenance(state) {
+    const maintenance = state.maintenance || { install: null, update: {}, uninstalling: false };
+    const update = maintenance.update || {};
+    // The two operations are serialized: each disables the other's controls.
+    $('open-uninstall').disabled = !maintenance.install || maintenance.uninstalling || update.applying;
+    $('check-update').disabled = !maintenance.install || maintenance.uninstalling || update.checking || update.applying;
+    const lines = [];
+    if (update.lastResult) lines.push(`Last update result: ${update.lastResult}.`);
+    if (!maintenance.install) {
+        lines.push('This copy was not installed by an OS installer; update or uninstall it from the terminal CLI or by reinstalling.');
+    } else if (update.applying) {
+        lines.push('Updating…');
+    } else if (update.checking) {
+        lines.push('Checking for updates…');
+    } else if (update.error) {
+        lines.push(`Update failed: ${update.error}`);
+    } else if (update.plan) {
+        const size = update.plan.size === null || update.plan.size === undefined ? 'unknown size' : `${(update.plan.size / 1048576).toFixed(1)} MB`;
+        lines.push(`Update available: v${update.plan.version} (${size}). The app and the educationperfected command are updated together.`);
+    } else if (update.upToDate) {
+        lines.push(`Up to date${update.latest ? ` (latest release: v${update.latest})` : ''}.`);
+    } else {
+        lines.push('The app updates through the same verified OS installer that installed it.');
+    }
+    $('update-status').textContent = lines.join(' ');
+    $('apply-update').hidden = !update.plan || update.applying || maintenance.uninstalling;
+    if (update.plan) $('apply-update').textContent = `Update to v${update.plan.version}`;
+    $('update-log').hidden = !(update.log && update.log.length);
+    $('update-log').textContent = (update.log || []).join('\n');
+    $('update-manual').hidden = !update.manual;
+    $('update-manual').textContent = update.manual ? `Run this in a terminal, then relaunch the app: ${update.manual}` : '';
+    $('maintenance-log').hidden = !uninstallLogLines.length;
+    $('maintenance-log').textContent = uninstallLogLines.join('\n');
+    // One quiet background check per app run once the main screen is up.
+    if (maintenance.install && !updateCheckedOnce && !update.checking && !update.applying && !update.plan && !update.upToDate && !update.error) {
+        updateCheckedOnce = true;
+        api.checkUpdate().catch(() => {});
+    }
+}
+
+api.onMaintenanceProgress(payload => {
+    if (payload && payload.kind === 'uninstall') uninstallLogLines.push(String(payload.line));
+    if (latest) renderMaintenance(latest);
+});
+
+// --- Uninstall dialog ---
+// While the command runs, nothing re-enables the confirm button.
+let uninstallRunning = false;
+function refreshUninstallConfirm() {
+    if (uninstallRunning) { $('confirm-uninstall').disabled = true; return; }
+    const method = latest && latest.maintenance && latest.maintenance.install && latest.maintenance.install.method;
+    $('confirm-uninstall').disabled = method === 'setup-exe' ? false
+        : !['uninstall-login', 'uninstall-data', 'uninstall-browsers', 'uninstall-program'].some(box => $(box).checked);
+}
+
+function openUninstallDialog() {
+    const maintenance = (latest && latest.maintenance) || {};
+    const method = maintenance.install && maintenance.install.method;
+    $('uninstall-error').hidden = true;
+    for (const id of ['uninstall-login', 'uninstall-data', 'uninstall-browsers', 'uninstall-program']) $(id).checked = false;
+    if (method === 'setup-exe') {
+        $('uninstall-choices').hidden = true;
+        $('uninstall-intro').textContent = 'The EducationPerfected uninstaller removes the program, its Start-menu shortcuts and the PATH entry, then asks about the saved login and app data. The app closes and the uninstaller starts.';
+        $('confirm-uninstall').textContent = 'Start the uninstaller';
+    } else {
+        $('uninstall-choices').hidden = false;
+        $('uninstall-intro').textContent = 'Choose what to remove. Each item stays unless you choose it.';
+        $('uninstall-program-label').textContent = method === 'pkg'
+            ? 'Remove the program itself (the app and the educationperfected command; macOS asks for your administrator password)'
+            : 'Remove the program itself (the package manager removes the app and the educationperfected command; your desktop asks for your password)';
+        $('confirm-uninstall').textContent = 'Uninstall';
+    }
+    refreshUninstallConfirm();
+    $('uninstall-modal').hidden = false;
+    $('confirm-uninstall').focus();
+}
+
+function closeUninstallDialog() {
+    $('uninstall-modal').hidden = true;
+    $('open-uninstall').focus();
+}
+
+$('open-uninstall').addEventListener('click', openUninstallDialog);
+for (const id of ['uninstall-login', 'uninstall-data', 'uninstall-browsers', 'uninstall-program']) {
+    $(id).addEventListener('change', refreshUninstallConfirm);
+}
+$('cancel-uninstall').addEventListener('click', closeUninstallDialog);
+$('confirm-uninstall').addEventListener('click', async () => {
+    $('uninstall-error').hidden = true;
+    uninstallRunning = true;
+    refreshUninstallConfirm();
+    const method = latest && latest.maintenance && latest.maintenance.install && latest.maintenance.install.method;
+    const choices = method === 'setup-exe' ? null : {
+        login: $('uninstall-login').checked,
+        data: $('uninstall-data').checked,
+        browsers: $('uninstall-browsers').checked,
+        program: $('uninstall-program').checked,
+    };
+    try {
+        const result = await api.uninstall(choices);
+        closeUninstallDialog();
+        if (result && result.quitRequired) uninstallLogLines.push('Closing so the removal can finish.');
+    } catch (error) {
+        $('uninstall-error').textContent = String(error && error.message ? error.message : error);
+        $('uninstall-error').hidden = false;
+    } finally {
+        uninstallRunning = false;
+        refreshUninstallConfirm();
+    }
+});
+
+// --- Update buttons ---
+$('check-update').addEventListener('click', () => {
+    api.checkUpdate().catch(error => showMessage(String(error && error.message ? error.message : error), true));
+});
+$('apply-update').addEventListener('click', async () => {
+    try {
+        const result = await api.applyUpdate();
+        if (result && result.quitRequired && latest) {
+            latest.maintenance.update.log.push('Closing so the installer can finish.');
+            renderMaintenance(latest);
+        }
+    } catch (error) {
+        showMessage(String(error && error.message ? error.message : error), true);
+    }
+});
 
 function showMessage(text, isError) {
     const el = $('action-message');

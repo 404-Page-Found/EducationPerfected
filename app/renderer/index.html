@@ -93,6 +93,22 @@
             </div>
             <p id="browser-status" class="fine">…</p>
             <p class="fine">The terminal CLI stays available as the <code>educationperfected</code> command; both share the same login, config and browser.</p>
+
+            <h3>App update</h3>
+            <p id="update-status" class="fine">…</p>
+            <div class="row">
+                <button id="check-update">Check for update</button>
+                <button id="apply-update" class="primary" hidden>Update</button>
+            </div>
+            <pre id="update-log" class="log" hidden></pre>
+            <p id="update-manual" class="fine" hidden></p>
+
+            <h3>Uninstall</h3>
+            <p class="fine">Removes the program, and only the items you choose.</p>
+            <div class="row">
+                <button id="open-uninstall">Uninstall EducationPerfected</button>
+            </div>
+            <pre id="maintenance-log" class="log" hidden></pre>
         </details>
     </section>
 
@@ -104,6 +120,25 @@
         </div>
     </section>
 </main>
+
+<div id="uninstall-modal" hidden role="dialog" aria-modal="true" aria-labelledby="uninstall-title">
+    <div class="card">
+        <h2 id="uninstall-title">Uninstall EducationPerfected</h2>
+        <p id="uninstall-intro"></p>
+        <div id="uninstall-choices">
+            <label><input type="checkbox" id="uninstall-login"> Remove the saved login from the OS credential store</label>
+            <label><input type="checkbox" id="uninstall-data"> Remove app data (settings and temporary files)</label>
+            <label><input type="checkbox" id="uninstall-browsers"> Remove downloaded browsers (about 200 MB)</label>
+            <label><input type="checkbox" id="uninstall-program"> <span id="uninstall-program-label">Remove the program itself</span></label>
+        </div>
+        <p class="fine">Nothing is removed unless you choose it. Close every other EducationPerfected copy (including the terminal CLI) and its Chrome window first.</p>
+        <div class="row">
+            <button id="confirm-uninstall" class="primary">Uninstall</button>
+            <button id="cancel-uninstall">Cancel</button>
+        </div>
+        <p id="uninstall-error" class="error" role="alert" hidden></p>
+    </div>
+</div>
 
 <div id="reflection-modal" hidden role="dialog" aria-modal="true" aria-labelledby="reflection-title">
     <div class="card">

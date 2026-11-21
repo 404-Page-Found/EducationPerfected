@@ -15,12 +15,16 @@ const CHANNELS = {
     completeWizard: 'ep:complete-wizard',
     action: 'ep:action',
     reflectionRespond: 'ep:reflection-respond',
+    checkUpdate: 'ep:check-update',
+    applyUpdate: 'ep:apply-update',
+    uninstall: 'ep:uninstall',
 };
 const EVENTS = {
     state: 'ep:state',
     setupProgress: 'ep:setup-progress',
     reflectionRequest: 'ep:reflection-request',
     reflectionSettled: 'ep:reflection-settled',
+    maintenanceProgress: 'ep:maintenance-progress',
 };
 
 const invoke = (channel, ...args) => ipcRenderer.invoke(channel, ...args);
@@ -36,8 +40,12 @@ contextBridge.exposeInMainWorld('educationPerfected', {
     completeWizard: () => invoke(CHANNELS.completeWizard),
     action: (name, value) => invoke(CHANNELS.action, name, value),
     respondReflection: (id, text) => invoke(CHANNELS.reflectionRespond, id, text),
+    checkUpdate: () => invoke(CHANNELS.checkUpdate),
+    applyUpdate: () => invoke(CHANNELS.applyUpdate),
+    uninstall: choices => invoke(CHANNELS.uninstall, choices),
     onState: listen(EVENTS.state),
     onSetupProgress: listen(EVENTS.setupProgress),
     onReflectionRequest: listen(EVENTS.reflectionRequest),
     onReflectionSettled: listen(EVENTS.reflectionSettled),
+    onMaintenanceProgress: listen(EVENTS.maintenanceProgress),
 });
