@@ -454,7 +454,9 @@ const { playTextboxRound, playNumberBoxRound } = require('../lib/textbox-handler
             assert.equal(d.kind, 'textbox-refusal');
             assert.equal(d.guard, 'lesson-dom');
             assert.equal(d.componentCount, 2);
-            assert.deepEqual(d.componentTypes, ['UNLISTED_COMPONENT', 'TEXT_BOX_COMPONENT']);
+            // Issue #231: recognized companion codes are named (MULTICHOICE),
+            // unlisted codes stay UNLISTED_COMPONENT.
+            assert.deepEqual(d.componentTypes, ['MULTICHOICE_COMPONENT', 'TEXT_BOX_COMPONENT']);
             assert.equal(d.editableControlCount, 4);
             assert.deepEqual(d.editableControlShapes, { 'input:text': 1, 'input:radio': 3 });
             assert.equal(JSON.stringify(d).includes('alpha'), false);
