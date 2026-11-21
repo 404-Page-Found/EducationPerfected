@@ -3,7 +3,30 @@
 // keep {expression} templates while metadata/original/shuffled/DOM carry the
 // resolved values, with one desc/correct injector per option (chunk606).
 function installDropdownFixture(count=5,variant){
-    const injectorFrom=template=>({parts:template.split(/({[^}]+})/g).map(part=>part.startsWith('{')&&part.endsWith('}')?{temporaryVariable:{expression:part.slice(1,-1)}}:{text:part})});
+    // Linear equivalent of template.split(/({[^}]+})/g): every "{"
+    // .. next "}" with at least one char between is a delimiter (inner
+    // "{" allowed per EP splitParts). Preserves source grammar while
+    // avoiding super-linear backtracking (S8786).
+    // NOTE: page-serialized fixture cannot require a shared module, so this
+    // scanner mirrors the textbox/numberbox splitParts grammar (see
+    // scripts/textbox-fixture.js and scripts/dropdown-numberbox-fixture.js);
+    // keep the copies in sync.
+    const splitTemplate=template=>{
+        const out=[];let textStart=0,i=0;const n=template.length;
+        while(i<n){
+            if(template.charCodeAt(i)!==123){i++;continue;}
+            let j=i+1;
+            while(j<n&&template.charCodeAt(j)!==125)j++;
+            if(j>=n||j===i+1){i++;continue;}
+            out.push(template.slice(textStart,i));
+            out.push(template.slice(i,j+1));
+            i=j+1;textStart=i;
+        }
+        out.push(template.slice(textStart));
+        return out;
+    };
+    const isExpressionPart=part=>part.length>2&&part.startsWith('{')&&part.endsWith('}')&&!part.slice(1,-1).includes('}');
+    const injectorFrom=template=>({parts:splitTemplate(template).map(chunk=>isExpressionPart(chunk)?{temporaryVariable:{expression:chunk.slice(1,-1)}}:{text:chunk})});
     const old=document.querySelector('.multi-choice-component');
     const self=window.angular.element(old).scope().self,q=self.model._currentQuestion;self.model.gameMode=3;
     const group=document.createElement('div');group.className='synthetic-dropdown-container';old.replaceWith(group);
