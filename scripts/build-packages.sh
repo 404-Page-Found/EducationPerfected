@@ -5,9 +5,9 @@
 # binary plus representative app files. Fails closed on any mismatch.
 set -euo pipefail
 target=$1; version=$2; src=$3; out=$4
-test -f "$src"
+[[ -f "$src" ]]
 payload="$4/app-payload"
-test -d "$payload"
+[[ -d "$payload" ]]
 # Install-time setup runs the installed CLI's own browser-only setup step as
 # the installing user (never root's home). A failed download (offline,
 # interrupted) must not fail the install: the app's first-run wizard probes
@@ -62,7 +62,7 @@ MACPOST
     pkgutil --expand-full "$pkg" "$check/expanded" >/dev/null
     identical "$check/expanded/Payload/usr/local/bin/educationperfected" "$src"
     identical "$check/expanded/Payload/Applications/EducationPerfected.app/Contents/Resources/app/main.cjs" "$payload/EducationPerfected.app/Contents/Resources/app/main.cjs"
-    test -f "$check/expanded/Payload/Applications/EducationPerfected.app/Contents/MacOS/EducationPerfected"
+    [[ -f "$check/expanded/Payload/Applications/EducationPerfected.app/Contents/MacOS/EducationPerfected" ]]
     ;;
   linux-x64|linux-arm64)
     mkdir -p "$out"
@@ -93,7 +93,7 @@ case "$target" in
     dpkg-deb --extract "$out/educationperfected_${version}_${debarch}.deb" "$ex"
     identical "$ex/usr/bin/educationperfected" "$src"
     identical "$ex/usr/lib/educationperfected/app/resources/app/main.cjs" "$payload/resources/app/main.cjs"
-    test -f "$ex/usr/share/applications/educationperfected.desktop"
+    [[ -f "$ex/usr/share/applications/educationperfected.desktop" ]]
     # .rpm
     command -v rpmbuild >/dev/null || { echo "rpmbuild not found on this runner (apt-get install rpm)"; exit 1; }
     mkdir -p "$work/rpm/BUILD" "$work/rpm/RPMS" "$work/rpm/SOURCES" "$work/rpm/SPECS" "$work/rpm/SRPMS"
@@ -130,13 +130,13 @@ $POSTINST
 SPEC
     rpmbuild -bb --define "_topdir $work/rpm" "$work/rpm/SPECS/educationperfected.spec" >/dev/null
     rpm_file=$(find "$work/rpm/RPMS" -name '*.rpm' | head -1)
-    test -n "$rpm_file"
+    [[ -n "$rpm_file" ]]
     mv "$rpm_file" "$out/educationperfected-${version}-1.${rpmarch}.rpm"
     exr=$(mktemp -d)
     (cd "$exr" && rpm2cpio "$out/educationperfected-${version}-1.${rpmarch}.rpm" | cpio -idm --quiet)
     identical "$exr/usr/bin/educationperfected" "$src"
     identical "$exr/usr/lib/educationperfected/app/resources/app/main.cjs" "$payload/resources/app/main.cjs"
-    test -f "$exr/usr/share/applications/educationperfected.desktop"
+    [[ -f "$exr/usr/share/applications/educationperfected.desktop" ]]
     ;;
   *)
     echo "no packages for target $target";;
