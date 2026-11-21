@@ -6,7 +6,7 @@ for(const required of [
  // Least privilege: nothing at top level; contents: write only where drafts or assets demand it.
  'permissions: {}',
  'releases?per_page=100','--paginate','select(.tag_name == $t)','.draft','.assets | length','.target_commitish','Not Found',
- 'release-bundle-v','workflow_run.head_sha','.github/workflows/release-bundle-staging.yml','.conclusion',
+ 'release-bundle-v',
  'sha256sum -c SHA256SUMS','20 payloads + SHA256SUMS','%{redirect_url}',
  'gh release upload "$TAG" -R "$GITHUB_REPOSITORY" -- *','Publication stays manual',
  'already has $assets assets; remove them manually to re-attach',
@@ -18,9 +18,9 @@ for(const required of [
  'build-downloadable','downloadable-candidate-','persist-credentials: false',
  'byte-identical','20 payload files','THIRD-PARTY-NOTICES-$target.zip',
  'educationperfected-windows-x64-setup.exe','retention-days: 90','if-no-files-found: error',
- // The Windows installer embeds the desktop app payload, exactly as the beta lane does.
+ // The Windows installer embeds the desktop app payload.
  '/DAppPayload=$payload',"Join-Path $out 'app-payload'",
- 'attach=true','bundle_id','label=$version-validation.1','draft=$draft',
+ 'attach=true','label=$version-validation.1','draft=$draft',
  // npm publication: last job, live releases only, byte-verified tarball,
  // double-publish safe, explicit credentials, recoverable on failure.
  'npm-publish:','id-token: write','NPM_TOKEN','--provenance','--access public',
@@ -41,4 +41,4 @@ for(const derivation of ['$root = (Get-Location).Path',"Join-Path $root 'install
 assert.doesNotMatch(isccStep,/\/D(SourceExe|AppPayload)=build\\/,'no repo-root-relative /D paths');
 assert.ok(source.indexOf('node scripts/beta-candidate.js build-downloadable')<source.indexOf('- name: Build the per-user Windows installer'),'the candidate build lays down app-payload before the installer compiles against it');
 assert.ok(require('../package.json').scripts['test:phase3'].includes('publish-workflow-policy-test.js'),'wired into test:phase3');
-console.log('Publish workflow: one button resolves the release commit, attaches a verified staged bundle or builds and validates from that commit, attaches only to zero-asset releases, refuses any release that has assets; never tags, edits or publishes. npm-publish then puts the byte-verified tarball on the registry once the release is live, skipping versions already published.');
+console.log('Publish workflow: one button resolves the release commit, builds and validates from that commit, attaches only to zero-asset releases, refuses any release that has assets; never tags, edits or publishes. npm-publish then puts the byte-verified tarball on the registry once the release is live, skipping versions already published.');

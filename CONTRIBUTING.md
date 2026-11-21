@@ -19,7 +19,7 @@ All tests are local fixtures. No test or CI job may submit live Education Perfec
 - `npm run test:cli` / `npm run test:controls` - CLI command dispatch and run controls
 - `npm run test:store` - credential-store contract tests with an inert adapter (never a real store)
 - `npm run test:packaged` - packaged-build fixture checks
-- `npm run test:beta-preparation` - validation workflow and candidate inventory policy
+- `npm run test:beta-candidate` - candidate build and inventory policy
 - `npm run test:release-gate` - release-gate validator behavior
 - `npm run release:check` - the fail-closed release gate; without a reviewed `release/evidence.json` it reports "not a release"
 
