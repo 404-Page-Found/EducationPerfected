@@ -6,6 +6,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const RENDERER_CSP = ["default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "img-src 'self' data:"].join('; ');
+
 const IPC = {
     getState: 'ep:get-state',
     refreshSetup: 'ep:refresh-setup',
@@ -49,6 +51,13 @@ function relocateUserData(app) {
         }
     }
     app.setPath('userData', target);
+    // Keep every Electron-writable directory under the same root, so nothing
+    // lands in the OS default app-data location (the pre-relocation home on
+    // Windows was %AppData%\\EducationPerfected, which page's rule forbids).
+    app.setPath('sessionData', target);
+    app.setPath('cache', path.join(target, 'Cache'));
+    app.setPath('logs', path.join(target, 'logs'));
+    app.setPath('crashDumps', path.join(target, 'Crashpad'));
 }
 
 // Chromium writes the chosen endpoint to <userData>/DevToolsActivePort when
@@ -104,6 +113,14 @@ function createElectronApp({ electron, session }) {
     if (typeof session.setOnEvent === 'function') session.setOnEvent(onEvent);
 
     function createWindow() {
+        // Applied as a header (not a meta tag) for the renderer page only. Chromium sizes the
+        // webview guest through an inline style; a style-src without inline allowance leaves the
+        // guest at its default 150px height and the pane clips. Scripts load only from the app.
+        const rendererPolicy = RENDERER_CSP;
+        const rendererSession = electron.session && electron.session.defaultSession;
+        if (rendererSession && rendererSession.webRequest) rendererSession.webRequest.onHeadersReceived({ urls: ['file://*/*'] }, (details, callback) => {
+            callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [rendererPolicy] } });
+        });
         window = new BrowserWindow({
             // Master-detail: the control column on the left, the embedded
             // browser view (a sandboxed webview guest) filling the rest.
@@ -190,6 +207,14 @@ function createElectronApp({ electron, session }) {
                 const page = await require('./embedded-browser').selectEmbeddedPage(browser);
                 await page.goto('data:text/html,<title>Embedded browser ready</title><h1>Embedded browser ready</h1>');
                 if (await page.title() !== 'Embedded browser ready') throw new Error('embedded guest navigation failed');
+                // The guest must fill the browser pane, not sit at the webview's
+                // 300x150 default (a strict style-src once clipped the page to a
+                // strip that way): assert the real sizes, not only the load.
+                const guestSize = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }));
+                const paneSize = await window.webContents.executeJavaScript(`(() => { const r = document.getElementById('browser').getBoundingClientRect(); return { w: r.width, h: r.height }; })()`);
+                if (!paneSize || paneSize.h <= 200 || !guestSize || guestSize.h < paneSize.h * 0.8 || guestSize.w < paneSize.w * 0.8) {
+                    throw new Error('embedded guest does not fill the browser pane: ' + JSON.stringify({ guestSize, paneSize }));
+                }
             } finally { await browser.disconnect(); }
             // Maintenance must stay reachable even when startup fails. No
             // install identity is invented and no update request is made.
@@ -288,4 +313,4 @@ if (require.main === module) {
     createElectronApp({ electron, session }).start();
 }
 
-module.exports = { createElectronApp, readDevtoolsEndpoint, applyBrowserUserAgent, BROWSER_PARTITION, IPC };
+module.exports = { createElectronApp, readDevtoolsEndpoint, applyBrowserUserAgent, BROWSER_PARTITION, IPC, RENDERER_CSP };

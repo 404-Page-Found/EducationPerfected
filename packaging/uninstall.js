@@ -49,6 +49,15 @@ async function confirmInnoUninstall(input=process.stdin,output=process.stdout){
 }
 
 function realDirectory(file){const stat=fs.lstatSync(file);return stat.isDirectory()&&!stat.isSymbolicLink();}
+
+// Electron's default userData directory for the desktop app, per OS: where
+// builds before the move under ~/.educationperfected kept the app's web data.
+function legacyElectronDataDirs({platform,env,home}){
+ const name='EducationPerfected';
+ if(platform==='win32')return env.APPDATA?[path.join(env.APPDATA,name)]:[];
+ if(platform==='darwin')return [path.join(home,'Library','Application Support',name)];
+ return [path.join(env.XDG_CONFIG_HOME||path.join(home,'.config'),name)];
+}
 function safeRuntimeRoot(tmp,own){
  try{
   if(!realDirectory(tmp))return false;
@@ -155,6 +164,15 @@ async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=p
     if(stat.isDirectory()&&!stat.isSymbolicLink()){fs.rmSync(appData,{recursive:true,maxRetries:3,retryDelay:300});output.write('Desktop app data removed.\n');}
     else{incomplete=true;output.write('Unexpected app data path retained for inspection.\n');}
    }catch(error){if(error.code!=='ENOENT'){incomplete=true;output.write('Desktop app data could not be fully removed; close the app and retry.\n');}}
+   // The desktop app's pre-relocation data home in the OS app-data location
+   // (left by the draft builds): same rule, a real directory only.
+   for(const legacyDir of legacyElectronDataDirs({platform,env,home})){
+    try{
+     const stat=fs.lstatSync(legacyDir);
+     if(stat.isDirectory()&&!stat.isSymbolicLink()){fs.rmSync(legacyDir,{recursive:true,maxRetries:3,retryDelay:300});output.write('Old desktop app data removed ('+legacyDir+').\n');}
+     else{incomplete=true;output.write('Unexpected old app data path retained for inspection: '+legacyDir+'\n');}
+    }catch(error){if(error.code!=='ENOENT'){incomplete=true;output.write('Old desktop app data could not be fully removed: '+legacyDir+'\n');}}
+   }
    try{await cleanupOwn();}catch{incomplete=true;output.write('Owned runtime cleanup failed; retained for inspection.\n');}
    // Only remove empty containers. No recursive root or temp deletion.
    try{fs.rmdirSync(tmp);}catch(error){if(error.code!=='ENOENT')incomplete=true;}
@@ -200,4 +218,4 @@ async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=p
  // successful program removal is never hidden by an unrelated retention.
  return {incomplete,programPending,programRemoved};
 }
-module.exports={uninstallCommand,confirmUninstall,confirmInnoUninstall,safeRuntimeRoot,removalPlan};
+module.exports={uninstallCommand,confirmUninstall,confirmInnoUninstall,safeRuntimeRoot,removalPlan,legacyElectronDataDirs};

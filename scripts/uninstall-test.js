@@ -13,7 +13,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
   'keep-browsers':{login:true,data:true,browsers:false},
   'login-only':{login:true,data:false,browsers:false},
  }[scenario]||ALL);
- for(const scenario of ['cancel','empty','safe','keep-browsers','login-only','other-run','download-lock','unknown','store-error','browser-symlink','cleanup-error','app-data']){
+ for(const scenario of ['cancel','empty','safe','keep-browsers','login-only','other-run','download-lock','unknown','store-error','browser-symlink','cleanup-error','app-data','legacy-app-data']){
   const home=fs.mkdtempSync(path.join(os.tmpdir(),'ep-uninstall-inert-'));
   try{
    const runtime=createRuntimeDirectory({home});
@@ -25,6 +25,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
    if(scenario==='download-lock')fs.writeFileSync(path.join(browsers,'version.lock'),'inert');
    if(scenario==='unknown')fs.writeFileSync(path.join(root,'unknown'),'inert');
    if(scenario==='app-data'){fs.mkdirSync(path.join(root,'app-data','Partitions'),{recursive:true});fs.writeFileSync(path.join(root,'app-data','Partitions','inert-session'),'inert');}
+   if(scenario==='legacy-app-data'){const legacy=path.join(home,'.config','EducationPerfected');fs.mkdirSync(legacy,{recursive:true});fs.writeFileSync(path.join(legacy,'Local State'),'inert');}
    if(scenario==='browser-symlink'){fs.rmSync(browsers,{recursive:true});fs.mkdirSync(path.join(home,'unrelated'));fs.writeFileSync(path.join(home,'unrelated','keep'),'inert');fs.symlinkSync(path.join(home,'unrelated'),browsers,process.platform==='win32'?'junction':'dir');}
    const choices=choicesFor(scenario);
    let removed=0,output='';
@@ -40,6 +41,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
     else if(scenario==='keep-browsers'){assert.equal(result.incomplete,false);assert.ok(fs.existsSync(path.join(browsers,'inert-browser')),'browser downloads deliberately kept');assert.equal(fs.existsSync(runtime.directory),false);}
     else if(scenario==='login-only'){assert.equal(result.incomplete,false);assert.ok(fs.existsSync(runtime.directory));assert.ok(fs.existsSync(path.join(browsers,'inert-browser')));}
     else if(scenario==='app-data'){assert.equal(result.incomplete,false);assert.equal(fs.existsSync(path.join(root,'app-data')),false,'desktop app data removed with app-data consent');assert.ok(output.includes('Desktop app data removed.'));}
+    else if(scenario==='legacy-app-data'){assert.equal(result.incomplete,false);assert.equal(fs.existsSync(path.join(home,'.config','EducationPerfected')),false,'pre-relocation desktop app data removed with app-data consent');assert.ok(output.includes('Old desktop app data removed'));}
     else{
      assert.equal(result.incomplete,true,scenario);
      if(scenario==='browser-symlink')assert.ok(fs.existsSync(path.join(home,'unrelated','keep')),'symlinked browser dir never followed');

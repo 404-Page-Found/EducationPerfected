@@ -169,7 +169,11 @@ async function main() {
         execFileSync(process.execPath, ['--check', path.join(ROOT, file)]);
     }
     const html = fs.readFileSync(path.join(ROOT, 'app', 'renderer', 'index.html'), 'utf8');
-    assert.match(html, /Content-Security-Policy" content="default-src 'self'/);
+    // The policy is a response header set by the main process (the page has no meta CSP).
+    const { RENDERER_CSP } = require('../app/main');
+    assert.doesNotMatch(html, /http-equiv="Content-Security-Policy"/);
+    assert.match(RENDERER_CSP, /^default-src 'self'; script-src 'self'; /);
+    assert.doesNotMatch(RENDERER_CSP.split('; ').find(d => d.startsWith('script-src')), /unsafe/);
     assert.doesNotMatch(html, /https?:\/\//);
     console.log('ok renderer sources and CSP');
 
