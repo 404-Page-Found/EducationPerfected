@@ -934,6 +934,11 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // task's lists can reset session knowledge instead of carrying stale
             // rejections/futility across tasks
             let lastRefreshSignature = null;
+            // The latest word-list refresh outcome, surfaced in status() so the
+            // desktop window (and any other control surface) can show which list
+            // is loaded without scraping the page again. Null until the first
+            // refresh attempt in this session.
+            let lastWordListRefresh = null;
 
             /**
  * Normalizes a string by removing parenthetical content and taking the first
@@ -1109,6 +1114,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 }
 
                 if (base.length !== target.length) {
+                    lastWordListRefresh = { outcome: 'mismatch', entries: 0, base: base.length, target: target.length, at: new Date().toISOString() };
                     const baseMsg = `Word Lists Not Refreshed: ${base.length} base vs ${target.length} target entries; lists do not line up, so pairing them would teach wrong answers.`;
                     const mismatch = isDashStarter
                         ? `${baseMsg} On a timed Dash sprint a mismatched pairing also burns clock; fix the lists before starting the sprint.`
@@ -1118,6 +1124,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     return;
                 }
                 if (base.length === 0) {
+                    lastWordListRefresh = { outcome: 'empty', entries: 0, base: 0, target: target.length, at: new Date().toISOString() };
                     const baseMsg = 'Word Lists Refreshed. 0 entries: no word lists found. Press Refresh Words on the task-starter page with the word lists visible.';
                     const empty = isDashStarter ? `${baseMsg} ${DASH_EMPTY_WORDLIST_NOTE}` : baseMsg;
                     console.warn(empty);
@@ -1130,6 +1137,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 // exhaust reused questions without ever trying their new answers. Same
                 // content (a re-scrape of the same task) keeps everything learned so far.
                 const signature = JSON.stringify([base, target]);
+                lastWordListRefresh = { outcome: 'refreshed', entries: base.length, base: base.length, target: target.length, changed: signature !== lastRefreshSignature, at: new Date().toISOString() };
                 if (signature !== lastRefreshSignature) {
                     candidatesDict = Object.create(null);
                     rejectedDict = Object.create(null);
@@ -2910,7 +2918,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // Issue #222: expose accuracy in status and allow tuning when stopped.
             // Validation sessions stay perfect and reject accuracy changes.
             const baseStatus = controls.status.bind(controls);
-            controls.status = () => ({ ...baseStatus(), accuracy: accuracyStatus(), pacing: humanDelay.describe() });
+            controls.status = () => ({ ...baseStatus(), accuracy: accuracyStatus(), pacing: humanDelay.describe(), wordList: lastWordListRefresh });
             controls.setAccuracy = async raw => {
                 if (validationOnly) throw new Error('Validation session is fixed to one-shot only.');
                 const text = String(raw ?? '').trim().toLowerCase();

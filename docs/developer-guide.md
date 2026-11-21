@@ -153,3 +153,7 @@ A saved login is read as one versioned record. Existing environment-variable and
 
 This is source-build work, not a packaged release. Native disposable tests now cover Linux x64/ARM64 private-store CRUD, Windows x64 source-worker CRUD and SEA visible-input setup, cancellation, raw byte3 interruption, health-read and deletion, plus Mac ARM64/Intel source CRUD and packaged setup/health-read/delete. Mac exact packaged values and normal saved-login use remain unproved; see `release/native-validation.md`. Browser bundling, native module extraction, signing/distribution and five-target release checks must pass before claiming standalone support. Run `npm run test:store` for isolated adapter/setup contract tests; those tests never access a real credential store.
 
+
+## Desktop app (stage 2, in progress)
+
+`npm run app` starts the Electron window from source (devDependency `electron`; needs a display). The app shares the CLI's engine (`index.js`), run controls, app config, OS credential store and pinned-browser download path; `app/session.js` is the electron-free, fully injected orchestrator and `app/main.js` only wires the window and the allowlisted IPC. `npm run test:app` covers the session contract and the shell wiring without the Electron binary, and runs inside `test:phase3`. The window is not yet part of the installers or release assets.
