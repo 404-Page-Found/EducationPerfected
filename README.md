@@ -18,7 +18,7 @@ The original was started by [akioweh](https://github.com/akioweh) and is now **[
 The original's README used to claim its status was: **_CORRECT STATUS: ALL intended features functional._**  
 _*Last time they checked... which was... two years ago???*_
 
-- This repo's development program is **V2026** (package version `2026.11.16`, published as release [v2026.11.16](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.16)). It is an independent JavaScript ([node.js](https://nodejs.org/)) program that uses the [Puppeteer](https://github.com/puppeteer/puppeteer) library to drive a web browser.
+- This repo's development program is **V2026** (package version `2026.11.21`; latest published release [v2026.11.16](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.16)). It is an independent JavaScript ([node.js](https://nodejs.org/)) program that uses the [Puppeteer](https://github.com/puppeteer/puppeteer) library to drive a web browser.
 - The anti-cheat workaround no longer trips anti-cheat detection, as of the latest updates. EP can still change, so don't assume it stays working.
 - The task-page and wrong-answer-modal selectors were checked against what EP's live bundles currently ship, and an end-to-end run through a real task on the live service confirmed the markup reading was correct.
 - Release, signing and rights status: see [release/README.md](release/README.md) and [release/license-and-rights.md](release/license-and-rights.md).
@@ -53,7 +53,7 @@ The installer is the same on every platform; pick yours:
 
 **Linux:**
 1. Download the `.deb` or `.rpm` for your architecture and `SHA256SUMS` from the release. Check the download against `SHA256SUMS` before installing it.
-2. Install the package with your package manager (for example `sudo apt install ./educationperfected_2026.11.16_amd64.deb` or `sudo dnf install ./educationperfected-2026.11.16-1.x86_64.rpm`). It puts `educationperfected` in `/usr/bin`, which is already on your PATH.
+2. Install the package with your package manager (for example `sudo apt install ./educationperfected_2026.11.21_amd64.deb` or `sudo dnf install ./educationperfected-2026.11.21-1.x86_64.rpm`). It puts `educationperfected` in `/usr/bin`, which is already on your PATH.
 3. Run `educationperfected setup`. It asks consent for a one-time Chrome download from Google, then offers an optional saved login.
 4. Run `educationperfected`.
 

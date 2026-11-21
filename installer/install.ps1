@@ -1,7 +1,7 @@
 # EducationPerfected installer for Windows (PowerShell 5.1+).
 # Downloads educationperfected-windows-x64.exe plus SHA256SUMS from a release,
 # verifies the checksum, installs under %LOCALAPPDATA%\Programs, adds to user PATH.
-# Usage: powershell -File install.ps1 [-Version 2026.11.16]   (default: latest release)
+# Usage: powershell -File install.ps1 [-Version 2026.11.21]   (default: latest release)
 param([string]$Version = 'latest')
 $ErrorActionPreference = 'Stop'
 if ($Version -eq 'latest') {
