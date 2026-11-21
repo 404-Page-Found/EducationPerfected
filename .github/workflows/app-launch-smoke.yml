@@ -66,5 +66,14 @@ jobs:
           done
           [ "$ready" -eq 1 ] || { echo 'Virtual display did not become ready'; exit 1; }
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
+      # TEMPORARY diagnostics for the Windows launch failure; remove before merge.
+      - name: Probe the built executable on Windows
+        if: runner.os == 'Windows'
+        run: |
+          set +e
+          EXE=build/app-launch/app-payload/EducationPerfected.exe
+          echo '--- file type'; file "$EXE" 2>/dev/null | head -1
+          echo '--- run-as-node'; ELECTRON_RUN_AS_NODE=1 "$EXE" -p "process.versions.electron + ' ' + process.arch"; echo "run-as-node exit=$?"
+          echo '--- plain launch with logging'; ELECTRON_ENABLE_LOGGING=1 timeout 20 "$EXE" 2>&1 | tail -30; echo "plain exit=$?"
       - name: Launch the built app and require a clean self-quit
         run: node scripts/app-launch-smoke.js build/app-launch/app-payload
