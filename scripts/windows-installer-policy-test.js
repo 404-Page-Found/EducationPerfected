@@ -12,6 +12,11 @@ for(const required of [
  'MB_DEFBUTTON2','forget-credentials','DelTree','{%USERPROFILE}\\.educationperfected',
  'WriteInstallRecord','JsonEscape','educationperfected-install.json','"method":"setup-exe"','"uninstaller"','SaveStringToFile',
 ])assert.ok(iss.includes(required),required);
+// The desktop browser is part of AppPayload, copied by [Files] before the
+// finish page. A leftover [Run] hook starts an unrelated CLI download in a
+// console after setup finishes, even though the app already has its browser.
+assert.doesNotMatch(iss, /^\[Run\]/m, 'no post-setup processes or terminal browser downloads');
+assert.doesNotMatch(iss, /setup\s+--browser-only|Flags:[^\r\n]*postinstall/i, 'no CLI setup on the finish page');
 assert.equal((iss.match(/MB_DEFBUTTON2/g)||[]).length,2,'both uninstall prompts default to No');
 assert.doesNotMatch(iss,/PrivilegesRequired=(admin|poweruser)/);
 assert.ok(!iss.includes('ChangesUninstall'),'not a valid Inno directive; ISCC aborts on it');
@@ -20,6 +25,11 @@ assert.ok(iss.includes('WizardIsTaskSelected'),'task check uses the wizard-conte
 assert.ok(iss.includes('Type: files; Name: "{app}\\educationperfected-install.json"'),'the Inno uninstaller removes the install record');
 assert.ok(!iss.includes('RegWriteStringValue'),'PATH writes must preserve REG_EXPAND_SZ');
 assert.ok(iss.includes('RegWriteExpandStringValue'),'PATH writes use RegWriteExpandStringValue');
+const icons = iss.split('[Icons]')[1].split('[')[0];
+assert.ok(icons.includes('Name: "{group}\\EducationPerfected"; Filename: "{app}\\app\\EducationPerfected.exe"'), 'the single launcher opens the desktop app');
+assert.equal((icons.match(/Filename: "\{app\}/g)||[]).length, 1, 'only one program launcher, no duplicate CLI launcher');
+const installDelete = iss.split('[InstallDelete]')[1].split(/^\[/m)[0];
+assert.ok(installDelete.includes('Type: files; Name: "{group}\\EducationPerfected App.lnk"'), 'upgrades remove the old separate app shortcut');
 const publish=fs.readFileSync(path.join(__dirname,'../.github/workflows/publish.yml'),'utf8');
 for(const required of [
  'Inno Setup 6\\ISCC.exe',"require('./package.json').version",'/DAppVersion','/DSourceExe',

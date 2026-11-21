@@ -1,6 +1,6 @@
 {
   "name": "educationperfected",
-  "version": "2026.11.21",
+  "version": "2026.11.22",
   "description": "Education Perfect helper CLI (downloads the verified platform binary from GitHub releases)",
   "license": "MIT",
   "repository": {

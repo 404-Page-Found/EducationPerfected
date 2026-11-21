@@ -70,6 +70,8 @@ child.on('close', (code, signal) => {
         assert.ok(fs.existsSync(reportPath), 'the app wrote no smoke report (exit ' + code + ', signal ' + signal + '): ' + output());
         const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
         assert.ok(report.ok, 'the app reported a failed launch: ' + report.error);
+        assert.equal(report.embeddedPage, true, 'the real embedded guest was selected and navigated');
+        assert.deepEqual(report.maintenanceScreens, ['idle', 'failed', 'ready'], 'maintenance stays reachable across startup states');
         const version = require('../package.json').version;
         assert.equal(report.state.version, version, 'the running app reports the source version');
         assert.equal(report.state.session, 'idle');

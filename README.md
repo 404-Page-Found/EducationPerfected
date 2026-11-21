@@ -18,7 +18,7 @@ The original was started by [akioweh](https://github.com/akioweh) and is now **[
 The original's README used to claim its status was: **_CORRECT STATUS: ALL intended features functional._**  
 _*Last time they checked... which was... two years ago???*_
 
-- This repo's development program is **V2026** (package version `2026.11.21`; latest published release [v2026.11.16](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.16)). It is an independent JavaScript ([node.js](https://nodejs.org/)) program that uses the [Puppeteer](https://github.com/puppeteer/puppeteer) library to drive a web browser.
+- This repo's development program is **V2026** (package version `2026.11.22`; latest published release [v2026.11.16](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.16)). It is an independent JavaScript ([node.js](https://nodejs.org/)) program that uses the [Puppeteer](https://github.com/puppeteer/puppeteer) library to drive a web browser.
 - The anti-cheat workaround no longer trips anti-cheat detection, as of the latest updates. EP can still change, so don't assume it stays working.
 - The task-page and wrong-answer-modal selectors were checked against what EP's live bundles currently ship, and an end-to-end run through a real task on the live service confirmed the markup reading was correct.
 - Release, signing and rights status: see [release/README.md](release/README.md) and [release/license-and-rights.md](release/license-and-rights.md).
@@ -35,33 +35,33 @@ A snapshot of V2 at version **v2.2.0** is frozen in [V2_Archive/](V2_Archive), a
 
 ### Installer (recommended)
 
-Installers will be published with **v2026.11.21**, which is being prepared; the latest published release is [v2026.11.16](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.16) (15 November 2026). The [Publish workflow](.github/workflows/publish.yml) attaches them to the release. The gates in [release/README.md](release/README.md) still apply.
+Installers will be published with **v2026.11.22**, which is being prepared; the latest published release is [v2026.11.16](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.16) (15 November 2026). The [Publish workflow](.github/workflows/publish.yml) attaches them to the release. The gates in [release/README.md](release/README.md) still apply.
 
 The installer is the same on every platform; pick yours:
 
 **Windows:**
 1. Download `educationperfected-windows-x64-setup.exe` and `SHA256SUMS` from the release. Check the download against `SHA256SUMS` before running it.
 2. Run the installer (per-user, no admin). Select **Add EducationPerfected to your PATH**. Builds are unsigned; if SmartScreen shows "Windows protected your PC", choose **More info -> Run anyway**.
-3. Open a new terminal and run `educationperfected setup`. It asks consent for a one-time Chrome download from Google, then offers an optional saved login.
-4. Start the app. **Recommended:** open **EducationPerfected** from the Start menu (the installer adds it there). You can also run `educationperfected` in a terminal.
+3. Open **EducationPerfected** from the Start menu. Its browser is installed with the app, with no separate terminal setup or download. Save a login in the app if you want, or skip and sign in manually.
+4. The `educationperfected` terminal command is optional. CLI-only use has its own consent-based Chrome download on first setup.
 
 **macOS:**
 1. Download `educationperfected-macos-arm64.pkg` (Apple Silicon) or `educationperfected-macos-x64.pkg` (Intel) and `SHA256SUMS` from the release. Check the download against `SHA256SUMS` before running it.
 2. Run the installer; it puts `educationperfected` in `/usr/local/bin`, which is already on your PATH. Builds are unsigned; right-click the `.pkg` and choose **Open**.
-3. Open a new terminal and run `educationperfected setup`. It asks consent for a one-time Chrome download from Google, then offers an optional saved login.
-4. Run `educationperfected`.
+3. Open **EducationPerfected** from Applications. Its browser is already installed. The app offers an optional saved login before opening its sign-in page.
+4. The `educationperfected` terminal command stays available for CLI use.
 
 **Linux:**
 1. Download the `.deb` or `.rpm` for your architecture and `SHA256SUMS` from the release. Check the download against `SHA256SUMS` before installing it.
-2. Install the package with your package manager (for example `sudo apt install ./educationperfected_2026.11.21_amd64.deb` or `sudo dnf install ./educationperfected-2026.11.21-1.x86_64.rpm`). It puts `educationperfected` in `/usr/bin`, which is already on your PATH.
-3. Run `educationperfected setup`. It asks consent for a one-time Chrome download from Google, then offers an optional saved login.
-4. Run `educationperfected`.
+2. Install the package with your package manager (for example `sudo apt install ./educationperfected_2026.11.22_amd64.deb` or `sudo dnf install ./educationperfected-2026.11.22-1.x86_64.rpm`). It puts `educationperfected` in `/usr/bin`, which is already on your PATH.
+3. Open **EducationPerfected** from your desktop's application menu. Its browser is already installed. The app offers an optional saved login before opening its sign-in page.
+4. The `educationperfected` terminal command stays available for CLI use.
 
 **Other ways to install:**
 - **Install scripts:** download `install.ps1` (Windows) or `install.sh` (macOS/Linux) from the release. After checking the script, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1` in PowerShell (bypass applies only to that process) or `sh install.sh` in a terminal. Follow the script's PATH instructions.
 - **npm:** run `npm install -g --allow-scripts=educationperfected educationperfected` (requires Node.js). The `--allow-scripts` opt-in is needed on npm 12+; the postinstall downloads the platform binary and verifies it against the release's `SHA256SUMS`. See [npm/educationperfected/README.md](npm/educationperfected/README.md) for the npm package.
 
-After any of these, run `educationperfected setup`, then `educationperfected`. The install scripts and npm package verify the binary download against the release's `SHA256SUMS`; check manual downloads against it yourself. Raw platform binaries are also included for advanced use. On macOS/Linux, run `chmod +x <filename>` first; on macOS, remove quarantine with `xattr -d com.apple.quarantine <filename>` if blocked. Run the raw file by its path instead of `educationperfected` (for example, `.\educationperfected-windows-x64.exe setup` or `./educationperfected-macos-arm64 setup`).
+For the CLI-only install scripts, npm package or raw binaries, run `educationperfected setup`, then `educationperfected`. Desktop installer users do not need terminal setup. The install scripts and npm package verify the binary download against the release's `SHA256SUMS`; check manual downloads against it yourself. Raw platform binaries are also included for advanced use. On macOS/Linux, run `chmod +x <filename>` first; on macOS, remove quarantine with `xattr -d com.apple.quarantine <filename>` if blocked. Run the raw file by its path instead of `educationperfected` (for example, `.\educationperfected-windows-x64.exe setup` or `./educationperfected-macos-arm64 setup`).
 
 ### From source (advanced)
 
@@ -246,5 +246,5 @@ The dedicated desktop app ships with the OS installers; its remaining goals are 
 - **Licensing and rights:** the code is under the [MIT license](LICENSE). The scope note and rights status are in [release/license-and-rights.md](release/license-and-rights.md).
 - **Release status:** [release/README.md](release/README.md) indexes the release gates and native validation.
 - **Downloadable stable-release preparation:** see [release/README.md](release/README.md#downloadable-stable-release-preparation-moved-from-readme). The policy is in [release/downloadable-beta-policy.md](release/downloadable-beta-policy.md).
-- **Packaged maintenance:** see [runtime storage and uninstall](release/runtime-storage.md). `uninstall` requires typed confirmation and keeps each item unless you choose otherwise. `update` uses published stable GitHub Releases with verified checksums. The desktop app's Settings runs the same update and uninstall; both stay hidden in a source or development copy, which keeps the terminal commands.
+- **Packaged maintenance:** see [runtime storage and uninstall](release/runtime-storage.md). `uninstall` requires typed confirmation and keeps each item unless you choose otherwise. `update` uses published stable GitHub Releases with verified checksums. The desktop app keeps update and uninstall reachable in App settings before startup and after a startup failure. The buttons are disabled in a source or development copy, which keeps the terminal commands.
 - **Disclaimer:** read the [detailed disclaimer](docs/disclaimer.md) before use: automating schoolwork can breach school or service rules, and may be detected, marked wrong, or acted on. The software is provided as-is, at your own risk.

@@ -1,4 +1,4 @@
-// V2026 (package version 2026.11.21)
+// V2026 (package version 2026.11.22)
 
 const puppeteer = require('puppeteer');
 const { detectQuestion } = require('./lib/detect-question');
@@ -614,7 +614,8 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             if (startupSignal) return shutdownStartup();
             if (TEST_BOOT) console.log(`EP_WS_ENDPOINT=${browser.wsEndpoint()}`);
             const allPages = await browser.pages();
-            const page = selectPage ? selectPage(allPages) : allPages[0];
+            const page = selectPage ? await selectPage(allPages, browser) : allPages[0];
+            if (startupSignal) return shutdownStartup();
             if (!page) throw new Error('The browser opened no page to control.');
 
             /**
