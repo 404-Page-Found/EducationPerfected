@@ -110,7 +110,7 @@ fs.writeFileSync(path.join(out,'THIRD-PARTY-NOTICES','ELECTRON-VERSION.txt'),'sy
         const dirty=command();assert.ifError(dirty.error);assert.equal(dirty.status,1,'dirty source must not become a candidate');
     }finally{fs.rmSync(checkout,{recursive:true,force:true});}
     const stableVersion=require('../package.json').version;
-    assert.equal(stableVersion,'2026.11.21');
+    assert.equal(stableVersion,'2026.11.22');
     assert.equal(require('../package-lock.json').version,stableVersion);
     assert.equal(require('../package-lock.json').packages[''].version,stableVersion);
     console.log('Candidate build contracts PASS: dated validation labels, exact-byte inventory, invalid target/commit/missing-file failures and clean-source enforcement. Synthetic only.');
