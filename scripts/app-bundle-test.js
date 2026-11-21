@@ -37,9 +37,15 @@ function fakeMacDist() {
 }
 
 function assertAppResources(appDir, version) {
-    for (const file of ['main.cjs', 'preload.js', 'package.json', path.join('renderer', 'index.html'), path.join('..', 'branding', 'icon-256.png')]) {
+    for (const file of ['main.cjs', 'preload.js', 'package.json', path.join('renderer', 'index.html'), path.join('..', 'branding', 'icon-256.png'), path.join('..', 'branding', 'icon-128.png')]) {
         assert.ok(fs.statSync(path.join(appDir, file)).isFile(), 'app resource missing: ' + file);
     }
+    // The header logo reference must resolve to a payload file: a missing one
+    // renders as a broken image in the installed app.
+    const html = fs.readFileSync(path.join(appDir, 'renderer', 'index.html'), 'utf8');
+    const logo = /src="([^"]*icon-\d+\.png)"/.exec(html);
+    assert.ok(logo, 'the header logo reference is present');
+    assert.ok(fs.statSync(path.join(appDir, 'renderer', logo[1])).isFile(), 'the header logo resolves inside the payload: ' + logo[1]);
     const manifest = JSON.parse(fs.readFileSync(path.join(appDir, 'package.json'), 'utf8'));
     assert.equal(manifest.main, 'main.cjs');
     assert.equal(manifest.productName, 'EducationPerfected');

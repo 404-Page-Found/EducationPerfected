@@ -5,6 +5,7 @@
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const Module = require('node:module');
@@ -18,7 +19,6 @@ function fakeSession() {
         calls,
         getState: record('getState'),
         refreshSetup: record('refreshSetup'),
-        downloadBrowser: record('downloadBrowser'),
         saveLogin: record('saveLogin'),
         forgetLogin: record('forgetLogin'),
         startSession: record('startSession'),
@@ -42,6 +42,9 @@ function fakeElectron() {
             quit: () => { listeners.set('quit-called', true); },
             on: (name, fn) => listeners.set(name, fn),
             whenReady: () => Promise.resolve(),
+            commandLine: { appendSwitch: () => {} },
+            getPath: name => path.join(os.tmpdir(), 'ep-shell-test-' + name),
+            setPath: () => {},
             _listeners: listeners,
         },
         BrowserWindow: function (options) {
@@ -70,7 +73,6 @@ async function main() {
     const expected = [
         [IPC.getState, 'getState', []],
         [IPC.refreshSetup, 'refreshSetup', []],
-        [IPC.downloadBrowser, 'downloadBrowser', []],
         [IPC.saveLogin, 'saveLogin', ['a@b.c', 'pw']],
         [IPC.forgetLogin, 'forgetLogin', []],
         [IPC.startSession, 'startSession', []],
@@ -151,8 +153,8 @@ async function main() {
     try { require('../app/preload'); } finally { Module._load = originalLoad; }
     const api = exposed.educationPerfected;
     assert.deepEqual(Object.keys(api).sort(byName), [
-        'action', 'applyUpdate', 'checkUpdate', 'completeWizard', 'downloadBrowser', 'forgetLogin', 'getState',
-        'onMaintenanceProgress', 'onReflectionRequest', 'onReflectionSettled', 'onSetupProgress', 'onState',
+        'action', 'applyUpdate', 'checkUpdate', 'completeWizard', 'forgetLogin', 'getState',
+        'onMaintenanceProgress', 'onReflectionRequest', 'onReflectionSettled', 'onState',
         'refreshSetup', 'respondReflection', 'saveLogin', 'startSession', 'uninstall',
     ].sort(byName));
     await api.action('start', undefined);

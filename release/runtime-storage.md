@@ -1,8 +1,13 @@
 # Packaged app storage
 
-The packaged CLI uses one app-owned root: `%USERPROFILE%\.educationperfected\`
+The packaged CLI and the desktop app use one app-owned root: `%USERPROFILE%\.educationperfected\`
 on Windows, or `~/.educationperfected/` on Linux/macOS.
 
+- `app-data/`: the desktop app's own data folder (Electron userData: saved web
+  sessions, storage and caches). Older builds kept it at the OS app-data
+  location (`%AppData%\EducationPerfected` on Windows); a first launch of this
+  version migrates that folder under the root (skipped once `app-data/` exists,
+  with any interrupted copy staged aside so a later launch can retry).
 - `browsers/156.0.8078.47-<platform>/`: existing persistent Chrome download,
   notices and COMPLETE.json receipt. Existing downloads are reused unchanged.
 - `browsers/.download-*` and `<version>-<platform>.lock`: existing acquisition
@@ -39,7 +44,8 @@ are saved. Test and validation-only sessions do not read or write personal setti
 Terminal output
 and OS/browser internal housekeeping remain separate.
 
-Directories are checked as real non-symlink directories and removals are bounded
+Directories are checked as real non-symlink directories and uninstall removals are bounded
+to recognized entries (the known files, `app-data/`, and empty containers)
 to recognized run entries. These checks assume no hostile same-user writer racing
 path operations; they are not a new OS security boundary or Windows ACL proof.
 Synthetic fixtures do not establish Windows cleanup or clean-machine evidence.
@@ -63,7 +69,8 @@ before runtime/store initialization. Old credential/update/uninstall --flags
 are refused with a hint and exit1, not silently accepted.
 
 `uninstall` requires an interactive typed confirmation. Its app-data choice removes
-the known `config.json` preferences file; keeping app data keeps those settings.
+the known `config.json` preferences file and the desktop app's `app-data/` folder
+(saved sessions and caches); keeping app data keeps those settings and sessions.
 An unexpected directory or symlink at that path is retained and reported incomplete.
 Close every other app
 copy, including source CLI and its browser, first. It removes only the app's
