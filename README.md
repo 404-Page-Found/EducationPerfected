@@ -35,7 +35,7 @@ A snapshot of V2 at version **v2.2.0** is frozen in [V2_Archive/](V2_Archive), a
 
 ### Installer (recommended)
 
-Installers are published with **[v2026.11.16](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.16)** (15 November 2026); the [Publish workflow](.github/workflows/publish.yml) attaches them to the release. The gates in [release/README.md](release/README.md) still apply.
+Installers will be published with **v2026.11.21**, which is being prepared; the latest published release is [v2026.11.16](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.16) (15 November 2026). The [Publish workflow](.github/workflows/publish.yml) attaches them to the release. The gates in [release/README.md](release/README.md) still apply.
 
 The installer is the same on every platform; pick yours:
 
