@@ -59,10 +59,7 @@ function createAppSession({
         const endpoint = await devtoolsEndpoint();
         return require('puppeteer').connect({ browserWSEndpoint: endpoint, defaultViewport: null });
     });
-    const pickAutomationPage = selectPage || (pages => pages.find(page => {
-        const url = page.url();
-        return !url.startsWith('file://') && !url.startsWith('devtools://');
-    }) || null);
+    const pickAutomationPage = selectPage || ((_pages, browser) => require('./embedded-browser').selectEmbeddedPage(browser));
     let setup = { browserReady: null, hasLogin: null, wizardDone: false };
     let sessionState = 'idle'; // idle | starting | ready | failed | closed
     let sessionError = null;

@@ -82,6 +82,7 @@ function render(state) {
     // The embedded browser view takes over the pane once a session is opening;
     // the placeholder covers it before that and after it closes.
     $('browser-placeholder').hidden = state.session === 'starting' || state.session === 'ready';
+    renderMaintenance(state);
     if (!state.setup || state.setup.browserReady === null) { show('loading'); return; }
     if (state.session === 'failed') {
         show('failed');
@@ -131,7 +132,6 @@ function renderMain(state) {
     $('browser-status').textContent = state.setup.browserReady
         ? 'The app drives its own embedded browser. The terminal CLI\u2019s separate pinned Chrome is downloaded.'
         : 'The app drives its own embedded browser. The terminal CLI downloads its separate pinned Chrome on first run.';
-    renderMaintenance(state);
 }
 
 // Update and uninstall, driven by the same state the session publishes.

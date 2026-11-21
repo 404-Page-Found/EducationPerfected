@@ -82,8 +82,20 @@
                 <button id="forget-login">Forget saved login</button>
             </div>
             <p id="browser-status" class="fine">…</p>
-            <p class="fine">The terminal CLI stays available as the <code>educationperfected</code> command; both share the same login, config and browser.</p>
+            <p class="fine">The terminal CLI stays available as the <code>educationperfected</code> command; both share the same saved login and settings. The app uses its embedded browser; the CLI uses a separate Chrome download.</p>
 
+        </details>
+    </section>
+
+    <section id="failed-screen" class="screen" hidden>
+        <div class="card">
+            <h2>The browser session failed to start</h2>
+            <p id="failed-error" class="error"></p>
+            <button id="retry-session" class="primary">Retry</button>
+        </div>
+    </section>
+    <details class="card" id="app-maintenance" open>
+        <summary>App settings</summary>
             <h3>App update</h3>
             <p id="update-status" class="fine">…</p>
             <div class="row">
@@ -99,16 +111,7 @@
                 <button id="open-uninstall">Uninstall EducationPerfected</button>
             </div>
             <pre id="maintenance-log" class="log" hidden></pre>
-        </details>
-    </section>
-
-    <section id="failed-screen" class="screen" hidden>
-        <div class="card">
-            <h2>The browser session failed to start</h2>
-            <p id="failed-error" class="error"></p>
-            <button id="retry-session" class="primary">Retry</button>
-        </div>
-    </section>
+    </details>
 </main>
 
 <aside id="browser-pane">
