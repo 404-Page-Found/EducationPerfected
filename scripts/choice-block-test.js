@@ -20,7 +20,7 @@ async function setup(page, origin) {
         f.q.cachedRenderers[1] = Object.create({ get identifiedComponents() { window.indexGetterCalls++; throw new Error('Must read own parser'); } });
         f.q.cachedRenderers[1].parser = { identifiedComponents: index };
         window.indexGetterCalls = 0; window.blockSubmits = 0; window.navigationClicks = 0;
-        document.querySelector('#sa-navigation-controls').addEventListener('click', () => { navigationClicks++; }, true);
+        document.querySelector('#sa-navigation-controls').addEventListener('click', () => { window.navigationClicks++; }, true);
     });
 }
 (async () => {
@@ -37,17 +37,17 @@ async function setup(page, origin) {
         let selected = false;
         const semi = await playChoiceRound(page, descriptor, { enter: false, timeout: 30, shouldStop: () => selected, log: message => { if(message.startsWith('Selected ')) selected = true; } });
         assert.equal(semi.status, 'aborted');
-        assert.deepEqual(await page.evaluate(() => [blockSubmits, navigationClicks]), [0, 0]);
+        assert.deepEqual(await page.evaluate(() => [window.blockSubmits, window.navigationClicks]), [0, 0]);
         assert.deepEqual(await page.evaluate(() => mathFixture.clicks), descriptor.correct);
-        assert.equal(await page.evaluate(() => indexGetterCalls), 0);
+        assert.equal(await page.evaluate(() => window.indexGetterCalls), 0);
         await setup(page, origin);
         const automatic = await detectQuestion(page);
         await page.evaluate(() => {
             window.blockSubmits = 0;
-            [...document.querySelectorAll('#sa-navigation-controls button')].find(button => button.textContent.trim() === 'Submit' && button.getClientRects().length).addEventListener('click', event => { event.stopImmediatePropagation(); blockSubmits++; mathFixture.q.questionIndex++; }, true);
+            [...document.querySelectorAll('#sa-navigation-controls button')].find(button => button.textContent.trim() === 'Submit' && button.getClientRects().length).addEventListener('click', event => { event.stopImmediatePropagation(); window.blockSubmits++; window.mathFixture.q.questionIndex++; }, true);
         });
         assert.equal((await playChoiceRound(page, automatic, { enter: true, timeout: 1000 })).status, 'advanced');
-        assert.deepEqual(await page.evaluate(() => [mathFixture.clicks.length, blockSubmits, indexGetterCalls]), [1, 1, 0]);
+        assert.deepEqual(await page.evaluate(() => [window.mathFixture.clicks.length, window.blockSubmits, window.indexGetterCalls]), [1, 1, 0]);
         // Source DOMParagraph boundaries preserve template line identity even
         // without separator text nodes.
         for (const spaced of [true, false]) {
@@ -72,7 +72,7 @@ async function setup(page, origin) {
                 let selected=false;
                 assert.equal((await playChoiceRound(page,multi,{enter:false,timeout:30,shouldStop:()=>selected,log:message=>{if(message.startsWith('Selected '))selected=true;}})).status,'aborted');
                 assert.deepEqual(await page.evaluate(()=>mathFixture.clicks),multi.correct);
-                assert.equal(await page.evaluate(()=>navigationClicks),0);
+                assert.equal(await page.evaluate(()=>window.navigationClicks),0);
             }
         }
         const paragraphVariant=async mutation=>{
@@ -97,9 +97,9 @@ async function setup(page, origin) {
             const d=await detectQuestion(page);
             if(mutation==='source'||mutation==='blank'){
                 assert.equal(d.kind,'choice');
-                await page.evaluate(()=>{document.querySelector('#sa-navigation-controls button').addEventListener('click',event=>{event.stopImmediatePropagation();blockSubmits++;mathFixture.q.questionIndex++;},true);});
+                await page.evaluate(()=>{document.querySelector('#sa-navigation-controls button').addEventListener('click',event=>{event.stopImmediatePropagation();window.blockSubmits++;window.mathFixture.q.questionIndex++;},true);});
                 const result=await playChoiceRound(page,d,{enter:true,timeout:600});assert.equal(result.status,'advanced');
-                assert.deepEqual(await page.evaluate(()=>[mathFixture.clicks.length,blockSubmits]),[1,1]);
+                assert.deepEqual(await page.evaluate(()=>[window.mathFixture.clicks.length,window.blockSubmits]),[1,1]);
             }else{
                 assert.equal(d.kind,'unsupported',mutation);assert.equal(d.diagnostic.option,2,mutation);
                 assert.equal(d.diagnostic.check,mutation==='editable'?'render-structure':'render-text',mutation);
@@ -318,7 +318,7 @@ async function setup(page, origin) {
             const result = await playChoiceRound(driftPage, descriptor, { enter: false, shouldStop: () => Date.now() >= end });
             assert.equal(result.status, 'stopped', mutation);
             assert.equal(lateMutations, 1, mutation);
-            assert.deepEqual(await page.evaluate(() => [mathFixture.clicks.length, navigationClicks]), [0, 0]);
+            assert.deepEqual(await page.evaluate(() => [window.mathFixture.clicks.length, window.navigationClicks]), [0, 0]);
         }
         console.log('Plain block choice synthetic fixtures: exact renderer mapping despite reorder, semi1select/0Submit, auto1select/1Submit, getter0calls, multiline2paragraph with/without separator success, source-shaped wrapped paragraphs and7shape/drift refusals,5 renderer-bound presentation-header accepts+5 malformed-header refusals,8 variable/literal-text accepts+3 narrowed-body refusals,25 initial refusals with boundary+check diagnostics+6 pre-start changes+2 final-recheck drift0select PASS. No live answering proof.');
     } finally { if(browser) await browser.close(); await new Promise(resolve => server.close(resolve)); }
