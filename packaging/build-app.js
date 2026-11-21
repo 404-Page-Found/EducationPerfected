@@ -37,7 +37,11 @@ async function writeAppResources(root, appDir, version) {
     fs.cpSync(path.join(root, 'app', 'renderer'), path.join(appDir, 'renderer'), { recursive: true });
     const brandingDir = path.join(appDir, '..', 'branding');
     fs.mkdirSync(brandingDir, { recursive: true });
-    fs.copyFileSync(path.join(root, 'branding', 'icon-256.png'), path.join(brandingDir, 'icon-256.png'));
+    // The window icon (main.js) and the header logo (renderer/index.html) both
+    // resolve into this directory from the app resources.
+    for (const icon of ['icon-256.png', 'icon-128.png']) {
+        fs.copyFileSync(path.join(root, 'branding', icon), path.join(brandingDir, icon));
+    }
     fs.writeFileSync(path.join(appDir, 'package.json'), JSON.stringify({
         name: 'educationperfected-app', version, private: true, productName: APP_NAME, main: 'main.cjs',
     }, null, 2) + '\n');

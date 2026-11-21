@@ -166,7 +166,7 @@ begin
       if not Exec(ExpandConstant('{app}\educationperfected.exe'), 'forget-credentials', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
         MsgBox('The saved login could not be removed automatically. Run: educationperfected.exe forget-credentials', mbInformation, MB_OK);
     AppData := ExpandConstant('{%USERPROFILE}\.educationperfected');
-    if DirExists(AppData) and (MsgBox('Also remove EducationPerfected app data and downloaded browsers (' + AppData + ')?', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = idYes) then
+    if DirExists(AppData) and (MsgBox('Also remove EducationPerfected app data, saved sessions and downloaded browsers (' + AppData + ')?', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = idYes) then
       DelTree(AppData, True, True, True);
   end;
   if CurUninstallStep = usPostUninstall then

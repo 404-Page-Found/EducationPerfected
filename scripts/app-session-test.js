@@ -110,27 +110,19 @@ async function main() {
         console.log('ok setup probe failures are non-fatal');
     }
 
-    // downloadBrowser forwards progress, marks the browser ready and rejects overlap.
+    // Starting needs the first-run wizard alone: the embedded browser ships
+    // with the app, and the engine hooks pass through to the shared program.
     {
-        const { deps, events } = makeDeps({
-            ensureBrowser: async ({ consent, output }) => {
-                assert.equal(await consent(), true);
-                output.write('[###-------]  30%  60.0 / 200.0 MB\n');
-                return '/fake/chrome';
-            },
-        });
+        const { deps } = makeDeps();
         const session = createAppSession(deps);
-        const state = await session.downloadBrowser();
-        assert.equal(state.setup.browserReady, true);
-        assert.ok(events.some(e => e.name === 'setup-progress' && e.payload.includes('30%')));
-        let downloading = false;
-        deps.ensureBrowser = async () => { await new Promise(r => setTimeout(r, 30)); return '/fake/chrome'; };
-        const first = session.downloadBrowser().then(() => { downloading = false; });
-        downloading = true;
-        await expectReject(session.downloadBrowser(), /already running/);
-        await first;
-        assert.equal(downloading, false);
-        console.log('ok browser download progress and overlap refusal');
+        await session.refreshSetup();
+        await expectReject(session.startSession(), /Finish first-run setup/);
+        session.completeWizard();
+        const state = await session.startSession();
+        assert.equal(state.session, 'ready');
+        assert.equal(typeof deps.launchOptions.connectBrowser, 'function');
+        assert.equal(typeof deps.launchOptions.selectPage, 'function');
+        console.log('ok session start gates on the wizard and passes the embedded browser hooks');
     }
 
     // Login save/remove update setup state; store validation errors propagate.
@@ -146,8 +138,8 @@ async function main() {
         console.log('ok login save and forget');
     }
 
-    // startSession needs a downloaded browser, sets packaged-style browser env,
-    // passes the reflection provider through, and is idempotent while ready.
+    // startSession passes the reflection provider through and is idempotent
+    // while ready.
     {
         let launches = 0;
         const holder = {};
@@ -157,18 +149,14 @@ async function main() {
         deps.launchOptions = holder;
         const session = createAppSession(deps);
         await session.refreshSetup();
-        await expectReject(session.startSession(), /Finish first-run setup/);
-        await session.downloadBrowser();
+        session.completeWizard();
         const state = await session.startSession();
         assert.equal(state.session, 'ready');
         assert.equal(state.status.state, 'stopped');
-        assert.equal(deps.env.PUPPETEER_BROWSER, 'chrome');
-        assert.equal(deps.env.PUPPETEER_EXECUTABLE_PATH, '/fake/chrome');
-        assert.equal(deps.env.PUPPETEER_TMP_DIR, '/fake/runtime');
         assert.equal(typeof holder.launchOptions.reflectionTextProvider, 'function');
         await session.startSession();
         assert.equal(launches, 1);
-        console.log('ok session start environment and idempotence');
+        console.log('ok session start provider and idempotence');
     }
 
     // A launch failure surfaces as session=failed with the message and rethrows.
@@ -179,6 +167,7 @@ async function main() {
         });
         const session = createAppSession(deps);
         await session.refreshSetup();
+        session.completeWizard();
         await expectReject(session.startSession(), /browser did not start/);
         const state = session.getState();
         assert.equal(state.session, 'failed');
@@ -191,6 +180,7 @@ async function main() {
         const { deps, calls } = makeDeps({ installedBrowser: async () => '/fake/chrome' });
         const session = createAppSession(deps);
         await session.refreshSetup();
+        session.completeWizard();
         await session.startSession();
         assert.deepEqual((await session.action('status')).state, 'stopped');
         await session.action('start');
@@ -210,6 +200,7 @@ async function main() {
         const { deps, events } = makeDeps({ installedBrowser: async () => '/fake/chrome' });
         const session = createAppSession(deps);
         await session.refreshSetup();
+        session.completeWizard();
         await session.startSession();
         const provider = deps.launchOptions.reflectionTextProvider;
 
@@ -238,15 +229,15 @@ async function main() {
         console.log('ok reflection dialog flow');
     }
 
-    // Browser loss resets to closed, cleans the runtime dir and allows relaunch.
+    // Browser loss resets to closed and allows relaunch.
     {
         const { deps } = makeDeps({ installedBrowser: async () => '/fake/chrome' });
         const session = createAppSession(deps);
         await session.refreshSetup();
+        session.completeWizard();
         await session.startSession();
         deps.launchOptions.onBrowserDisconnected();
         assert.equal(session.getState().session, 'closed');
-        assert.equal(deps.runtimeRemoved, true);
         await session.startSession();
         assert.equal(session.getState().session, 'ready');
         console.log('ok browser disconnect resets the session');
@@ -267,6 +258,7 @@ async function main() {
         });
         const session = createAppSession(deps);
         await session.refreshSetup();
+        session.completeWizard();
         const starting = session.startSession();
         await new Promise(resolve => setImmediate(resolve));
         const closing = session.close();
@@ -284,6 +276,7 @@ async function main() {
         const { deps, calls } = makeDeps({ installedBrowser: async () => '/fake/chrome' });
         const session = createAppSession(deps);
         await session.refreshSetup();
+        session.completeWizard();
         await session.startSession();
         await session.close();
         assert.ok(calls.includes('close'));

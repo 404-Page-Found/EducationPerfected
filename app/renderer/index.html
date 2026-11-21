@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<div id="layout">
 <main id="app">
     <header>
         <img id="logo" src="../../branding/icon-128.png" alt="" width="28" height="28">
@@ -20,17 +21,6 @@
     </section>
 
     <section id="setup-screen" class="screen" hidden>
-        <div class="card" id="setup-browser-card">
-            <h2>One-time browser download</h2>
-            <p>EducationPerfected drives its own pinned Chrome for Testing, downloaded once from Google (about 200 MB) into your EducationPerfected data folder. Your regular Chrome is not used or changed.</p>
-            <p class="fine">Downloading accepts Google's terms: policies.google.com/terms and google.com/chrome/terms.</p>
-            <button id="download-browser" class="primary">Download Chrome</button>
-            <div id="download-progress" hidden>
-                <div id="download-bar"><div id="download-fill"></div></div>
-                <p id="download-line" class="fine"></p>
-            </div>
-            <p id="download-error" class="error" role="alert" hidden></p>
-        </div>
         <div class="card" id="setup-login-card" hidden>
             <h2>Save your login (optional)</h2>
             <p>Saved in your OS credential store, never in a file. You can also skip this and sign in manually in the browser each time.</p>
@@ -44,7 +34,7 @@
         </div>
         <div class="card" id="setup-done-card" hidden>
             <h2>Ready</h2>
-            <p>Setup is complete. The browser will open so you can sign in and open a task.</p>
+            <p>Setup is complete. The browser opens on the right so you can sign in and open a task.</p>
             <button id="finish-setup" class="primary">Open the browser</button>
         </div>
         <p id="setup-error" class="error" role="alert" hidden></p>
@@ -82,7 +72,7 @@
             <h2>Word list</h2>
             <p id="word-list-status">…</p>
             <button id="refresh-words">Refresh words</button>
-            <p class="fine">Press once per new task, on the task starter page with the word lists visible, before Start.</p>
+            <p class="fine">Press once per new task, on the task starter page in the browser on the right, before Start.</p>
         </div>
 
         <details class="card" id="settings">
@@ -121,13 +111,21 @@
     </section>
 </main>
 
+<aside id="browser-pane">
+    <webview id="browser" title="Education Perfect" src="about:blank" partition="persist:educationperfected" webpreferences="contextIsolation=yes, sandbox=yes"></webview>
+    <div id="browser-placeholder">
+        <p>The Education Perfect page opens here. The browser is built into the app; your regular browser is not used or changed.</p>
+    </div>
+</aside>
+</div>
+
 <div id="uninstall-modal" hidden role="dialog" aria-modal="true" aria-labelledby="uninstall-title">
     <div class="card">
         <h2 id="uninstall-title">Uninstall EducationPerfected</h2>
         <p id="uninstall-intro"></p>
         <div id="uninstall-choices">
             <label><input type="checkbox" id="uninstall-login"> Remove the saved login from the OS credential store</label>
-            <label><input type="checkbox" id="uninstall-data"> Remove app data (settings and temporary files)</label>
+            <label><input type="checkbox" id="uninstall-data"> Remove app data (settings, saved sessions and temporary files)</label>
             <label><input type="checkbox" id="uninstall-browsers"> Remove downloaded browsers (about 200 MB)</label>
             <label><input type="checkbox" id="uninstall-program"> <span id="uninstall-program-label">Remove the program itself</span></label>
         </div>
