@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Dash verification and documentation (#230): closes the verify-and-document issue by re-scoping it to the live captures. The stale "no live Dash capture" `DIR` comments now cite the choice (19 Nov 2026), typed (#272, 20 Nov 2026) and number-box (#282, 20 Nov 2026) captures with audit dates, and mark the timer/score/results selectors as fixture-invented (no live timer candidates). The classic `/dash-task` reconstruction is retained only for the classic-path timed-run empty-word-list warning; captured Dash choice/typed rounds read the shipped answer (or refuse by name) and never use word lists. `npm run smoke` now also drives the choice sprint to completion and pins the number-box refusal shape; pacing (`delay off` provisional, shared per-type ranges) and accuracy (perfect provisional, neighbor-t typo mistake paths) are documented in `delay`/`accuracy` help, the README and `docs/question-types.md`, which now carries the explicit #230 acceptance mapping. Remaining live gaps (real timer, expiry, scoring, results/leaderboard, end-to-end sprint) stay called out as uncaptured.
+
 ## v2026.11.21
 
 Second V2026 stable release. Full PR list: [v2026.11.16...v2026.11.21](https://github.com/404-Page-Found/EducationPerfected/compare/v2026.11.16...v2026.11.21).
