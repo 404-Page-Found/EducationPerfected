@@ -1,0 +1,70 @@
+name: App launch smoke
+on:
+  pull_request:
+  push:
+    branches: [main]
+# The desktop app's real launch check. Every other app lane is synthetic
+# (app-shell/app-bundle contracts with a fake Electron distribution); this one
+# builds the actual payload on each native runner and launches it, proving the
+# window, sandboxed preload and IPC surface on the exact binary layout the
+# installers ship. It needs no release, tag, browser download, login or live
+# EP traffic: the app self-quits in smoke mode after one state roundtrip.
+permissions:
+  contents: read
+concurrency:
+  group: app-launch-smoke-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  launch:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            target: linux-x64
+          - runner: ubuntu-22.04-arm
+            target: linux-arm64
+          - runner: windows-2025
+            target: windows-x64
+          - runner: macos-15
+            target: macos-arm64
+          - runner: macos-15-intel
+            target: macos-x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      CANDIDATE_TARGET: ${{ matrix.target }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.4
+      - name: Install pinned dependencies without lifecycle hooks
+        run: npm ci --ignore-scripts
+      - name: Build the desktop app payload for this host
+        # The payload builder materializes the pinned Electron distribution
+        # itself when --ignore-scripts skipped the postinstall download, and
+        # refuses a target that is not this host's OS/arch.
+        run: |
+          mkdir -p build/app-launch/THIRD-PARTY-NOTICES
+          node packaging/build-app.js "$CANDIDATE_TARGET" build/app-launch
+      - name: Start virtual display for the Linux launch
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb x11-utils
+          Xvfb :99 -screen 0 1280x1024x24 > "$RUNNER_TEMP/ep-xvfb.log" 2>&1 &
+          ready=0
+          for attempt in $(seq 1 50); do
+            if DISPLAY=:99 xdpyinfo > "$RUNNER_TEMP/ep-display.log" 2>&1; then ready=1; break; fi
+            sleep 0.2
+          done
+          [ "$ready" -eq 1 ] || { echo 'Virtual display did not become ready'; exit 1; }
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+      - name: Launch the built app and require a clean self-quit
+        run: node scripts/app-launch-smoke.js build/app-launch/app-payload
