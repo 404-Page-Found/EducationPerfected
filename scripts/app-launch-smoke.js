@@ -59,6 +59,7 @@ const kill = setTimeout(() => {
 
 child.on('error', error => {
     clearTimeout(kill);
+    console.error('the app failed to start: ' + error.message);
     console.error(output());
     process.exitCode = 1;
 });

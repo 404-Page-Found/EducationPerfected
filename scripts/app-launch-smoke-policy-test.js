@@ -26,4 +26,4 @@ for (const required of ['EP_APP_SMOKE', 'EP_APP_SMOKE_REPORT', 'did-finish-load'
 }
 assert.ok(main.indexOf("process.env.EP_APP_SMOKE === '1'") > main.indexOf('async function smoke()'), 'the smoke hook is declared before its whenReady call site');
 assert.ok(require('../package.json').scripts['test:phase3'].includes('app-launch-smoke-policy-test.js'), 'wired into test:phase3');
-console.log('App launch smoke: all five native targets build the real payload and launch it headless-safe (xvfb on Linux) in a no-release lane; the app self-quits after a proven preload IPC roundtrip.');
+console.log('App launch smoke policy: the workflow builds and launches the real payload on all five native targets (xvfb on Linux) in a no-release lane; the app self-quits after a proven preload IPC roundtrip.');
