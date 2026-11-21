@@ -70,6 +70,36 @@ function createElectronApp({ electron, session }) {
         ipcMain.handle(IPC.reflectionRespond, (event, id, text) => session.respondReflection(id, text));
     }
 
+    // Headless launch proof for CI (scripts/app-launch-smoke.js): the window,
+    // the sandboxed preload and one IPC roundtrip must work on the real built
+    // app, then the app quits itself. No setup probe, no browser download, no
+    // credential-store read; the outcome goes to a report file, not stdout,
+    // because a GUI-subsystem executable has no console on every platform.
+    async function smoke() {
+        let report;
+        try {
+            createWindow();
+            await new Promise((resolve, reject) => {
+                window.webContents.once('did-finish-load', resolve);
+                window.webContents.once('did-fail-load', (event, code, description) => {
+                    reject(new Error('renderer failed to load: ' + code + ' ' + description));
+                });
+            });
+            const state = await window.webContents.executeJavaScript('window.educationPerfected.getState()');
+            if (!state || state.session !== 'idle' || typeof state.version !== 'string') {
+                throw new Error('unexpected initial state: ' + JSON.stringify(state));
+            }
+            report = { ok: true, state };
+        } catch (error) {
+            report = { ok: false, error: String((error && error.message) || error) };
+            process.exitCode = 1;
+        }
+        try {
+            require('node:fs').writeFileSync(process.env.EP_APP_SMOKE_REPORT, JSON.stringify(report));
+        } catch { /* a missing report fails the wrapper by timeout or absence */ }
+        await quit();
+    }
+
     async function quit() {
         if (quitting) return;
         quitting = true;
@@ -89,6 +119,7 @@ function createElectronApp({ electron, session }) {
         // No macOS keep-alive: closing the window closes the managed browser too.
         app.on('window-all-closed', () => { if (!quitting) void quit(); });
         app.whenReady().then(async () => {
+            if (process.env.EP_APP_SMOKE === '1') return smoke();
             createWindow();
             // Probe setup before first paint settles so the wizard/main screen is right.
             try { await session.refreshSetup(); } catch { /* the window shows the retry */ }
