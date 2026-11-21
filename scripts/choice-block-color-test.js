@@ -18,7 +18,7 @@ async function colorFixture(page, origin, pattern = '@@009900@BODY@@') {
         }
         window.colorSubmits = 0;
         [...document.querySelectorAll('#sa-navigation-controls button')].find(b => b.textContent.trim() === 'Submit' && b.getClientRects().length).addEventListener('click', event => {
-            event.stopImmediatePropagation(); colorSubmits++; f.q.questionIndex++;
+            event.stopImmediatePropagation(); window.colorSubmits++; f.q.questionIndex++;
         }, true);
     }, pattern);
 }
@@ -34,7 +34,7 @@ async function colorFixture(page, origin, pattern = '@@009900@BODY@@') {
             assert.equal(d.kind, 'choice', token); assert.equal(d.plainBlock, true); assert.equal(d.representation, 'renderer-template');
             assert.ok(d.correct.every(t => t.includes('@@' + token + '@')));
             assert.equal((await playChoiceRound(page, d, { enter: true, timeout: 1000 })).status, 'advanced');
-            assert.deepEqual(await page.evaluate(() => [mathFixture.clicks.length, colorSubmits]), [1,1]);
+            assert.deepEqual(await page.evaluate(() => [window.mathFixture.clicks.length, window.colorSubmits]), [1,1]);
             assert.ok(d.correct[0].includes('Synthetic answer 1'));
             assert.equal(await page.evaluate(() => mathFixture.clicks[0]), d.correct[0]);
         }
@@ -67,7 +67,7 @@ async function colorFixture(page, origin, pattern = '@@009900@BODY@@') {
                 page.evaluate=async (fn,...args)=>{const value=await original(fn,...args);if(!injected&&value?.kind==='choice'){injected=true;await original(m=>{const f=mathFixture;if(m==='final-template-drift')f.previews[1].renderer.templateString='foreign';else f.previews[1].fields.renderGroup.textContent='foreign';},mutation);}return value;};
                 try {result=await playChoiceRound(page,d,{enter:true,timeout:300});} finally {page.evaluate=original;}
             } else result=await playChoiceRound(page,d,{enter:true,timeout:300});
-            assert.notEqual(result.status,'advanced',mutation);assert.deepEqual(await page.evaluate(()=>[mathFixture.clicks.length,colorSubmits]),[0,0],mutation);
+            assert.notEqual(result.status,'advanced',mutation);assert.deepEqual(await page.evaluate(()=>[window.mathFixture.clicks.length,window.colorSubmits]),[0,0],mutation);
         }
         const controlMutations = ['missing-field','foreign-field','extra-input','text-input','checkbox','name','id','tabindex','disabled','disabled-fieldset','wrong-parent','render-id','render-parent','inside-render','textarea','select','editable','editable-true','editable-option','editable-group','editable-ancestor','group-input','group-textarea','group-select','group-editable'];
         for (const mutation of controlMutations) {
@@ -102,7 +102,7 @@ async function colorFixture(page, origin, pattern = '@@009900@BODY@@') {
             },mutation);
             assert.equal((await detectQuestion(page)).kind,'unsupported',mutation);
             assert.notEqual((await playChoiceRound(page,d,{enter:true,timeout:300})).status,'advanced',mutation);
-            assert.deepEqual(await page.evaluate(()=>[mathFixture.clicks.length,colorSubmits]),[0,0],mutation);
+            assert.deepEqual(await page.evaluate(()=>[window.mathFixture.clicks.length,window.colorSubmits]),[0,0],mutation);
         }
         console.log('Block color synthetic: 14 palette/hex auto positives, disjoint spans,19 malformed/unsafe refusals,10 association/context/final-drift +25 exact-radio/foreign-editable guards zero selection/Submit PASS. No live compatibility proof.');
     } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
