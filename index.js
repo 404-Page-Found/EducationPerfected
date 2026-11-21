@@ -470,11 +470,13 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
         // markup that puts these ids on a <td> (other dialogs reuse them on divs/spans).
         // The modal's fields start as "&nbsp;" placeholders and are filled by the
         // answer-feedback formatter, which is what the readiness check below waits for.
-        // Dash (issue #237, 2026-11-19): no live Dash DOM capture exists. The classic
-        // #question-text / input#answer-text pair is shared with the Dash sprint by
-        // belief (README claim), not by capture; the timer/score/results selectors
-        // below are provisional for the /dash-task reconstruction in scripts/mock-ep.js
-        // and must be re-audited against a sanitised live Dash capture.
+        // Dash (issue #230, closed 2026-11-21): three live EP_DASH_INSPECT captures
+        // exist (choice 2026-11-19, typed 2026-11-20 filed as #272, number-box
+        // 2026-11-20 filed as #282). The typed capture reuses the classic
+        // #question-text / input#answer-text pair plus the shared wrong-answer
+        // modal above; the choice/number-box captures use no classic markup.
+        // The timer/score/results selectors below stay fixture-invented (no live
+        // capture found timer candidates) and never drive answering.
         modal_question_css: 'td#question-field',
         modal_correct_answer_css: 'td#correct-answer-field',
         modal_user_answered_css: 'td#users-answer-field',
@@ -483,17 +485,21 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
         // task page: <span id="question-text"> inside #question-block (audio tasks use a
         // span with the same id under .voice-speaker; they are unsupported anyway)
-        // Dash shares this pair (unverified live); the Dash timer/scores below are the
-        // only Dash-specific selectors. See lib/dash.js for the pacing/accuracy decision.
+        // Dash typed rounds share this pair (captured 2026-11-20, #272); Dash
+        // choice/number-box rounds use no classic markup. The Dash timer/scores
+        // below are the only Dash-specific selectors. See lib/dash.js for the
+        // pacing/accuracy decision.
         question_css: '#question-text',
         answer_box_css: 'input#answer-text',
-        // Dash (timed sprint, issues #230/#237): believed to reuse every classic task
-        // selector above. Audited 2026-11-19 against the SYNTHETIC fixture in
-        // scripts/mock-ep.js (/dash-task) only - no live Dash capture exists yet,
-        // so this audit pins the assumption, not the live markup. The timer/score/
-        // results selectors below are fixture-invented (lib/dash.js): the timer is
-        // used to warn when a timed run starts with an empty word list and to note
-        // the sprint; it never drives answering. The fixture exposes both
+        // Dash (timed sprint, issue #230 closed 2026-11-21): the classic task
+        // selectors above are shared ONLY by the captured Dash typed shape
+        // (audited 2026-11-20 against the #272 live capture; fixture at
+        // /dash-task/typed in scripts/mock-ep.js). The earlier /dash-task
+        // classic reconstruction is synthetic and retained only to exercise the
+        // timed-run empty-word-list warning. The timer/score/results selectors
+        // below are fixture-invented (lib/dash.js, no live timer candidates):
+        // the timer warns when a timed run starts with an empty word list and
+        // notes the sprint; it never drives answering. The fixture exposes both
         // .dash-timer and #dash-timer (likewise score/results) so either selector
         // resolves.
         dash_timer_css: DASH_TIMER_CSS,
@@ -508,14 +514,16 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
         exit_button_css: 'button.exit-button',
         exit_continue_button_css: 'button.continue-button',
 
-        // Dash (timed sprint, issue #230): a live Dash run on 2026-11-19
-        // showed the real round is NOT the classic shape assumed below - it
-        // renders a multi-choice component on EP's QuizModel (classic
-        // gameMode, isDash true). The choice reader now answers that
-        // confirmed shape (see lib/choice-state.js); every other Dash layout
-        // still refuses by name. The timer selector below remains
-        // fixture-invented and is used only to warn when a timed run starts
-        // with an empty word list; it never drives answering.
+        // Dash (timed sprint, issue #230 closed 2026-11-21): live Dash runs showed
+        // the real rounds are NOT the classic shape - choice rounds render a
+        // multi-choice component on EP's QuizModel (gameMode null, isDash true,
+        // 2026-11-19) and typed rounds reuse the classic pair on the same model
+        // (2026-11-20, #272). The choice/typed readers answer exactly those
+        // confirmed shapes (see lib/choice-state.js, lib/dash-typed-state.js);
+        // the number-box capture (2026-11-20, #282) ships no answer and every
+        // other Dash layout still refuses by name. The timer selector below
+        // remains fixture-invented and is used only for the classic-path timed
+        // warning/note; it never drives answering.
         continue_button_css: 'button#continue-button',
 
         // non-blocking feedback toast (injected by this script, not part of EP)
@@ -919,12 +927,14 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // keys ("constructor" is a real Spanish vocab item) must never resolve to
             // Object.prototype members and masquerade as arrays or Sets.
             let candidatesDict = Object.create(null);
-            let dashTimedThisRun = false;   // issue #230: current run shows a dash timer
+            let dashTimedThisRun = false;   // issue #230: classic-path run shows a dash timer
             let dashUnknownWarned = false;  // one-shot timed-guess warning per run
-            // Issue #230: on a timed (Dash) round every guessed answer costs clock
-            // a sprint cannot recover. Say so once, clearly, instead of silently
-            // guessing through the sprint - whether the question was never listed
-            // or every listed answer was already rejected.
+            // Issue #230 (classic-path only): on a timed classic round every guessed
+            // answer costs clock a sprint cannot recover. Say so once, clearly,
+            // instead of silently guessing through the sprint - whether the question
+            // was never listed or every listed answer was already rejected.
+            // Captured Dash choice/typed rounds never reach this warning: they read
+            // the shipped answer and refuse by name when none exists.
             function warnDashGuess() {
                 if (!dashTimedThisRun || dashUnknownWarned) return;
                 dashUnknownWarned = true;
@@ -2102,11 +2112,13 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // A generic Continue/modal is not proof that the task ended. Status
             // uses a narrower signal than legacy navigation: no question plus
             // a visible exit control, while this run still intends to answer.
-            // Dash (issue #237): the timed sprint ends the same way (exit/continue),
+            // Dash (issue #230): the timed sprint ends the same way (exit/continue),
             // with a provisional results interstitial (.dash-results) that keeps the
             // same exit control. Either visible control proves completion; the
             // results screen alone is also accepted so a leaderboard interstitial
-            // without a separate exit button still ends the run.
+            // without a separate exit button still ends the run. The real
+            // results/leaderboard markup stays uncaptured (all live captures
+            // found no timer candidates).
             async function taskCompletionProven() {
                 if (!TOGGLE || await detectQuestion(page) !== null) return false;
                 const proven = await page.evaluate((exitCss, resultsCss) => {
@@ -2119,22 +2131,22 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 return TOGGLE && proven;
             }
 
-            // Dash sprint notice (issue #237): the typed Dash round shares the
-            // classic question/answer pair (captured 2026-11-20), so call it
-            // out once per run instead of mistyping silently. Reports the
-            // timer presence, the shared per-type pacing decision (provisional
-            // delay off recommendation, live scoring unproved) and the
-            // expected accuracy cost (a Dash mistake is expected to burn
-            // sprint time/points).
+            // Dash sprint notice (issue #230): captured Dash rounds (choice 2026-11-19,
+            // typed 2026-11-20) call it out once per run. Reports the timer
+            // presence, the shared per-type pacing decision (provisional delay
+            // off recommendation, live scoring unproved) and the expected
+            // accuracy cost (a Dash mistake is expected to burn sprint
+            // time/points).
             // Runs inside the answer loop; never throws and never stops the run.
             let dashNoted = false;
             async function noteDashOnce() {
                 if (dashNoted) return;
-                // Timer-first, model-fallback: both live captures found no timer
-                // candidates, so the `.dash-timer`/`.dash-results` selectors are
-                // fixture-invented. The captured Dash model (isDash on a dash
-                // route, via detectQuestion's `dash: true`) is the live signal;
-                // the timer flag only reports whether the fixture chrome shows.
+                // Timer-first, model-fallback: all three live captures found no
+                // timer candidates, so the `.dash-timer`/`.dash-results`
+                // selectors are fixture-invented. The captured Dash model (isDash
+                // on a dash route, via detectQuestion's `dash: true`) is the live
+                // signal; the timer flag only reports whether the fixture chrome
+                // shows.
                 let timerVisible = false;
                 let isDash = false;
                 try {
@@ -2177,8 +2189,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 startAccuracyRun();
                 console.log("answerLoop entered.");
 
-                // Issue #230: note whether this run shows a dash timer so the
-                // first unknown question can trigger the timed-guess warning.
+                // Issue #230 (classic-path only): note whether this run shows a dash
+                // timer so the first unknown classic question can trigger the
+                // timed-guess warning. Captured Dash choice/typed rounds use the
+                // shipped answer and refuse instead of guessing, so they ignore it.
                 dashUnknownWarned = false;
                 const dashTimer = await page.$(DIR.dash_timer_css).catch(() => null);
                 dashTimedThisRun = Boolean(dashTimer);
@@ -2988,8 +3002,8 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             if (dropdownSubmitOnce) controls.inspectDropdowns = () => require('./lib/dropdown-diagnostics').collectDropdownDiagnostics(page,{definitionsOnly:true});
             // Human pacing control (issue #221): no action reports state, on/off
             // toggle the wait, MIN-MAX (seconds) overrides every per-type range,
-            // reset restores the per-type ranges. Dash (issue #237) shares the
-            // text 2-6s range in the reconstruction; delay off is the provisional
+            // reset restores the per-type ranges. Dash (issue #230) shares the
+            // per-type ranges in the reconstructions; delay off is the provisional
             // Dash recommendation (live scoring unproved).
             controls.delay = action => {
                 if (action === 'on') humanDelay.setEnabled(true);
