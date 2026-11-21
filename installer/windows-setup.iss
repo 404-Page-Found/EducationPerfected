@@ -24,13 +24,21 @@ ChangesEnvironment=yes
 
 [Files]
 Source: "{#SourceExe}"; DestDir: "{app}"; DestName: "educationperfected.exe"; Flags: ignoreversion
+; The desktop app payload (built by packaging/build-app.js on the native runner).
+Source: "{#AppPayload}\*"; DestDir: "{app}\app"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Tasks]
 Name: "addtopath"; Description: "Add EducationPerfected to your PATH"; GroupDescription: "Extra options:"
 
 [Icons]
 Name: "{group}\EducationPerfected"; Filename: "{app}\educationperfected.exe"
+Name: "{group}\EducationPerfected App"; Filename: "{app}\app\EducationPerfected.exe"
 Name: "{group}\Uninstall EducationPerfected"; Filename: "{uninstallexe}"
+
+[Run]
+; Install-time setup: the pinned Chrome download, non-interactive. Consent is
+; presented here; the app's first-run wizard is the repair path on failure.
+Filename: "{app}\educationperfected.exe"; Parameters: "setup --browser-only"; Description: "Download the pinned Chrome browser now (about 200 MB from Google; downloading accepts Google's terms). Required before first use."; Flags: postinstall runasoriginaluser skipifsilent
 
 [UninstallDelete]
 Type: files; Name: "{app}\educationperfected-install.json"
@@ -128,7 +136,8 @@ begin
     PathPart := ',"pathEntries":["' + JsonEscape(ExpandConstant('{app}')) + '"]';
   Json := '{"version":1,"method":"setup-exe"'
     + ',"files":["' + JsonEscape(ExpandConstant('{app}\educationperfected.exe')) + '","' + JsonEscape(ExpandConstant('{app}\educationperfected-install.json')) + '"]'
-    + ',"shortcuts":["' + JsonEscape(ExpandConstant('{group}\EducationPerfected.lnk')) + '","' + JsonEscape(ExpandConstant('{group}\Uninstall EducationPerfected.lnk')) + '"]'
+    + ',"directories":["' + JsonEscape(ExpandConstant('{app}\app')) + '"]'
+    + ',"shortcuts":["' + JsonEscape(ExpandConstant('{group}\EducationPerfected.lnk')) + '","' + JsonEscape(ExpandConstant('{group}\EducationPerfected App.lnk')) + '","' + JsonEscape(ExpandConstant('{group}\Uninstall EducationPerfected.lnk')) + '"]'
     + ',"uninstaller":"' + JsonEscape(ExpandConstant('{app}\unins000.exe')) + '"'
     + PathPart + '}';
   SaveStringToFile(ExpandConstant('{app}\educationperfected-install.json'), Json, False);

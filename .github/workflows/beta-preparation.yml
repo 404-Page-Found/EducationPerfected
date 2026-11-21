@@ -119,7 +119,8 @@ jobs:
           $out = Join-Path $root 'build\windows-x64-downloadable'
           $src = Join-Path $out 'educationperfected.exe'
           $iss = Join-Path $root 'installer\windows-setup.iss'
-          & $iscc "/DAppVersion=$version" "/DSourceExe=$src" "/DOutputDir=$out" $iss | Out-Host
+          $payload = Join-Path $out 'app-payload'
+          & $iscc "/DAppVersion=$version" "/DSourceExe=$src" "/DAppPayload=$payload" "/DOutputDir=$out" $iss | Out-Host
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Stage explicitly requested Windows internal test package
         id: test_package

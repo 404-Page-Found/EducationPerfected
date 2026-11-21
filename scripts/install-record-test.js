@@ -9,7 +9,9 @@ fs.writeFileSync(exe,'inert');
 assert.equal(normalizeRecord(null),null);
 assert.equal(normalizeRecord({version:2,method:'npm'}),null,'record version must be 1');
 assert.equal(normalizeRecord({version:1,method:'curl'}),null,'unknown method rejected');
-assert.deepEqual(normalizeRecord({version:1,method:'npm'}),{version:1,method:'npm',files:[],pathEntries:[],shortcuts:[],uninstaller:null,receipt:null});
+assert.deepEqual(normalizeRecord({version:1,method:'npm'}),{version:1,method:'npm',files:[],directories:[],pathEntries:[],shortcuts:[],uninstaller:null,receipt:null});
+assert.deepEqual(normalizeRecord({version:1,method:'pkg',directories:['/Applications/EducationPerfected.app']}).directories,['/Applications/EducationPerfected.app'],'recorded app directory survives');
+assert.deepEqual(normalizeRecord({version:1,method:'pkg',directories:'/Applications/EducationPerfected.app'}).directories,[],'bare-string directories dropped: the deletion list stays array-only');
 assert.deepEqual(normalizeRecord({version:1,method:'deb',files:['/usr/bin/educationperfected'],pathEntries:'oops',shortcuts:[1]}).files,['/usr/bin/educationperfected']);
 // PowerShell 5.1's ConvertTo-Json unwraps one-element arrays into bare strings
 // and empty arrays into null; both forms must still normalize.

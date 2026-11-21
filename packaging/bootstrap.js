@@ -96,10 +96,20 @@ async function main() {
             handoffSignals();
             try {
                 if (parsed.command === 'setup') {
-                    await require('./download-browser').ensureBrowser();
-                    console.log('Browser ready. Saving a login is optional; leave email empty to skip.');
+                    if (parsed.browserOnly) {
+                        // Install-time variant: the OS installer presented the
+                        // notice, so consent is implied and no login prompt runs.
+                        console.log(require('./download-browser').downloadNotice());
+                        await require('./download-browser').ensureBrowser({ consent: async () => true });
+                        console.log('Browser ready. Save a login from the app, or run: educationperfected setup');
+                    } else {
+                        await require('./download-browser').ensureBrowser();
+                        console.log('Browser ready. Saving a login is optional; leave email empty to skip.');
+                        await require('../bin/cli').credentialCommand('--setup');
+                    }
+                } else {
+                    await require('../bin/cli').credentialCommand('--'+parsed.command);
                 }
-                await require('../bin/cli').credentialCommand('--'+parsed.command);
             } catch { console.error('Setup/credential command failed; no plaintext fallback.'); process.exitCode ||= 1; }
             return;
         }

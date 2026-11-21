@@ -74,6 +74,12 @@ async function main(){
     fs.rmSync(directory,{recursive:true,force:true});
     const result=spawnSync(process.execPath,[path.join(root,'packaging',directDownload?'build-downloadable.js':expected.builder)],{cwd:root,stdio:'inherit'});
     if(result.error||result.status!==0)throw new Error('Candidate build failed; no candidate manifest created');
+    if(directDownload){
+        // The downloadable installers also carry the desktop app: build its
+        // payload (and Electron notices) before the candidate inventory runs.
+        const app=spawnSync(process.execPath,[path.join(root,'packaging','build-app.js'),target,directory],{cwd:root,stdio:'inherit'});
+        if(app.error||app.status!==0)throw new Error('App payload build failed; no candidate manifest created');
+    }
     if(sourceState(root)!==sourceCommit)throw new Error('Source changed during candidate build');
     const manifest=await inventory({directory,target,version,sourceCommit,sourceVersion:info.sourceVersion,expectedBrowserVersion:require('puppeteer').PUPPETEER_REVISIONS.chrome});
     if(directDownload){

@@ -87,8 +87,9 @@ function removalPlan(install,{platform,executable}){
    return {kind:'package',command:['sudo','rpm','-e',PACKAGE_NAME],detail:'runs sudo rpm -e '+PACKAGE_NAME};
   case 'pkg':
    // No receipt id means no receipt can be forgotten; without one this is a
-   // manual removal, not a null argument to spawn.
-   return install.receipt?{kind:'pkg',files:ownedFiles,receipt:install.receipt,detail:'removes the installed files with sudo and forgets the installer receipt'}:null;
+   // manual removal, not a null argument to spawn. Directories (the .app
+   // bundle) are removed recursively; only installer-recorded paths.
+   return install.receipt?{kind:'pkg',files:ownedFiles,directories:install.directories||[],receipt:install.receipt,detail:'removes the installed files and the desktop app with sudo and forgets the installer receipt'}:null;
   default:
    return null;
  }
@@ -171,7 +172,7 @@ async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=p
    if(result.error||result.status!==0){incomplete=true;output.write('Package removal failed; run it by hand: '+plan.command.join(' ')+'\n');}
    else output.write('Program removed ('+plan.command.join(' ')+').\n');
   }else if(plan.kind==='pkg'){
-   const remove=spawn('sudo',['rm','-f',...plan.files],{stdio:'inherit'});
+   const remove=spawn('sudo',['rm','-rf',...plan.files,...plan.directories],{stdio:'inherit'});
    const forget=remove.error||remove.status!==0?null:spawn('sudo',['pkgutil','--forget',plan.receipt],{stdio:'inherit'});
    if(remove.error||remove.status!==0||(forget&&(forget.error||forget.status!==0))){incomplete=true;output.write('Package removal failed; remove the files and forget the receipt by hand: sudo rm -f '+plan.files.join(' ')+' && sudo pkgutil --forget '+plan.receipt+'\n');}
    else output.write('Program removed (files deleted, installer receipt forgotten).\n');
