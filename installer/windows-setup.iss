@@ -173,6 +173,11 @@ begin
     AppData := ExpandConstant('{%USERPROFILE}\.educationperfected');
     if DirExists(AppData) and (MsgBox('Also remove EducationPerfected app data, saved sessions and downloaded browsers (' + AppData + ')?', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = idYes) then
       DelTree(AppData, True, True, True);
+    { Builds before the move under %USERPROFILE%\.educationperfected kept the desktop
+      app's Electron data in the OS default location; remove it with its own prompt. }
+    AppData := ExpandConstant('{%APPDATA}\EducationPerfected');
+    if DirExists(AppData) and (MsgBox('Also remove the old desktop app data left by earlier builds (' + AppData + ')?', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = idYes) then
+      DelTree(AppData, True, True, True);
   end;
   if CurUninstallStep = usPostUninstall then
     RemoveAppFromPath;

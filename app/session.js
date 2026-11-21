@@ -54,11 +54,19 @@ function createAppSession({
     connectBrowser = null,
     selectPage = null,
 } = {}) {
-    const connectEmbeddedBrowser = connectBrowser || (async () => {
-        if (typeof devtoolsEndpoint !== 'function') throw new Error('The embedded browser is not available in this copy.');
-        const endpoint = await devtoolsEndpoint();
-        return require('puppeteer').connect({ browserWSEndpoint: endpoint, defaultViewport: null });
-    });
+    // The live connection launchProgram is using, kept so close() can cut a
+    // launch parked on its unbounded manual-sign-in wait: that wait only
+    // rejects once the connection drops.
+    let embeddedConnection = null;
+    const connectEmbeddedBrowser = async () => {
+        const connect = connectBrowser || (async () => {
+            if (typeof devtoolsEndpoint !== 'function') throw new Error('The embedded browser is not available in this copy.');
+            const endpoint = await devtoolsEndpoint();
+            return require('puppeteer').connect({ browserWSEndpoint: endpoint, defaultViewport: null });
+        });
+        embeddedConnection = await connect();
+        return embeddedConnection;
+    };
     const pickAutomationPage = selectPage || ((_pages, browser) => require('./embedded-browser').selectEmbeddedPage(browser));
     let setup = { browserReady: null, hasLogin: null, wizardDone: false };
     let sessionState = 'idle'; // idle | starting | ready | failed | closed
@@ -409,6 +417,9 @@ function createAppSession({
                 return getState();
             } catch (error) {
                 launching = null;
+                // A close requested mid-launch wins over the launch: a cancelled
+                // startup settles closed, not failed (there is nothing to retry).
+                if (closeRequested) { resetSession('closed'); return getState(); }
                 resetSession('failed', String(error && error.message ? error.message : error));
                 throw error;
             }
@@ -454,7 +465,14 @@ function createAppSession({
             closeRequested = true;
             // Wait out an in-flight launch first; its continuation sees
             // closeRequested and shuts the fresh browser instead of going ready.
-            if (launching) { try { await launching; } catch { /* startup failure state already recorded */ } }
+            // A launch parked on the manual-sign-in wait never settles on its
+            // own: cut its browser connection so the wait rejects instead of
+            // hanging the close (an uninstall or update would never start, with
+            // the maintenance buttons stuck disabled and no error shown).
+            if (launching) {
+                try { if (embeddedConnection) await embeddedConnection.disconnect(); } catch { /* the connection is already gone */ }
+                try { await launching; } catch { /* startup failure state already recorded */ }
+            }
             if (teardown) { try { await teardown; } catch { /* the teardown itself recorded any close failure */ } }
             const current = controls;
             lastCloseError = null;

@@ -279,6 +279,33 @@ async function main() {
         console.log('ok close during launch shuts the fresh browser');
     }
 
+    // A close while the launch is parked on the manual-sign-in wait cannot wait
+    // the launch out (it never settles): close cuts the launch's browser
+    // connection, the cancelled startup settles closed, and close returns.
+    {
+        let parked;
+        const connection = { disconnected: false, async disconnect() { this.disconnected = true; parked(new Error('Connection closed.')); } };
+        const { deps } = makeDeps({
+            installedBrowser: async () => '/fake/chrome',
+            connectBrowser: async () => connection,
+            launchProgram: async ({ connectBrowser: connect }) => {
+                await connect();
+                await new Promise((_, reject) => { parked = reject; });
+                throw new Error('unreachable');
+            },
+        });
+        const session = createAppSession(deps);
+        await session.refreshSetup();
+        session.completeWizard();
+        const starting = session.startSession();
+        await new Promise(resolve => setImmediate(resolve));
+        const closing = session.close();
+        await Promise.all([starting, closing]);
+        assert.equal(connection.disconnected, true);
+        assert.equal(session.getState().session, 'closed');
+        console.log('ok close cuts a launch parked on the sign-in wait');
+    }
+
     // close() drains the shared controls and cleans up.
     {
         const { deps, calls } = makeDeps({ installedBrowser: async () => '/fake/chrome' });

@@ -17,7 +17,7 @@ for(const required of [
 // console after setup finishes, even though the app already has its browser.
 assert.doesNotMatch(iss, /^\[Run\]/m, 'no post-setup processes or terminal browser downloads');
 assert.doesNotMatch(iss, /setup\s+--browser-only|Flags:[^\r\n]*postinstall/i, 'no CLI setup on the finish page');
-assert.equal((iss.match(/MB_DEFBUTTON2/g)||[]).length,2,'both uninstall prompts default to No');
+assert.equal((iss.match(/MB_DEFBUTTON2/g)||[]).length,3,'every uninstall prompt defaults to No');
 assert.doesNotMatch(iss,/PrivilegesRequired=(admin|poweruser)/);
 assert.ok(!iss.includes('ChangesUninstall'),'not a valid Inno directive; ISCC aborts on it');
 assert.ok(!iss.includes('StringChange'),'PATH removal matches whole ;-delimited entries, never substrings');
@@ -33,6 +33,7 @@ assert.equal((icons.match(/Filename: "\{app\}/g)||[]).length, 1, 'only one progr
 const installDelete = iss.split('[InstallDelete]')[1].split(/^\[/m)[0];
 assert.ok(installDelete.includes('Type: files; Name: "{group}\\EducationPerfected App.lnk"'), 'upgrades remove the old separate app shortcut');
 assert.ok(installDelete.includes('Type: files; Name: "{group}\\Uninstall EducationPerfected.lnk"'), 'upgrades remove the old Start-menu Uninstall shortcut');
+assert.ok(iss.includes("ExpandConstant('{%APPDATA}\\EducationPerfected')"), 'uninstall offers removing the pre-relocation desktop app data in %AppData%');
 const publish=fs.readFileSync(path.join(__dirname,'../.github/workflows/publish.yml'),'utf8');
 for(const required of [
  'Inno Setup 6\\ISCC.exe',"require('./package.json').version",'/DAppVersion','/DSourceExe',
