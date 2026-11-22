@@ -14,6 +14,13 @@ if os.environ.get('INSTALLED_DIR'):
     api=conpty.kernel32()
     wait=api.WaitForSingleObject
     observed=[]
+    exits=[]
+    get_exit=api.GetExitCodeProcess
+    def capture_exit(handle, code):
+        ok=get_exit(handle,code)
+        if ok:exits.append(code._obj.value)
+        return ok
+    api.GetExitCodeProcess=capture_exit
     def watched(handle, milliseconds):
         result=wait(handle,milliseconds)
         if milliseconds==30000:observed.append(result)
@@ -26,6 +33,7 @@ if os.environ.get('INSTALLED_DIR'):
         # Only the helper/interactive wizard may survive the CLI. Closing the
         # test-owned job removes those fixture processes, not any user process.
         if str(error)!='job-exit-unconfirmed':raise
+    assert exits==[0], 'CLI exit code was not zero: '+str(exits)
     assert observed==[0], 'the actual CLI process did not exit: '+str(observed)
     assert b'UNINSTALL_HANDOFF_DONE true' in b''.join(captured), 'handoff did not finish'
     print('Production confirmation + handoff exits its actual CLI process on native Windows.')

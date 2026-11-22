@@ -20,7 +20,7 @@ const { shouldExitAfterWindowsUninstall, exitAfterMaintenanceHandoff } = require
     // A referenced interval models the actual failure class: the maintenance
     // command returned, but a remaining handle prevents natural process exit.
     const modulePath = path.resolve(__dirname, '../packaging/maintenance-exit');
-    const child = spawnSync(process.execPath, ['-e', `setInterval(()=>{},1000);console.log('cleanup completed');console.error('handoff log flushed');require(${JSON.stringify(modulePath)}).exitAfterMaintenanceHandoff({exitAfterHandoff:true});`], { encoding: 'utf8', timeout: 5000 });
+    const child = spawnSync(process.execPath, ['-e', "setInterval(()=>{},1000);console.log('cleanup completed');console.error('handoff log flushed');require(process.argv[1]).exitAfterMaintenanceHandoff({exitAfterHandoff:true});", modulePath], { encoding: 'utf8', timeout: 5000 });
     assert.equal(child.error, undefined, 'handoff must not wait for event-loop idleness');
     assert.equal(child.status, 0);
     assert.ok(child.stdout.includes('cleanup completed'));

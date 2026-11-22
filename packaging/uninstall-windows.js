@@ -117,7 +117,7 @@ function awaitHelperSpawn(child, log) {
 async function waitForHelperReady(ready, timeoutMs = 10000) {
     const deadline = Date.now() + timeoutMs;
     while (!fs.existsSync(ready)) {
-        if (Date.now() >= deadline) throw new Error('The uninstall helper did not become ready. Nothing was removed.');
+        if (Date.now() >= deadline) throw new Error('The uninstall helper did not become ready in time. It may still start removal after this program exits.');
         await new Promise(resolve => setTimeout(resolve, 50));
     }
     fs.unlinkSync(ready);
