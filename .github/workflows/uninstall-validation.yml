@@ -69,7 +69,7 @@ jobs:
           if (-not (Test-Path (Join-Path $dir 'unins000.exe'))) { throw 'unins000.exe missing after install' }
           if (-not (Test-Path (Join-Path $dir 'educationperfected-install.json'))) { throw 'install record missing after install' }
           $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-          if (-not ($userPath -and ($userPath.ToLower() -like '*educationperfected proof*'))) { throw 'PATH task selected but the install dir is not on the user PATH' }
+          if (-not ($userPath -and ($userPath.ToLower() -like ('*' + $dir.ToLower() + '*')))) { throw 'PATH task selected but the install dir is not on the user PATH' }
           "INSTALLED_DIR=$dir" >> $env:GITHUB_ENV
       - name: Run the production uninstall handoff against the real install
         shell: pwsh
@@ -109,4 +109,4 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (Test-Path $env:INSTALLED_DIR) { throw 'install directory survived a full uninstall' }
           $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-          if ($userPath -and ($userPath.ToLower() -like '*educationperfected proof*')) { throw 'the user PATH entry survived a full uninstall' }
+          if ($userPath -and ($userPath.ToLower() -like ('*' + $env:INSTALLED_DIR.ToLower() + '*'))) { throw 'the user PATH entry survived a full uninstall' }
