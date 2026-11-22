@@ -112,11 +112,14 @@ data itself); npm runs `npm uninstall -g educationperfected`; `.deb` runs
 `sudo apt remove educationperfected`; `.rpm` runs `sudo rpm -e educationperfected`;
 `.pkg` deletes its recorded files with sudo and runs `sudo pkgutil --forget
 com.404pf.educationperfected`; install.sh/install.ps1/raw binaries delete their
-recorded files (and the install.ps1 PATH entry). On Windows a detached
-PowerShell helper waits for the CLI process to exit before deleting anything -
-a running program cannot remove itself - appends to
-`%TEMP%\educationperfected-uninstall.log` and deletes itself; the CLI prints
-that the removal finishes in the background. Package-manager and npm removals
+recorded files (and the install.ps1 PATH entry). On Windows a background PowerShell helper waits for the CLI process to exit
+before deleting anything. It records the wait and each removal stage in
+`%TEMP%\educationperfected-uninstall.log`; the setup-exe path also enables
+Inno diagnostics in the adjacent `educationperfected-uninstall.log.inno.log`.
+The helper refuses removal if the CLI is still running after ten minutes.
+The Inno uninstaller runs from the temporary directory, not the installation
+directory, and retains its interactive, default-No data/login prompts.
+The CLI reports that removal finishes in the background. Package-manager and npm removals
 report failure with the exact manual command and mark the run incomplete.
 
 The desktop app's Settings update does not swap files in place. It downloads
