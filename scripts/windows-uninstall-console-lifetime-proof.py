@@ -16,15 +16,17 @@ with tempfile.TemporaryDirectory(prefix='ep-console-lifetime-') as directory:
     conpty.run_console(shutil.which('node'),['-e',code],env,str(root.parent),expected=b'LIFETIME_HANDOFF_DONE',api=api)
     log=owned/'helper.log'
     deadline=time.monotonic()+20
-    text=''
+    # Do not repeatedly open the log while Add-Content is writing it. On
+    # Windows the observer can contend with those writes. Script self-removal
+    # comes after the done log and is a filesystem-only completion signal.
     while time.monotonic()<deadline:
-        try:text=log.read_text(encoding='utf-8-sig',errors='replace')
-        except (FileNotFoundError,PermissionError):text=''
-        if not victim.exists() and 'uninstall helper done' in text:break
+        if not victim.exists() and not list(owned.glob('educationperfected-uninstall-*.ps1')):break
         time.sleep(.1)
     print('CONSOLE_LIFETIME file remains:',victim.exists())
-    print(text)
     assert not victim.exists(), 'helper did not finish removal after the CLI console closed'
+    assert not list(owned.glob('educationperfected-uninstall-*.ps1')), 'helper did not reach self-removal'
+    text=log.read_text(encoding='utf-8-sig',errors='replace')
+    print(text)
     assert 'uninstall helper done' in text, 'helper never recorded completion'
     # The done line precedes PowerShell exiting. Require the OS to release
     # its cwd/log handles too, with a bounded retry rather than ignored errors.
