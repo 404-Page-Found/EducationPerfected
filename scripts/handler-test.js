@@ -754,7 +754,9 @@ async function bootRealProgram(origin) {
         await page.waitForFunction(() =>
             ['startAnswer', 'toggleMode', 'epTestState', 'epTestStop'].every(name => typeof window[name] === 'function') &&
             window.__epHotkeysInstalled === true,
-        { timeout: 15000 });
+        { timeout: 15000 }).catch(error => {
+            throw new Error(`index.js controls were not ready: ${error.message}\nOutput:\n${output}`, { cause: error });
+        });
         return { child, browser, page, output: () => output };
     } catch (e) {
         if (browser) await browser.close().catch(() => {});
