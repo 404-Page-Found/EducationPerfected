@@ -93,18 +93,28 @@ jobs:
           # would hang this step. Then run the real uninstall with a bounded
           # wait so a hang fails fast with the uninstaller's own log.
           Get-Process | Where-Object { $_.Name -like 'unins*' -or $_.Name -like '_iu*' } | Stop-Process -Force -ErrorAction SilentlyContinue
+          "unins000.exe present: $(Test-Path "$env:INSTALLED_DIR\unins000.exe")"
+          "unins000.dat present: $(Test-Path "$env:INSTALLED_DIR\unins000.dat")"
+          Get-ChildItem $env:TEMP -Filter '_iu*' -ErrorAction SilentlyContinue | ForEach-Object { "temp copy before: $($_.FullName) ($($_.Length) bytes)" }
           $done = $false
           for ($i = 0; $i -lt 3 -and -not $done; $i++) {
-            $proc = Start-Process -PassThru -FilePath "$env:INSTALLED_DIR\unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/LOG=$env:TEMP\ep-proof-uninstall.log"
+            $proc = Start-Process -PassThru -FilePath "$env:INSTALLED_DIR\unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/LOG=$env:TEMP\ep-proof-uninstall.log" -RedirectStandardOutput "$env:TEMP\ep-proof-uninstall-out.txt" -RedirectStandardError "$env:TEMP\ep-proof-uninstall-err.txt"
             $proc | Wait-Process -Timeout 180 -ErrorAction SilentlyContinue
             if (-not $proc.HasExited) {
-              "unins000.exe did not exit within 180s; killing it and retrying"
+              "attempt $i`: unins000.exe did not exit within 180s; killing it and retrying"
               Get-Process | Where-Object { $_.Name -like 'unins*' -or $_.Name -like '_iu*' } | Stop-Process -Force -ErrorAction SilentlyContinue
               Start-Sleep -Seconds 5
-            } elseif ($proc.ExitCode -eq 0) { $done = $true } else { Start-Sleep -Seconds 10 }
+            } elseif ($proc.ExitCode -eq 0) { $done = $true } else {
+              "attempt $i`: unins000.exe exit code $($proc.ExitCode)"
+              Start-Sleep -Seconds 10
+            }
           }
           if (-not $done) {
             if (Test-Path "$env:TEMP\ep-proof-uninstall.log") { Get-Content "$env:TEMP\ep-proof-uninstall.log" | Out-Host }
+            if (Test-Path "$env:TEMP\ep-proof-uninstall-out.txt") { Get-Content "$env:TEMP\ep-proof-uninstall-out.txt" | Out-Host }
+            if (Test-Path "$env:TEMP\ep-proof-uninstall-err.txt") { Get-Content "$env:TEMP\ep-proof-uninstall-err.txt" | Out-Host }
+            Get-ChildItem $env:INSTALLED_DIR -ErrorAction SilentlyContinue | ForEach-Object { "install dir survivor: $($_.Name) ($($_.Length) bytes)" }
+            Get-ChildItem $env:TEMP -Filter '_iu*' -ErrorAction SilentlyContinue | ForEach-Object { "temp copy after: $($_.FullName) ($($_.Length) bytes)" }
             exit 1
           }
           if (Test-Path $env:INSTALLED_DIR) { throw 'install directory survived a full uninstall' }
