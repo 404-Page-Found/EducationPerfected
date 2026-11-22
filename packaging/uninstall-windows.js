@@ -27,7 +27,13 @@ function windowsUninstallHelperScript({ pid, mode, log, files = [], pathEntries 
         '$log = ' + psLiteral(log),
         'function Log($m) { Add-Content -LiteralPath $log -Value $m }',
         'Log "uninstall helper started (mode ' + mode + ', cli pid ' + pid + ')"',
-        'try { Wait-Process -Id ' + pid + ' -Timeout 600 -ErrorAction Stop } catch { Log "cli wait ended: $($_.Exception.Message)" }',
+        'Log "waiting for cli pid ' + pid + ' to exit (up to 600 seconds)"',
+        'if (Get-Process -Id ' + pid + ' -ErrorAction SilentlyContinue) {',
+        '  try { Wait-Process -Id ' + pid + ' -Timeout 600 -ErrorAction Stop } catch {',
+        '    if (Get-Process -Id ' + pid + ' -ErrorAction SilentlyContinue) { Log "FAILED: CLI is still running; nothing removed"; exit 1 }',
+        '  }',
+        '}',
+        'Log "CLI exited; starting removal"',
         'Start-Sleep -Seconds 2',
     ];
     if (mode === 'files') {
@@ -63,7 +69,9 @@ function windowsUninstallHelperScript({ pid, mode, log, files = [], pathEntries 
     } else {
         if (!uninstaller) throw new Error('The inno uninstall helper needs the uninstaller path');
         lines.push(
-            'try { $p = Start-Process -FilePath ' + psLiteral(uninstaller) + ' -Wait -PassThru -ErrorAction Stop; Log "uninstaller exit code: $($p.ExitCode)" } catch { Log "FAILED to start the uninstaller: $($_.Exception.Message)" }',
+            '$innoLog = $log + ".inno.log"',
+            'Log "starting Inno uninstaller; native log: $innoLog"',
+            `try { $p = Start-Process -FilePath ${psLiteral(uninstaller)} -ArgumentList ('/LOG="' + $innoLog + '"') -WorkingDirectory ${psLiteral(path.dirname(log))} -Wait -PassThru -ErrorAction Stop; Log "uninstaller exit code: $($p.ExitCode)" } catch { Log "FAILED to start the uninstaller: $($_.Exception.Message)" }`,
         );
     }
     lines.push(
