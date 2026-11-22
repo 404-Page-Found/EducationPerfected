@@ -82,7 +82,30 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
         require('node:child_process').spawnSync('taskkill', ['/F', '/IM', 'unins000.exe'], { stdio: 'ignore' });
         await sleep(3000);
     }
-    if (!fs.existsSync(log)) throw new Error('helper log missing: the PowerShell helper never ran');
+    if (!fs.existsSync(log)) {
+        // Diagnostic: rerun the same helper with its output captured, so a
+        // silent PowerShell startup failure says why instead of vanishing.
+        console.error('helper log missing; re-running the helper with captured output for diagnostics');
+        const { startWindowsUninstallHelper } = require('../packaging/uninstall-windows');
+        const cp = require('node:child_process');
+        const helper = await startWindowsUninstallHelper({
+            pid: marker.pid, mode: 'inno', log, uninstaller: record.uninstaller, tmp: os.tmpdir(), env: process.env,
+            spawnDetached: (command, args) => {
+                console.log('[diag spawn]', command, JSON.stringify(args));
+                const c = cp.spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+                c.stdout.on('data', d => process.stdout.write('[helper stdout] ' + d));
+                c.stderr.on('data', d => process.stdout.write('[helper stderr] ' + d));
+                c.on('exit', (code, sig) => console.log('[helper exit]', code, sig));
+                return c;
+            },
+        });
+        console.log('--- helper script (' + helper + ') ---');
+        console.log(fs.readFileSync(helper, 'utf8'));
+        console.log('--- end helper script ---');
+        await sleep(20000);
+        console.log(fs.existsSync(log) ? 'the diagnostic helper DID write the log' : 'the diagnostic helper also wrote no log');
+        throw new Error('helper log missing: the PowerShell helper never ran');
+    }
     const text = fs.readFileSync(log, 'utf8');
     console.log('--- helper log ---\n' + text + '------------------');
     if (/FAILED to start the uninstaller/.test(text)) throw new Error('the helper failed to start the uninstaller');
