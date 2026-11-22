@@ -10,11 +10,11 @@
 //  - the allowlisted control action set, mirroring the in-browser panel
 //    (start/stop/status/mode/refresh/accuracy/delay; no developer commands, #283)
 //  - the Reflection fill text approval as a window dialog flow
-//  - in-app update and uninstall for the installed app: the update downloads
-//    and verifies the release's OS installer and hands off to it (the app and
-//    CLI upgrade together), and the uninstall reuses the CLI's own
-//    per-item/default-No uninstall machinery with the window's dialog as the
-//    confirmation and the OS's graphical elevation in place of sudo.
+//  - in-app update for the installed app: the update downloads and verifies
+//    the release's OS installer and hands off to it (the app and CLI upgrade
+//    together). The app carries no uninstaller: graphical users uninstall from
+//    the OS or package manager; the terminal CLI keeps `educationperfected
+//    uninstall`.
 'use strict';
 
 const ACTIONS = new Set(['status', 'start', 'stop', 'mode', 'refresh', 'accuracy', 'delay']);
@@ -29,10 +29,7 @@ function createAppSession({
     storageRoot = require('../lib/storage-maintenance').storageRoot,
     detectInstall = require('../lib/install-record').detectInstall,
     resolveCliExecutable = require('../packaging/app-maintenance').resolveCliExecutable,
-    elevatedSpawn = require('../packaging/app-maintenance').elevatedSpawn,
-    buildElevatedSpawn = null, // test override for the elevation wrapper factory
     appUpdate = require('../packaging/app-update'),
-    uninstallCommand = require('../packaging/uninstall').uninstallCommand,
     fs = require('node:fs'),
     path = require('node:path'),
     env = process.env,
@@ -87,7 +84,6 @@ function createAppSession({
     let pendingPlan = null; // the full update plan (URLs); state shows only display fields
     const maintenance = {
         update: { checking: false, applying: false, plan: null, upToDate: false, latest: null, error: null, manual: null, log: [], lastResult: null },
-        uninstalling: false,
     };
 
     const emit = (name, payload) => onEvent(name, payload);
@@ -95,8 +91,8 @@ function createAppSession({
 
     // The api.close below is best-effort by design (it is also the app-quit
     // path). Maintenance closes through this guard instead: a browser that
-    // failed to close aborts the update handoff or uninstall before any file
-    // it still holds is replaced or removed.
+    // failed to close aborts the update handoff before any file it still holds
+    // is replaced.
     async function closeForMaintenance() {
         await api.close();
         if (lastCloseError) {
@@ -116,7 +112,6 @@ function createAppSession({
             maintenance: {
                 install: install ? { method: install.method, inferred: install.inferred } : null,
                 update: { ...maintenance.update, log: [...maintenance.update.log] },
-                uninstalling: maintenance.uninstalling,
             },
         };
     }
@@ -247,7 +242,6 @@ function createAppSession({
             const info = installInfo();
             if (!info) throw new Error('Update from the app needs the app installed by an OS installer; this copy has no recognized install layout.');
             if (!pendingPlan) throw new Error('Check for an update first; nothing has been planned.');
-            if (maintenance.uninstalling) throw new Error('An uninstall is running; wait for it to finish before updating.');
             if (maintenance.update.applying) return { ...getState().maintenance.update, quitRequired: false };
             maintenance.update.applying = true;
             maintenance.update.error = null;
@@ -287,73 +281,6 @@ function createAppSession({
                 maintenance.update.error = String(error && error.message ? error.message : error);
                 emitState();
                 throw error;
-            }
-        },
-
-        // The CLI's unified uninstall, confirmed by the window's dialog instead
-        // of the terminal: same per-item choices (each still default No in the
-        // dialog), same install record and per-method program removal, with the
-        // OS's graphical elevation where the CLI would use sudo. The renderer's
-        // confirm click IS the confirmation, so the terminal prompts are
-        // injected away here.
-        async uninstall(choices) {
-            const info = installInfo();
-            if (!info) throw new Error('Uninstall from the app needs the app installed by an OS installer; this copy has no recognized install layout.');
-            if (maintenance.uninstalling) throw new Error('Uninstall is already running.');
-            if (maintenance.update.applying) throw new Error('An update is being applied; wait for it to finish before uninstalling.');
-            // An empty selection is a cancelled uninstall: run nothing and,
-            // above all, do not close the browser session for it.
-            if (choices && !choices.login && !choices.data && !choices.browsers && !choices.program) {
-                return { cancelled: true, quitRequired: false };
-            }
-            maintenance.uninstalling = true;
-            emitState();
-            try {
-                // The browser session closes first: the program removal replaces
-                // or deletes this app's files, and the data removal refuses
-                // live runtime files. A browser that failed to close aborts.
-                await closeForMaintenance();
-                const result = await uninstallCommand({
-                    store,
-                    ownDirectory: null,
-                    cleanupOwn: async () => {},
-                    home,
-                    executable: info.cliExecutable,
-                    platform,
-                    env,
-                    pid,
-                    tmpDir,
-                    confirm: async () => choices || {},
-                    confirmInno: async () => true,
-                    output: { write: line => emit('maintenance-progress', { kind: 'uninstall', line }) },
-                    spawn: buildElevatedSpawn ? buildElevatedSpawn({ platform }) : elevatedSpawn({ platform }),
-                });
-                // Quit when the program itself was removed or its removal was
-                // handed off - never because a removal was merely requested
-                // (no safe plan), and never suppressed by unrelated retained
-                // data (incomplete).
-                const quitRequired = !result.cancelled && (Boolean(result.helperStarted) || Boolean(result.programPending) || Boolean(result.programRemoved));
-                if (!quitRequired) {
-                    // Keep the setup pane truthful about what was just removed.
-                    // No probe that recreates the storage root: the credential
-                    // store answers for the login, and a retained removal
-                    // (incomplete) keeps its flag.
-                    if (!result.cancelled && choices) {
-                        if (choices.login) { try { setup = { ...setup, hasLogin: Boolean(await store.read()) }; } catch { /* flag kept */ } }
-                        if (choices.browsers && !result.incomplete) setup = { ...setup, browserReady: false };
-                        if (choices.data && !result.incomplete) setup = { ...setup, wizardDone: false };
-                    }
-                    if (sessionState === 'closed' && !(choices && choices.browsers)) {
-                        // The app stays open unchanged; reopen the browser. A
-                        // browser the user just chose to remove is never
-                        // re-downloaded here: that choice skips the restart.
-                        try { await api.startSession(); } catch { /* the main screen offers Start */ }
-                    }
-                }
-                return { ...result, quitRequired };
-            } finally {
-                maintenance.uninstalling = false;
-                emitState();
             }
         },
 
@@ -467,8 +394,8 @@ function createAppSession({
             // closeRequested and shuts the fresh browser instead of going ready.
             // A launch parked on the manual-sign-in wait never settles on its
             // own: cut its browser connection so the wait rejects instead of
-            // hanging the close (an uninstall or update would never start, with
-            // the maintenance buttons stuck disabled and no error shown).
+            // hanging the close (an update would never start, with the
+            // maintenance button stuck disabled and no error shown).
             if (launching) {
                 try { if (embeddedConnection) await embeddedConnection.disconnect(); } catch { /* the connection is already gone */ }
                 try { await launching; } catch { /* startup failure state already recorded */ }

@@ -16,7 +16,6 @@ const CHANNELS = {
     reflectionRespond: 'ep:reflection-respond',
     checkUpdate: 'ep:check-update',
     applyUpdate: 'ep:apply-update',
-    uninstall: 'ep:uninstall',
 };
 const EVENTS = {
     state: 'ep:state',
@@ -39,7 +38,6 @@ contextBridge.exposeInMainWorld('educationPerfected', {
     respondReflection: (id, text) => invoke(CHANNELS.reflectionRespond, id, text),
     checkUpdate: () => invoke(CHANNELS.checkUpdate),
     applyUpdate: () => invoke(CHANNELS.applyUpdate),
-    uninstall: choices => invoke(CHANNELS.uninstall, choices),
     onState: listen(EVENTS.state),
     onReflectionRequest: listen(EVENTS.reflectionRequest),
     onReflectionSettled: listen(EVENTS.reflectionSettled),

@@ -19,7 +19,6 @@ const IPC = {
     reflectionRespond: 'ep:reflection-respond',
     checkUpdate: 'ep:check-update',
     applyUpdate: 'ep:apply-update',
-    uninstall: 'ep:uninstall',
 };
 
 // The embedded browser view's persistent partition: the EP login survives app
@@ -157,16 +156,11 @@ function createElectronApp({ electron, session }) {
         ipcMain.handle(IPC.action, (event, name, value) => session.action(name, value));
         ipcMain.handle(IPC.reflectionRespond, (event, id, text) => session.respondReflection(id, text));
         ipcMain.handle(IPC.checkUpdate, () => session.checkUpdate());
-        // Update and uninstall handoffs replace or remove the running app's own
-        // files, so when the session says the handoff needs it the app closes
-        // right after the IPC reply lands.
+        // The update handoff replaces the running app's own files, so when the
+        // session says the handoff needs it the app closes right after the IPC
+        // reply lands.
         ipcMain.handle(IPC.applyUpdate, async () => {
             const result = await session.applyUpdate();
-            if (result && result.quitRequired) quitAfterReply();
-            return result;
-        });
-        ipcMain.handle(IPC.uninstall, async (event, choices) => {
-            const result = await session.uninstall(choices);
             if (result && result.quitRequired) quitAfterReply();
             return result;
         });
@@ -224,7 +218,7 @@ function createElectronApp({ electron, session }) {
                 const checked = [];
                 for (const session of ['idle', 'failed', 'ready']) {
                     render({ ...original, setup: { browserReady: false, hasLogin: false, wizardDone: true }, session, sessionError: 'Offline fixture' });
-                    for (const id of ['check-update', 'open-uninstall']) {
+                    for (const id of ['check-update']) {
                         const button = document.getElementById(id);
                         if (!button || !button.getClientRects().length || button.closest('[hidden]')) throw new Error(id + ' hidden in ' + session);
                     }

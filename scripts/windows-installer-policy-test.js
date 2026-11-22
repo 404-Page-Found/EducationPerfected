@@ -34,7 +34,7 @@ assert.ok(!iss.includes('RegWriteStringValue'),'PATH writes must preserve REG_EX
 assert.ok(iss.includes('RegWriteExpandStringValue'),'PATH writes use RegWriteExpandStringValue');
 const icons = iss.split('[Icons]')[1].split('[')[0];
 assert.ok(icons.includes('Name: "{group}\\EducationPerfected"; Filename: "{app}\\app\\EducationPerfected.exe"'), 'the single launcher opens the desktop app');
-assert.ok(!icons.includes('Uninstall EducationPerfected'), 'no Start-menu Uninstall shortcut: uninstall lives in Settings > Apps and the app');
+assert.ok(!icons.includes('Uninstall EducationPerfected'), 'no Start-menu Uninstall shortcut: uninstall lives in Settings > Apps and the terminal CLI');
 assert.ok(!iss.split('WriteInstallRecord')[1].includes('Uninstall EducationPerfected'), 'the install record lists only the shortcuts the installer still creates');
 assert.equal((icons.match(/Filename: "\{app\}/g)||[]).length, 1, 'only one program launcher, no duplicate CLI launcher');
 const installDelete = iss.split('[InstallDelete]')[1].split(/^\[/m)[0];

@@ -27,7 +27,6 @@ function fakeSession() {
         respondReflection: record('respondReflection'),
         checkUpdate: record('checkUpdate'),
         applyUpdate: record('applyUpdate'),
-        uninstall: record('uninstall'),
         close: record('close'),
         setOnEvent(fn) { this.onEvent = fn; },
     };
@@ -81,7 +80,6 @@ async function main() {
         [IPC.reflectionRespond, 'respondReflection', [7, 'text']],
         [IPC.checkUpdate, 'checkUpdate', []],
         [IPC.applyUpdate, 'applyUpdate', []],
-        [IPC.uninstall, 'uninstall', [{ login: true, data: false, browsers: false, program: true }]],
     ];
     const byName = (a, b) => String(a).localeCompare(String(b));
     assert.deepEqual([...handlers.keys()].sort(byName), expected.map(([channel]) => channel).sort(byName));
@@ -155,7 +153,7 @@ async function main() {
     assert.deepEqual(Object.keys(api).sort(byName), [
         'action', 'applyUpdate', 'checkUpdate', 'completeWizard', 'forgetLogin', 'getState',
         'onMaintenanceProgress', 'onReflectionRequest', 'onReflectionSettled', 'onState',
-        'refreshSetup', 'respondReflection', 'saveLogin', 'startSession', 'uninstall',
+        'refreshSetup', 'respondReflection', 'saveLogin', 'startSession',
     ].sort(byName));
     await api.action('start', undefined);
     await api.saveLogin('a@b.c', 'pw');
