@@ -76,7 +76,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
    let output='';
    const result=await uninstallCommand({
     home,ownDirectory:runtime.directory,cleanupOwn:async()=>{runtime.remove(true);},
-    executable:exe,platform,env:{},tmpDir:tmp,pid:43210,
+    waitForHelperReady:async()=>{},executable:exe,platform,env:{},tmpDir:tmp,pid:43210,
     confirm:async()=>({login:false,data:true,browsers:false,...choices}),
     confirmInno:async()=>choices.inno===true,
     output:{write:text=>{output+=text;}},
@@ -87,6 +87,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
    return {result,output,spawns,detached,exe,recordFile,home,tmp,runtime};
   }catch(error){fs.rmSync(home,{recursive:true,force:true});fs.rmSync(tmp,{recursive:true,force:true});throw error;}
  };
+ const scriptFor=tmp=>path.join(tmp,fs.readdirSync(tmp).find(name=>name.endsWith('.ps1')));
  const cleanup=scenario=>{fs.rmSync(scenario.home,{recursive:true,force:true});fs.rmSync(scenario.tmp,{recursive:true,force:true});};
  // install.sh on macOS/Linux: record-listed files deleted directly.
  {
@@ -150,7 +151,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
  {
   const s=await runProgramScenario({method:'install-ps1',record:{pathEntries:['C:\\\\Programs\\\\EducationPerfected']},platform:'win32',choices:{program:true},execName:'educationperfected.exe'});
   assert.equal(s.detached.length,1);assert.equal(s.detached[0][0],'powershell.exe');
-  const helperPath=s.detached[0][1][s.detached[0][1].length-1];
+  const helperPath=scriptFor(s.tmp);
   const helper=fs.readFileSync(helperPath,'utf8');
   assert.ok(helper.includes('Wait-Process -Id 43210'),'helper waits for the CLI pid');
   assert.ok(helper.includes(s.exe),'helper deletes the executable');
@@ -166,7 +167,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
  {
   const s=await runProgramScenario({method:'install-ps1',record:{pathEntries:'C:\\Programs\\EducationPerfected'},platform:'win32',choices:{program:true},execName:'educationperfected.exe'});
   assert.equal(s.detached.length,1);
-  const helper=fs.readFileSync(s.detached[0][1][s.detached[0][1].length-1],'utf8');
+  const helper=fs.readFileSync(scriptFor(s.tmp),'utf8');
   assert.ok(helper.includes('c:\\programs\\educationperfected'),'bare-string PATH entry is removed by the helper');
   assert.equal(s.result.programPending,true);
   cleanup(s);
@@ -174,7 +175,8 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
  // Windows npm: helper runs npm uninstall after exit.
  {
   const s=await runProgramScenario({method:'npm',record:{},platform:'win32',choices:{program:true},execName:'educationperfected.exe'});
-  const helper=fs.readFileSync(s.detached[0][1][s.detached[0][1].length-1],'utf8');
+  assert.equal(s.detached.length,1,'npm removal launches exactly one helper');
+  const helper=fs.readFileSync(scriptFor(s.tmp),'utf8');
   assert.ok(helper.includes('npm.cmd'),'helper locates npm');assert.ok(helper.includes('uninstall -g educationperfected'));
   assert.equal(s.result.programPending,true);
   cleanup(s);
@@ -191,8 +193,12 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
  {
   const s=await runProgramScenario({method:'setup-exe',record:{uninstallerFixture:true},platform:'win32',choices:{inno:true},execName:'educationperfected.exe'});
   assert.equal(s.detached.length,1);
-  const helper=fs.readFileSync(s.detached[0][1][s.detached[0][1].length-1],'utf8');
+  const helper=fs.readFileSync(scriptFor(s.tmp),'utf8');
   assert.ok(helper.includes('unins000.exe'),'helper starts the Inno uninstaller');
+  assert.ok(helper.includes('waiting for cli pid'), 'helper logs its parent wait');
+  assert.ok(helper.includes('FAILED: CLI is still running; nothing removed'), 'timeout never races a running program');
+  assert.ok(helper.includes('/LOG='), 'Inno receives its own diagnostic log');
+  assert.ok(helper.includes('-WorkingDirectory'), 'uninstaller does not inherit the installation directory');
   assert.ok(s.output.includes('The uninstaller starts after this program exits'));
   assert.equal(fs.existsSync(s.runtime.directory),true,'data steps untouched; the Inno uninstaller asks about them itself');
   assert.equal(s.result.helperStarted,true);
@@ -204,7 +210,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
  {
   const s=await runProgramScenario({method:'setup-exe',record:{uninstaller:'C:\\\\Edu\\uFFFDtionPerfected\\\\unins000.exe',uninstallerFallbackFixture:true},platform:'win32',choices:{inno:true},execName:'educationperfected.exe'});
   assert.equal(s.detached.length,1);
-  const helper=fs.readFileSync(s.detached[0][1][s.detached[0][1].length-1],'utf8');
+  const helper=fs.readFileSync(scriptFor(s.tmp),'utf8');
   assert.ok(helper.includes(path.join(s.home,'unins000.exe')),'helper starts the uninstaller next to the executable, not the mangled record path');
   assert.equal(s.result.helperStarted,true);
   cleanup(s);
@@ -262,12 +268,34 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
    fs.writeFileSync(path.join(home,'educationperfected-install.json'),JSON.stringify({version:1,method:'install-ps1',files:[exe]}));
    const child=new EventEmitter();const spawned=[];
    setTimeout(()=>child.emit('spawn'),20);
-   const result=await uninstallCommand({home,ownDirectory:runtime.directory,cleanupOwn:async()=>{runtime.remove(true);},executable:exe,platform:'win32',env:{},tmpDir:tmp,pid:1,confirm:async()=>({login:false,data:false,browsers:false,program:true}),output:{write:()=>{}},store:{async remove(){}},spawnDetached:(...args)=>{spawned.push(args);return child;}});
+   let settled=false;
+   const pending=uninstallCommand({home,ownDirectory:runtime.directory,cleanupOwn:async()=>{runtime.remove(true);},executable:exe,platform:'win32',env:{},tmpDir:tmp,pid:1,confirm:async()=>({login:false,data:false,browsers:false,program:true}),output:{write:()=>{}},store:{async remove(){}},spawnDetached:(...args)=>{spawned.push(args);return child;}});
+   pending.then(()=>{settled=true;},()=>{settled=true;});
+   await new Promise(resolve=>setTimeout(resolve,40));
+   assert.equal(settled,false,'spawn acknowledgement alone must not finish uninstallCommand');
+   const helperPath=scriptFor(tmp);
+   const text=fs.readFileSync(helperPath,'utf8');
+   assert.ok(text.startsWith('\uFEFFSet-Content -LiteralPath '),'actual helper writes readiness before doing any work');
+   fs.writeFileSync(helperPath+'.ready','ready');
+   const result=await pending;
+   assert.equal(fs.existsSync(helperPath+'.ready'),false,'uninstallCommand consumed the real ready file');
    assert.equal(result.programPending,true);
-   const ps1=spawned[0][1].find(a=>a.endsWith('.ps1'));
+   const ps1=scriptFor(tmp);
    const bytes=fs.readFileSync(ps1);
    assert.deepEqual([...bytes.subarray(0,3)],[0xEF,0xBB,0xBF],'helper script starts with a UTF-8 BOM');
   }finally{fs.rmSync(home,{recursive:true,force:true});fs.rmSync(tmp,{recursive:true,force:true});}
+ }
+ // Readiness must come from the actual independent helper, never spawn alone.
+ {
+  const {waitForHelperReady}=require('../packaging/uninstall-windows');
+  const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'ep-helper-ready-'));
+  try{
+   const ready=path.join(tmp,'helper.ready');
+   await assert.rejects(waitForHelperReady(ready,1),/did not become ready/);
+   fs.writeFileSync(ready,'ready');
+   await waitForHelperReady(ready,1);
+   assert.equal(fs.existsSync(ready),false,'readiness acknowledgement is consumed');
+  }finally{fs.rmSync(tmp,{recursive:true,force:true});}
  }
  // resolvePowerShell prefers the stable absolute SystemRoot path when it exists.
  {

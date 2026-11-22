@@ -27,7 +27,13 @@ function windowsUninstallHelperScript({ pid, mode, log, files = [], pathEntries 
         '$log = ' + psLiteral(log),
         'function Log($m) { Add-Content -LiteralPath $log -Value $m }',
         'Log "uninstall helper started (mode ' + mode + ', cli pid ' + pid + ')"',
-        'try { Wait-Process -Id ' + pid + ' -Timeout 600 -ErrorAction Stop } catch { Log "cli wait ended: $($_.Exception.Message)" }',
+        'Log "waiting for cli pid ' + pid + ' to exit (up to 600 seconds)"',
+        'if (Get-Process -Id ' + pid + ' -ErrorAction SilentlyContinue) {',
+        '  try { Wait-Process -Id ' + pid + ' -Timeout 600 -ErrorAction Stop } catch {',
+        '    if (Get-Process -Id ' + pid + ' -ErrorAction SilentlyContinue) { Log "FAILED: CLI is still running; nothing removed"; Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue; exit 1 }',
+        '  }',
+        '}',
+        'Log "CLI exited; starting removal"',
         'Start-Sleep -Seconds 2',
     ];
     if (mode === 'files') {
@@ -63,7 +69,9 @@ function windowsUninstallHelperScript({ pid, mode, log, files = [], pathEntries 
     } else {
         if (!uninstaller) throw new Error('The inno uninstall helper needs the uninstaller path');
         lines.push(
-            'try { $p = Start-Process -FilePath ' + psLiteral(uninstaller) + ' -Wait -PassThru -ErrorAction Stop; Log "uninstaller exit code: $($p.ExitCode)" } catch { Log "FAILED to start the uninstaller: $($_.Exception.Message)" }',
+            '$innoLog = $log + ".inno.log"',
+            'Log "starting Inno uninstaller; native log: $innoLog"',
+            `try { $p = Start-Process -FilePath ${psLiteral(uninstaller)} -ArgumentList ('/LOG="' + $innoLog + '"') -WorkingDirectory ${psLiteral(path.dirname(log))} -Wait -PassThru -ErrorAction Stop; Log "uninstaller exit code: $($p.ExitCode)" } catch { Log "FAILED to start the uninstaller: $($_.Exception.Message)" }`,
         );
     }
     lines.push(
@@ -106,14 +114,35 @@ function awaitHelperSpawn(child, log) {
     });
 }
 
-async function startWindowsUninstallHelper({ pid, mode, log, files, pathEntries, shortcuts, uninstaller, tmp, env = process.env, spawnDetached }) {
+async function waitForHelperReady(ready, timeoutMs = 10000) {
+    const deadline = Date.now() + timeoutMs;
+    while (!fs.existsSync(ready)) {
+        if (Date.now() >= deadline) throw new Error('The uninstall helper did not become ready in time. It may still start removal after this program exits.');
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    fs.unlinkSync(ready);
+}
+
+async function startWindowsUninstallHelper({ pid, mode, log, files, pathEntries, shortcuts, uninstaller, tmp, env = process.env, spawnDetached, waitReady = waitForHelperReady }) {
     const helper = path.join(tmp, 'educationperfected-uninstall-' + pid + '-' + Date.now().toString(36) + '.ps1');
     // The BOM matters: Windows PowerShell 5.1 reads a BOM-less .ps1 as ANSI,
     // which mangles non-ASCII characters in install paths.
-    fs.writeFileSync(helper, '\uFEFF' + windowsUninstallHelperScript({ pid, mode, log, files, pathEntries, shortcuts, uninstaller }), { mode: 0o700 });
-    const child = spawnDetached(resolvePowerShell(env), ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', helper]);
+    const ready = helper + '.ready';
+    const script = windowsUninstallHelperScript({ pid, mode, log, files, pathEntries, shortcuts, uninstaller });
+    // The acknowledgement is written by the actual independent helper, not
+    // the short-lived launcher. Keep the CLI/console alive until it arrives.
+    fs.writeFileSync(helper, '\uFEFF' + 'Set-Content -LiteralPath ' + psLiteral(ready) + " -Value 'ready' -ErrorAction Stop\r\n" + script, { mode: 0o700 });
+    const powershell = resolvePowerShell(env);
+    // Start-Process creates the independent hidden window that a plain Node
+    // child lacks. Do not use Node's detached console flag, which fails to run
+    // PowerShell on the native lane. EncodedCommand avoids shell/path parsing.
+    const argumentsText = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + helper + '"';
+    const launch = 'Start-Process -FilePath ' + psLiteral(powershell) + ' -ArgumentList ' + psLiteral(argumentsText) + ' -WindowStyle Hidden -WorkingDirectory ' + psLiteral(tmp) + ' -ErrorAction Stop';
+    const encoded = Buffer.from(launch, 'utf16le').toString('base64');
+    const child = spawnDetached(powershell, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded]);
     await awaitHelperSpawn(child, log);
+    await waitReady(ready);
     return helper;
 }
 
-module.exports = { windowsUninstallHelperScript, startWindowsUninstallHelper, resolvePowerShell, awaitHelperSpawn, psLiteral };
+module.exports = { windowsUninstallHelperScript, startWindowsUninstallHelper, resolvePowerShell, awaitHelperSpawn, waitForHelperReady, psLiteral };

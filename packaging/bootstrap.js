@@ -90,7 +90,12 @@ async function main() {
                 runtime.remove(true);
             }});
             if(result.incomplete)process.exitCode ||= 1;
-            return;
+            // The helper now owns removal and is waiting for this exact PID.
+            // A real-console stdin handle must not leave it waiting forever.
+            // The finally below still runs before the exit is requested.
+            return { exitAfterHandoff: require('./maintenance-exit').shouldExitAfterWindowsUninstall(result, {
+                hasLiveWorkers: windowsBinding?.hasLiveWorkers() || false,
+            }) };
         }
         if (['setup','forget-credentials','check-credentials'].includes(parsed.command)) {
             handoffSignals();
@@ -126,4 +131,4 @@ async function main() {
         browserCleanupConfirmed = true;
     } finally { cleanup(); handoffSignals(); process.removeListener('exit', cleanup); }
 }
-main().catch(error => { console.error(error?.code === 'EP_BROWSER_CHECKSUM' ? 'EducationPerfected could not start. Browser payload integrity check failed (EP_BROWSER_CHECKSUM).' : 'EducationPerfected could not start. ' + require('../lib/diagnostics').diagnostic(error, 'Startup')); process.exitCode ||= 1; });
+main().then(result => require('./maintenance-exit').exitAfterMaintenanceHandoff(result)).catch(error => { console.error(error?.code === 'EP_BROWSER_CHECKSUM' ? 'EducationPerfected could not start. Browser payload integrity check failed (EP_BROWSER_CHECKSUM).' : 'EducationPerfected could not start. ' + require('../lib/diagnostics').diagnostic(error, 'Startup')); process.exitCode ||= 1; });

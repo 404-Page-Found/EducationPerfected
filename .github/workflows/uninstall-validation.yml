@@ -10,24 +10,36 @@ on:
   pull_request:
     paths:
       - 'packaging/uninstall.js'
+      - 'packaging/bootstrap.js'
+      - 'packaging/maintenance-exit.js'
+      - 'scripts/maintenance-exit-test.js'
       - 'packaging/uninstall-windows.js'
       - 'packaging/update.js'
       - 'packaging/windows-helper-spawn.js'
       - 'lib/install-record.js'
       - 'installer/windows-setup.iss'
       - 'scripts/windows-uninstall-handoff-proof.js'
+      - 'scripts/windows-uninstall-*.py'
+      - 'scripts/windows-conpty.py'
+      - 'scripts/windows-helper-spawn-test.js'
       - 'scripts/uninstall-workflow-policy-test.js'
       - '.github/workflows/uninstall-validation.yml'
   push:
     branches: [main]
     paths:
       - 'packaging/uninstall.js'
+      - 'packaging/bootstrap.js'
+      - 'packaging/maintenance-exit.js'
+      - 'scripts/maintenance-exit-test.js'
       - 'packaging/uninstall-windows.js'
       - 'packaging/update.js'
       - 'packaging/windows-helper-spawn.js'
       - 'lib/install-record.js'
       - 'installer/windows-setup.iss'
       - 'scripts/windows-uninstall-handoff-proof.js'
+      - 'scripts/windows-uninstall-*.py'
+      - 'scripts/windows-conpty.py'
+      - 'scripts/windows-helper-spawn-test.js'
       - 'scripts/uninstall-workflow-policy-test.js'
       - '.github/workflows/uninstall-validation.yml'
 permissions:
@@ -44,6 +56,15 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.23.4
+      - name: Prove a successful handoff exits despite a referenced timer
+        shell: pwsh
+        run: node scripts/maintenance-exit-test.js
+      - name: Prove accepting the real interactive prompt exits
+        shell: pwsh
+        run: python scripts/windows-uninstall-prompt-proof.py
+      - name: Prove the helper survives closing its parent console
+        shell: pwsh
+        run: python scripts/windows-uninstall-console-lifetime-proof.py
       - name: Compile the installer with a stub payload
         shell: pwsh
         run: |
@@ -76,6 +97,9 @@ jobs:
           $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
           if (-not ($userPath -and ($userPath.ToLower() -like ('*' + $dir.ToLower() + '*')))) { throw 'PATH task selected but the install dir is not on the user PATH' }
           "INSTALLED_DIR=$dir" >> $env:GITHUB_ENV
+      - name: Prove accepting the real handoff exits the actual CLI process
+        shell: pwsh
+        run: python scripts/windows-uninstall-prompt-proof.py
       - name: Run the production uninstall handoff and verify the helper starts the uninstaller
         shell: pwsh
         run: |

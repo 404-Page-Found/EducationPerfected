@@ -4,7 +4,8 @@ const wf = fs.readFileSync(path.join(__dirname, '../.github/workflows/uninstall-
 for (const required of [
     'windows-2025', 'contents: read', 'workflow_dispatch:', 'pull_request:',
     'Inno Setup 6\\ISCC.exe', '/VERYSILENT', '/TASKS="addtopath"',
-    'windows-uninstall-handoff-proof.js', 'educationperfected-uninstall.log',
+    'windows-uninstall-handoff-proof.js', 'windows-uninstall-console-lifetime-proof.py',
+    'windows-uninstall-prompt-proof.py', 'educationperfected-uninstall.log',
     // The non-ASCII install directory is deliberate: it exercises the install
     // record round-trip and the helper script encoding the BOM guards.
     'EducätionPerfected Proof',

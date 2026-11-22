@@ -9,6 +9,8 @@
 // the hidden window keeps the helper off the user's screen.
 'use strict';
 function spawnBackgroundHelper(command, args) {
-    return require('node:child_process').spawn(command, args, { stdio: 'ignore', windowsHide: true }).unref();
+    const child = require('node:child_process').spawn(command, args, { stdio: 'ignore', windowsHide: true });
+    child.unref();
+    return child;
 }
 module.exports = { spawnBackgroundHelper };
