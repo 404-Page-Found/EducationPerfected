@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Landing page downloads, round two (#325): the Windows card drops the redundant "Single installer" note, every installer variant now gets its own container (one for Windows, two for macOS, four for Linux `.deb`/`.rpm`) with install and uninstall help moved to per-OS hyperlinks, and the hero button downloads the installer matching the visitor's OS and architecture ("Download for ...") when the browser can detect it, falling back to scrolling to the download section otherwise. Detection runs in a first-party script (the page CSP now allows `script-src 'self'`); the Linux links stay pinned to the current release tag.
+
 - The landing page favicon is cropped to the icon shape (SVG plus 48px PNG and a touch icon) so it fills the browser tab instead of rendering small inside the logo's transparent margin.
 
 - The landing page download buttons now fetch the installer file directly instead of opening the release page: Windows setup and the two macOS packages use stable `releases/latest/download/` names so they always follow the newest release, and the Linux `.deb`/`.rpm` links (versioned filenames) are pinned to the current release tag and need updating with each release.

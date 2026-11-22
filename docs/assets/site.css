@@ -442,12 +442,48 @@ h2 {
   color: #5d718d !important;
   margin-bottom: 20px !important;
 }
-.platform > p {
-  font-size: 12px;
-  line-height: 1.9;
-  color: var(--muted);
-  min-height: 70px;
+.installers {
+  display: grid;
+  gap: 12px;
   margin-bottom: 20px;
+}
+.installers.two-col {
+  grid-template-columns: 1fr 1fr;
+}
+.installer {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  background: #fbfdff;
+}
+.installer-name {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+.installer-file {
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 0 0 14px;
+}
+.installer .platform-button {
+  margin-top: auto;
+}
+.platform-links {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 650;
+  margin: auto 0 0;
+  padding-top: 8px;
+}
+.platform-links a {
+  text-decoration: none;
 }
 code {
   font-size: 0.88em;
@@ -463,30 +499,6 @@ code {
 }
 .platform-button:hover {
   background: #e1ecff;
-}
-.platform-detail {
-  padding-top: 25px;
-  margin-top: 25px;
-  border-top: 1px solid #e7edf5;
-}
-.platform h4 {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 7px;
-}
-.platform-detail p {
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.9;
-  margin-bottom: 20px;
-}
-.guide-link {
-  font-size: 12px;
-  font-weight: 650;
-  margin-top: auto;
-  text-decoration: none;
-  padding-top: 8px;
 }
 .download-footnote {
   font-size: 12px;
@@ -742,21 +754,9 @@ code {
   .platform {
     padding: 28px;
   }
-  .platform > p {
-    min-height: 0;
-  }
   .platform-button {
     font-size: 13px;
     padding: 12px 18px;
-  }
-  .platform-detail {
-    margin-top: 22px;
-  }
-  .platform-detail p {
-    font-size: 13px;
-  }
-  .platform h4 {
-    font-size: 11px;
   }
   .platform .architecture {
     margin-bottom: 12px !important;
@@ -815,6 +815,3 @@ code {
     transition: none !important;
   }
 }
-
-.platform > p.alt-builds{min-height:0;margin:0 0 18px;font-size:12px;line-height:1.6}
-.alt-builds a{overflow-wrap:anywhere}

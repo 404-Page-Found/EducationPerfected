@@ -12,7 +12,11 @@ assert.match(html, /name="viewport"/);
 assert.equal((html.match(/<h1\b/g) || []).length, 1);
 assert.match(html, /Content-Security-Policy/);
 assert.match(html, /default-src 'none'/);
-assert.doesNotMatch(html, /<(?:script|iframe|form|object|embed)\b/i);
+assert.match(html, /script-src 'self'/, "only first-party scripts are allowed");
+assert.doesNotMatch(html, /<(?:iframe|form|object|embed)\b/i);
+// The hero download detector is the only script, loaded from a local file.
+assert.match(html, /<script src="assets\/download\.js" defer><\/script>/);
+assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)[^>]*>/i);
 const inlineHandler = /\son\w+\s*=/i;
 assert.match(' onload = "bad()"', inlineHandler);
 assert.match(' onerror="bad()"', inlineHandler);
@@ -64,13 +68,19 @@ assert.match(html, /rel="icon" href="assets\/favicon-48\.png"/);
 assert.match(html, /rel="apple-touch-icon" href="assets\/apple-touch-icon\.png"/);
 const platforms = html.match(/<article class="platform">[\s\S]*?<\/article>/g);
 assert.equal(platforms.length, 3);
+// Every installer variant gets its own container; install/uninstall help
+// stays as hyperlinks, and there is no "Single installer" note to drop.
+const installerCounts = [1, 2, 4];
 for (const [i, os] of ["Windows", "macOS", "Linux"].entries()) {
   assert.match(platforms[i], new RegExp(`<h3>${os}</h3>`));
-  assert.match(platforms[i], /releases\/(?:latest\/download|download\/v[\d.]+)\/educationperfected[^"]*\.(?:exe|pkg|deb)"/, "direct installer download");
-  assert.match(platforms[i], /<h4>Install<\/h4>/);
-  assert.match(platforms[i], /<h4>Uninstall<\/h4>/);
-  assert.match(platforms[i], /#installation/);
+  assert.match(platforms[i], /releases\/(?:latest\/download|download\/v[\d.]+)\/educationperfected[^"]*\.(?:exe|pkg|deb|rpm)"/, "direct installer download");
+  const boxes = platforms[i].match(/<div class="installer">/g) || [];
+  assert.equal(boxes.length, installerCounts[i], `${os} has ${installerCounts[i]} installer container(s)`);
+  assert.match(platforms[i], /#installation/, "install guide hyperlink");
+  assert.match(platforms[i], /#uninstall/, "uninstall guide hyperlink");
 }
+assert.doesNotMatch(html, /Single installer for 64-bit Windows/);
+assert.match(html, /id="hero-download" href="#download"/, "hero button falls back to the download section");
 const stable = /releases\/latest\/download\/(educationperfected-(?:windows-x64-setup\.exe|macos-(?:arm64|x64)\.pkg))"/g;
 assert.deepEqual([...html.matchAll(stable)].map((m) => m[1]).sort((a, b) => a.localeCompare(b)), ["educationperfected-macos-arm64.pkg", "educationperfected-macos-x64.pkg", "educationperfected-windows-x64-setup.exe"], "stable-name direct links for Windows and macOS");
 const pinned = [...html.matchAll(/releases\/download\/(v[\d.]+)\/(educationperfected[^"]+)"/g)];
@@ -79,6 +89,17 @@ for (const [, tag, file] of pinned) {
   assert.ok(file.includes(tag.slice(1)), `Linux file matches its tag: ${file}`);
 }
 assert.equal(new Set(pinned.map((m) => m[1])).size, 1, "Linux links share one release tag");
+// The hero download detector mirrors the page links and pins the same tag.
+const heroScript = fs.readFileSync(path.join(root, "docs/assets/download.js"), "utf8");
+assert.match(heroScript, /getElementById\("hero-download"\)/);
+for (const file of [
+  "educationperfected-windows-x64-setup.exe",
+  "educationperfected-macos-arm64.pkg",
+  "educationperfected-macos-x64.pkg",
+]) {
+  assert.ok(heroScript.includes(`/latest/download/${file}`), `hero script offers ${file}`);
+}
+assert.ok(heroScript.includes(`"${pinned[0][1]}"`), "hero script pins the same Linux release tag");
 assert.match(html, /not affiliated with Education Perfect/);
 assert.match(html, /docs\/disclaimer.md/);
 assert.match(html, /Dash has no end-to-end live verification/);
