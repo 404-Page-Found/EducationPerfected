@@ -736,8 +736,12 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     // manually, and no challenge is ever solved or bypassed here.)
                     console.log('Filling in login details...');
                     try {
-                        await page.type(DIR.username_css, DIR.email);
-                        await page.type(DIR.password_css, DIR.password);
+                        // Verified typing: the desktop app's embedded webview
+                        // guest silently drops synthetic keystrokes, so each
+                        // field is read back and refilled through the DOM when
+                        // the value did not land (lib/verified-typing.js).
+                        await require('./lib/verified-typing').typeVerified(page, DIR.username_css, DIR.email);
+                        await require('./lib/verified-typing').typeVerified(page, DIR.password_css, DIR.password);
                     } catch (e) {
                         // The form went away between the guard read above and the typing:
                         // a manual login navigated the page (Puppeteer reports this as a
