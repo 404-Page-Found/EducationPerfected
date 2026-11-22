@@ -12,6 +12,13 @@ for(const required of [
  'MB_DEFBUTTON2','forget-credentials','DelTree','{%USERPROFILE}\\.educationperfected',
  'WriteInstallRecord','JsonEscape','educationperfected-install.json','"method":"setup-exe"','"uninstaller"','SaveStringToFile',
 ])assert.ok(iss.includes(required),required);
+// SaveStringToFile writes ANSI while the CLI reads the record as UTF-8, so the
+// record writer escapes every non-ASCII character as a JSON \uXXXX sequence:
+// a non-ASCII Windows username puts one in the default install location, and
+// an unescaped byte came back mangled, pointing the uninstall handoff at a
+// nonexistent uninstaller (the app quit, nothing started).
+assert.ok(iss.includes(String.raw`\u' + Lowercase(IntToHex(Ord(S[I]), 4))`),'JsonEscape emits \\uXXXX for non-ASCII');
+assert.ok(iss.includes('else if Ord(S[I]) < 128'),'JsonEscape passes ASCII through only');
 // The desktop browser is part of AppPayload, copied by [Files] before the
 // finish page. A leftover [Run] hook starts an unrelated CLI download in a
 // console after setup finishes, even though the app already has its browser.

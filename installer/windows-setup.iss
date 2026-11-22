@@ -124,12 +124,20 @@ function JsonEscape(S: string): string;
 var
   I: Integer;
 begin
+  { The record is written ANSI (SaveStringToFile has no UTF-8 mode) but read
+    back as UTF-8 by the CLI, so anything above ASCII must travel as a JSON
+    unicode escape: pure-ASCII bytes survive every codepage, and a stray byte
+    can never mangle an install path (a non-ASCII Windows username puts one
+    in the default install location). Surrogate pairs escape per unit, which
+    is exactly how JSON spells astral characters. }
   Result := '';
   for I := 1 to Length(S) do
     if S[I] = '\' then
       Result := Result + '\\'
+    else if Ord(S[I]) < 128 then
+      Result := Result + S[I]
     else
-      Result := Result + S[I];
+      Result := Result + '\u' + Lowercase(IntToHex(Ord(S[I]), 4));
 end;
 
 { Install record: the CLI uninstall reads this to learn the install method and

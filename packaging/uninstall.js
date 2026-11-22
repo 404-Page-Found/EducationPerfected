@@ -78,8 +78,20 @@ function removalPlan(install,{platform,executable}){
  const recordFile=fs.existsSync(recordPathFor(executable))?recordPathFor(executable):null;
  const ownedFiles=[...new Set([...install.files,...(recordFile?[recordFile]:[])])];
  switch(install.method){
-  case 'setup-exe':
-   return platform==='win32'&&install.uninstaller?{kind:'inno',uninstaller:install.uninstaller}:null;
+  case 'setup-exe':{
+   if(platform!=='win32')return null;
+   // Records written before the installer escaped non-ASCII characters came
+   // back mangled (ANSI write, UTF-8 read), pointing the handoff at a path
+   // that does not exist: the app quit and the uninstaller never started.
+   // Inno always places unins000.exe next to the executable, so fall back to
+   // it and old installs still uninstall.
+   let uninstaller=install.uninstaller&&fs.existsSync(install.uninstaller)?install.uninstaller:null;
+   if(!uninstaller){
+    const fallback=path.join(path.dirname(executable),'unins000.exe');
+    uninstaller=fs.existsSync(fallback)?fallback:null;
+   }
+   return uninstaller?{kind:'inno',uninstaller}:null;
+  }
   case 'raw-exe':
   case 'install-ps1':
    return platform==='win32'

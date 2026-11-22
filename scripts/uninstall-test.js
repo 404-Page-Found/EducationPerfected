@@ -67,6 +67,8 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
    fs.writeFileSync(exe,'inert-program');
    let recordFile=null;
    if(record){
+    if(record.uninstallerFixture){fs.writeFileSync(path.join(home,'unins000.exe'),'inert-uninstaller');record={...record,uninstaller:path.join(home,'unins000.exe')};delete record.uninstallerFixture;}
+    else if(record.uninstallerFallbackFixture){fs.writeFileSync(path.join(home,'unins000.exe'),'inert-uninstaller');delete record.uninstallerFallbackFixture;}
     recordFile=path.join(home,'educationperfected-install.json');
     fs.writeFileSync(recordFile,JSON.stringify({version:1,method,files:[exe,path.join(home,'educationperfected-install.json')],...record}));
    }
@@ -187,7 +189,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
  }
  // Windows setup exe: single confirm launches the Inno uninstaller via helper; no per-item prompts.
  {
-  const s=await runProgramScenario({method:'setup-exe',record:{uninstaller:'C:\\\\Programs\\\\EducationPerfected\\\\unins000.exe'},platform:'win32',choices:{inno:true},execName:'educationperfected.exe'});
+  const s=await runProgramScenario({method:'setup-exe',record:{uninstallerFixture:true},platform:'win32',choices:{inno:true},execName:'educationperfected.exe'});
   assert.equal(s.detached.length,1);
   const helper=fs.readFileSync(s.detached[0][1][s.detached[0][1].length-1],'utf8');
   assert.ok(helper.includes('unins000.exe'),'helper starts the Inno uninstaller');
@@ -196,9 +198,27 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
   assert.equal(s.result.helperStarted,true);
   cleanup(s);
  }
+ // Windows setup exe whose record points at a path that does not exist (an
+ // install record written before the installer escaped non-ASCII characters
+ // comes back mangled): the uninstaller next to the executable is used.
+ {
+  const s=await runProgramScenario({method:'setup-exe',record:{uninstaller:'C:\\\\Edu\\uFFFDtionPerfected\\\\unins000.exe',uninstallerFallbackFixture:true},platform:'win32',choices:{inno:true},execName:'educationperfected.exe'});
+  assert.equal(s.detached.length,1);
+  const helper=fs.readFileSync(s.detached[0][1][s.detached[0][1].length-1],'utf8');
+  assert.ok(helper.includes(path.join(s.home,'unins000.exe')),'helper starts the uninstaller next to the executable, not the mangled record path');
+  assert.equal(s.result.helperStarted,true);
+  cleanup(s);
+ }
+ // Windows setup exe whose uninstaller is nowhere: no invented path, manual line.
+ {
+  const s=await runProgramScenario({method:'setup-exe',record:{uninstaller:'C:\\\\gone\\\\unins000.exe'},platform:'win32',choices:{inno:true},execName:'educationperfected.exe'});
+  assert.deepEqual(s.detached,[]);
+  assert.ok(s.output.includes('Delete the executable manually: '+s.exe));
+  cleanup(s);
+ }
  // Windows setup exe declined: cancelled, nothing launched.
  {
-  const s=await runProgramScenario({method:'setup-exe',record:{uninstaller:'C:\\\\x\\\\unins000.exe'},platform:'win32',choices:{inno:false},execName:'educationperfected.exe'});
+  const s=await runProgramScenario({method:'setup-exe',record:{uninstallerFixture:true},platform:'win32',choices:{inno:false},execName:'educationperfected.exe'});
   assert.equal(s.result.cancelled,true);assert.deepEqual(s.detached,[]);
   cleanup(s);
  }
