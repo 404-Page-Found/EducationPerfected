@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The landing page download buttons now fetch the installer file directly instead of opening the release page: Windows setup and the two macOS packages use stable `releases/latest/download/` names so they always follow the newest release, and the Linux `.deb`/`.rpm` links (versioned filenames) are pinned to the current release tag and need updating with each release.
+
 - Add a static GitHub Pages landing page with equal Windows/macOS/Linux download and setup guidance, feature and verification limits, and the project disclaimer. No external assets, scripts, analytics or build step.
 
 - Windows setup installations now use the full verified setup installer when updated from the CLI, instead of replacing only the CLI executable and leaving the desktop app and Start-menu launcher unchanged. A missing desktop payload allows same-version installer repair after a previous CLI-only update; existing raw-update backups are kept. Users already affected by the v2026.11.16 updater need to run the latest Windows setup once over their existing installation.
