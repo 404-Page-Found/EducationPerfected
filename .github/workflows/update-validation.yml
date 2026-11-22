@@ -1,5 +1,5 @@
 name: update-command validation (offline fixtures, no publication)
-# Native proof for packaging/update.js only. This workflow never tags, uploads or
+# Native proof for raw/installer updates and install-method detection. Never tags, uploads or
 # publishes a release; the update tests run against local fixture releases.
 on:
   workflow_dispatch:
@@ -7,6 +7,9 @@ on:
     branches: [main]
     paths:
       - 'packaging/update.js'
+      - 'packaging/installed-update.js'
+      - 'packaging/app-update.js'
+      - 'lib/install-record.js'
       - 'scripts/update-*.js'
       - '.github/workflows/update-validation.yml'
       - 'package.json'

@@ -46,6 +46,8 @@ jobs:
           node-version: 22.23.4
       - name: Install pinned dependencies without lifecycle hooks
         run: npm ci --ignore-scripts
+      - name: Test installer update migration on this host
+        run: node scripts/update-installed-test.js
       - name: Build the desktop app payload for this host
         # The payload builder materializes the pinned Electron distribution
         # itself when --ignore-scripts skipped the postinstall download, and
