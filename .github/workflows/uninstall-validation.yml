@@ -79,6 +79,9 @@ jobs:
           $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
           if (-not ($userPath -and ($userPath.ToLower() -like ('*' + $dir.ToLower() + '*')))) { throw 'PATH task selected but the install dir is not on the user PATH' }
           "INSTALLED_DIR=$dir" >> $env:GITHUB_ENV
+      - name: Prove accepting the real handoff exits the actual CLI process
+        shell: pwsh
+        run: python scripts/windows-uninstall-prompt-proof.py
       - name: Run the production uninstall handoff and verify the helper starts the uninstaller
         shell: pwsh
         run: |
