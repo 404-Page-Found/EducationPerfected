@@ -41,7 +41,11 @@
     var ua = navigator.userAgent || "";
     if (/iphone|ipad|ipod|android/i.test(ua)) return null;
     if (/windows/i.test(platform) || /windows/i.test(ua)) return "windows";
-    if (/mac/i.test(platform) || /macintosh|mac os x/i.test(ua)) return "macos";
+    if (/mac/i.test(platform) || /macintosh|mac os x/i.test(ua)) {
+      // iPadOS reports a Macintosh platform; leave tablets on the fallback.
+      if (navigator.maxTouchPoints > 2) return null;
+      return "macos";
+    }
     if (/linux/i.test(platform) || /linux/i.test(ua)) return "linux";
     return null;
   }
