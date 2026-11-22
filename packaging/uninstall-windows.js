@@ -114,14 +114,35 @@ function awaitHelperSpawn(child, log) {
     });
 }
 
-async function startWindowsUninstallHelper({ pid, mode, log, files, pathEntries, shortcuts, uninstaller, tmp, env = process.env, spawnDetached }) {
+async function waitForHelperReady(ready, timeoutMs = 10000) {
+    const deadline = Date.now() + timeoutMs;
+    while (!fs.existsSync(ready)) {
+        if (Date.now() >= deadline) throw new Error('The uninstall helper did not become ready. Nothing was removed.');
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    fs.unlinkSync(ready);
+}
+
+async function startWindowsUninstallHelper({ pid, mode, log, files, pathEntries, shortcuts, uninstaller, tmp, env = process.env, spawnDetached, waitReady = waitForHelperReady }) {
     const helper = path.join(tmp, 'educationperfected-uninstall-' + pid + '-' + Date.now().toString(36) + '.ps1');
     // The BOM matters: Windows PowerShell 5.1 reads a BOM-less .ps1 as ANSI,
     // which mangles non-ASCII characters in install paths.
-    fs.writeFileSync(helper, '\uFEFF' + windowsUninstallHelperScript({ pid, mode, log, files, pathEntries, shortcuts, uninstaller }), { mode: 0o700 });
-    const child = spawnDetached(resolvePowerShell(env), ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', helper]);
+    const ready = helper + '.ready';
+    const script = windowsUninstallHelperScript({ pid, mode, log, files, pathEntries, shortcuts, uninstaller });
+    // The acknowledgement is written by the actual independent helper, not
+    // the short-lived launcher. Keep the CLI/console alive until it arrives.
+    fs.writeFileSync(helper, '\uFEFF' + 'Set-Content -LiteralPath ' + psLiteral(ready) + " -Value 'ready' -ErrorAction Stop\r\n" + script, { mode: 0o700 });
+    const powershell = resolvePowerShell(env);
+    // Start-Process creates the independent hidden window that a plain Node
+    // child lacks. Do not use Node's detached console flag, which fails to run
+    // PowerShell on the native lane. EncodedCommand avoids shell/path parsing.
+    const argumentsText = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + helper + '"';
+    const launch = 'Start-Process -FilePath ' + psLiteral(powershell) + ' -ArgumentList ' + psLiteral(argumentsText) + ' -WindowStyle Hidden -WorkingDirectory ' + psLiteral(tmp) + ' -ErrorAction Stop';
+    const encoded = Buffer.from(launch, 'utf16le').toString('base64');
+    const child = spawnDetached(powershell, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded]);
     await awaitHelperSpawn(child, log);
+    await waitReady(ready);
     return helper;
 }
 
-module.exports = { windowsUninstallHelperScript, startWindowsUninstallHelper, resolvePowerShell, awaitHelperSpawn, psLiteral };
+module.exports = { windowsUninstallHelperScript, startWindowsUninstallHelper, resolvePowerShell, awaitHelperSpawn, waitForHelperReady, psLiteral };

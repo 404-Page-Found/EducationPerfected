@@ -119,7 +119,7 @@ function removalPlan(install,{platform,executable}){
  }
 }
 
-async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=process.execPath,platform=process.platform,env=process.env,pid=process.pid,tmpDir=os.tmpdir(),confirm=confirmUninstall,confirmInno=confirmInnoUninstall,output=process.stdout,spawn=require('node:child_process').spawnSync,spawnDetached=(command,args)=>require('./windows-helper-spawn').spawnBackgroundHelper(command,args)}={}){
+async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=process.execPath,platform=process.platform,env=process.env,pid=process.pid,tmpDir=os.tmpdir(),confirm=confirmUninstall,confirmInno=confirmInnoUninstall,waitForHelperReady,output=process.stdout,spawn=require('node:child_process').spawnSync,spawnDetached=(command,args)=>require('./windows-helper-spawn').spawnBackgroundHelper(command,args)}={}){
  const install=detectInstall({executable,platform,env,spawn});
  output.write(install.inferred
   ?'No install record found; detected the install method from the install location: '+install.method+'.\n'
@@ -132,7 +132,7 @@ async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=p
    output.write('Uninstall cancelled; nothing removed.\n');
    return {cancelled:true};
   }
-  await startWindowsUninstallHelper({pid,mode:'inno',log,uninstaller:plan.uninstaller,tmp:tmpDir,env,spawnDetached});
+  await startWindowsUninstallHelper({pid,mode:'inno',log,uninstaller:plan.uninstaller,tmp:tmpDir,env,spawnDetached,waitReady:waitForHelperReady});
   output.write('The uninstaller starts after this program exits, so the running program can be removed. Uninstaller log: '+log+'\n');
   return {helperStarted:true};
  }
@@ -199,10 +199,10 @@ async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=p
  let programPending=false,programRemoved=false;
  if(choices.program&&plan){
   if(plan.kind==='helper-files'){
-   await startWindowsUninstallHelper({pid,mode:'files',log,files:plan.files,pathEntries:plan.pathEntries,shortcuts:plan.shortcuts,tmp:tmpDir,env,spawnDetached});
+   await startWindowsUninstallHelper({pid,mode:'files',log,files:plan.files,pathEntries:plan.pathEntries,shortcuts:plan.shortcuts,tmp:tmpDir,env,spawnDetached,waitReady:waitForHelperReady});
    programPending=true;
   }else if(plan.kind==='helper-npm'){
-   await startWindowsUninstallHelper({pid,mode:'npm',log,tmp:tmpDir,env,spawnDetached});
+   await startWindowsUninstallHelper({pid,mode:'npm',log,tmp:tmpDir,env,spawnDetached,waitReady:waitForHelperReady});
    programPending=true;
   }else if(plan.kind==='posix-files'){
    let failed=null;
