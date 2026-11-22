@@ -43,15 +43,19 @@ const stream = value => new ReadableStream({ start(c) { c.enqueue(value); c.clos
         assert.equal(result.quitRequired, true);
         assert.equal(fs.readFileSync(executable, 'utf8'), 'current CLI');
         assert.equal(fs.readFileSync(executable + '.backup', 'utf8'), 'legacy backup');
-        assert.ok(!fs.existsSync(executable + '.update.lock'));
+        assert.ok(fs.existsSync(executable + '.update.lock'), 'lock survives installer handoff');
         let script = fs.readFileSync(helpers.at(-1), 'utf8');
         assert.ok(script.includes(assetName));
+        assert.ok(script.includes('del /q "' + executable + '.update.lock"'), 'helper owns lock cleanup');
+        await assert.rejects(update.updateCommand(base), /Another update.*Close all EducationPerfected/s);
+        fs.rmSync(executable + '.update.lock');
         assert.ok(script.includes('/SILENT /SUPPRESSMSGBOXES /NORESTART'));
         assert.ok(!script.includes('move /y'), 'installer handles the entire installation');
 
         // Already-raw-updated users can repair a same-version missing desktop.
         result = await update.updateCommand({ ...base, currentVersion: version });
         assert.equal(result.status, 'installer-started');
+        fs.rmSync(executable + '.update.lock');
         // Once the desktop exists, equal versions are a true no-op.
         fs.mkdirSync(path.dirname(desktop)); fs.writeFileSync(desktop, 'desktop fixture');
         calls.length = 0;
@@ -60,8 +64,11 @@ const stream = value => new ReadableStream({ start(c) { c.enqueue(value); c.clos
         assert.deepEqual(calls, [update.RELEASES_API]);
         // Newer CLI versions are never downgraded, even with no desktop.
         fs.rmSync(desktop);
-        result = await update.updateCommand({ ...base, currentVersion: '2026.12.1', confirm: () => assert.fail('no downgrade') });
-        assert.equal(result.status, 'up-to-date');
+        let missingMessage = '';
+        result = await update.updateCommand({ ...base, currentVersion: '2026.12.1', output: { write: text => { missingMessage += text; } }, confirm: () => assert.fail('no downgrade') });
+        assert.equal(result.status, 'desktop-missing');
+        assert.match(missingMessage, /desktop app is missing/);
+        assert.doesNotMatch(missingMessage, /Already up to date/);
         // Declining, noninteractive input and checksum failure never hand off.
         calls.length = 0;
         const count = spawned.length;
@@ -70,6 +77,7 @@ const stream = value => new ReadableStream({ start(c) { c.enqueue(value); c.clos
         assert.deepEqual(calls, [update.RELEASES_API]);
         await assert.rejects(update.updateCommand({ ...base, confirm: update.promptUpdate, input: { isTTY: false } }), /interactive/);
         await assert.rejects(update.updateCommand({ ...base, fetchImpl: async target => target === url(update.SUMS_NAME) ? { ok: true, text: async () => '0'.repeat(64) + '  ' + assetName + '\n' } : fetchImpl(target) }), /checksum mismatch/);
+        await assert.rejects(update.updateCommand({ ...base, spawnDetached: () => { throw new Error('fixture spawn failure'); } }), /fixture spawn failure/);
         assert.equal(spawned.length, count);
         assert.ok(!fs.existsSync(executable + '.update.lock'));
         // Interrupted/concurrent updates refuse before confirmation/download.
@@ -78,10 +86,9 @@ const stream = value => new ReadableStream({ start(c) { c.enqueue(value); c.clos
         fs.rmSync(executable + '.update.lock');
         // Legacy inference also chooses the installer when a record is absent.
         fs.rmSync(record); fs.writeFileSync(path.join(home, 'unins000.exe'), 'inert');
-        if (process.platform === 'win32') {
-            result = await update.updateCommand(base);
-            assert.equal(result.status, 'installer-started');
-        }
+        result = await update.updateCommand(base);
+        assert.equal(result.status, 'installer-started');
+        fs.rmSync(executable + '.update.lock');
         // Repair is explicit and never permits a downgrade in shared planning.
         assert.equal(appUpdate.planAppUpdate({ method: 'setup-exe', currentVersion: version, releases, repair: true }).asset.name, assetName);
         assert.equal(appUpdate.planAppUpdate({ method: 'setup-exe', currentVersion: '2026.12.1', releases, repair: true }).newer, false);

@@ -18,7 +18,7 @@ The original was started by [akioweh](https://github.com/akioweh) and is now **[
 The original's README used to claim its status was: **_CORRECT STATUS: ALL intended features functional._**  
 _*Last time they checked... which was... two years ago???*_
 
-- This repo's development program is **V2026** (package version `2026.11.22`; latest published release [v2026.11.16](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.16)). It is an independent JavaScript ([node.js](https://nodejs.org/)) program that uses the [Puppeteer](https://github.com/puppeteer/puppeteer) library to drive a web browser.
+- This repo's development program is **V2026** (package version `2026.11.22`; latest published release [v2026.11.22](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.22)). It is an independent JavaScript ([node.js](https://nodejs.org/)) program that uses the [Puppeteer](https://github.com/puppeteer/puppeteer) library to drive a web browser.
 - The anti-cheat workaround no longer trips anti-cheat detection, as of the latest updates. EP can still change, so don't assume it stays working.
 - The task-page and wrong-answer-modal selectors were checked against what EP's live bundles currently ship, and an end-to-end run through a real task on the live service confirmed the markup reading was correct.
 - Release, signing and rights status: see [release/README.md](release/README.md) and [release/license-and-rights.md](release/license-and-rights.md).
@@ -35,7 +35,7 @@ A snapshot of V2 at version **v2.2.0** is frozen in [V2_Archive/](V2_Archive), a
 
 ### Installer (recommended)
 
-Installers will be published with **v2026.11.22**, which is being prepared; the latest published release is [v2026.11.16](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.16) (15 November 2026). The [Publish workflow](.github/workflows/publish.yml) attaches them to the release. The gates in [release/README.md](release/README.md) still apply.
+Installers are available in the published [v2026.11.22 release](https://github.com/404-Page-Found/EducationPerfected/releases/tag/v2026.11.22). The [Publish workflow](.github/workflows/publish.yml) attaches them to the release. The gates in [release/README.md](release/README.md) still apply.
 
 The installer is the same on every platform; pick yours:
 
@@ -261,6 +261,6 @@ The dedicated desktop app ships with the OS installers; its remaining goals are 
 
 ### Upgrading a Windows CLI-only installation
 
-If updating from v2026.11.16 reports v2026.11.22 but the Start-menu app still opens a terminal and a separate browser, the old updater replaced only the CLI. It did not install the desktop app or update the shortcut. Run the Windows setup installer from the latest stable release once, over the existing installation. Do not uninstall first. Open EducationPerfected from the Start menu afterward, not the `educationperfected.exe` CLI in the install folder.
+If updating from v2026.11.16 reports v2026.11.22 but the Start-menu app still opens a terminal and a separate browser, the old updater replaced only the CLI. It did not install the desktop app or update the shortcut. The desktop app first shipped in v2026.11.22. Run the Windows setup installer from the published v2026.11.22 release (or a later stable release) once, over the existing installation. Do not uninstall first. Open EducationPerfected from the Start menu afterward, not the `educationperfected.exe` CLI in the install folder.
 
 Newer CLI builds use the full setup installer for `educationperfected update` on Windows setup installations, upgrading the desktop app and CLI together. If a previous CLI-only update left the desktop app missing, the command can reinstall the same release to repair it. Standalone executables and PowerShell/npm installations remain CLI-only.

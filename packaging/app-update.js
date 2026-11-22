@@ -80,8 +80,8 @@ async function fetchAppUpdatePlan({ method, arch = process.arch, currentVersion,
 // process to exit, runs the verified installer silently, records a one-line
 // receipt the next app launch reports, then removes the staging directory and
 // itself. Paths containing % or ! are rejected: cmd would expand them.
-function windowsInstallerHelperScript({ installer, staging, receipt, version, pid }) {
-    for (const value of [installer, staging, receipt]) {
+function windowsInstallerHelperScript({ installer, staging, receipt, version, pid, lock }) {
+    for (const value of [installer, staging, receipt, ...(lock ? [lock] : [])]) {
         if (/[%!]/.test(value)) throw new Error('Update paths must not contain % or ! on Windows');
     }
     if (!Number.isInteger(pid) || pid <= 0) throw new Error('The installer helper needs the app process id');
@@ -112,6 +112,7 @@ function windowsInstallerHelperScript({ installer, staging, receipt, version, pi
         ':locked',
         'echo failed app-still-running>"%RECEIPT%"',
         ':cleanup',
+        ...(lock ? ['del /q "' + lock + '" >nul 2>&1'] : []),
         'rmdir /s /q "' + staging + '" >nul 2>&1',
         '(goto) 2>nul & del "%~f0" >nul 2>&1',
         '',
@@ -120,9 +121,9 @@ function windowsInstallerHelperScript({ installer, staging, receipt, version, pi
 
 // The helper lives OUTSIDE the staging directory it removes: cmd reads batch
 // files lazily and a script cannot reliably delete its own folder.
-function startWindowsInstallerHelper({ installer, staging, receipt, version, pid, spawnDetached }) {
+function startWindowsInstallerHelper({ installer, staging, receipt, version, pid, lock, spawnDetached }) {
     const helper = staging + '.cmd';
-    fs.writeFileSync(helper, windowsInstallerHelperScript({ installer, staging, receipt, version, pid }), { mode: 0o700 });
+    fs.writeFileSync(helper, windowsInstallerHelperScript({ installer, staging, receipt, version, pid, lock }), { mode: 0o700 });
     spawnDetached(process.env.ComSpec || 'cmd.exe', ['/c', helper]);
     return helper;
 }
@@ -164,6 +165,7 @@ async function applyAppUpdate(plan, {
     pid = process.pid,
     stagingParent = os.tmpdir(),
     receipt,
+    lock,
     fetchImpl = globalThis.fetch,
     spawnDetached = (command, args) => require('./windows-helper-spawn').spawnBackgroundHelper(command, args),
     spawnSync = require('node:child_process').spawnSync,
@@ -189,7 +191,7 @@ async function applyAppUpdate(plan, {
         await beforeHandoff();
         if (platform === 'win32') {
             if (!receipt) throw new Error('The Windows installer helper needs a receipt path');
-            startWindowsInstallerHelper({ installer: staged, staging, receipt, version: plan.version, pid, spawnDetached });
+            startWindowsInstallerHelper({ installer: staged, staging, receipt, version: plan.version, pid, lock, spawnDetached });
             helperOwned = true; // staging and the helper script belong to the helper now
             write('The verified installer starts when the app closes and upgrades the app and the CLI together.');
             return { status: 'installer-started', quitRequired: true, version: plan.version };

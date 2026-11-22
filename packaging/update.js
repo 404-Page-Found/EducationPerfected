@@ -338,4 +338,4 @@ async function updateCommand({
 // latestStableRelease, checkAssetUrl and stageVerifiedAsset are exported for the
 // desktop app's installer-based update (packaging/app-update.js), which reuses
 // this same selection and verification path against the same release assets.
-module.exports = { updateCommand, releaseAssetName, parseStableVersion, compareVersions, parseSha256Sums, selectUpdatePlan, promptUpdate, defaultHealthcheck, windowsHelperScript, latestStableRelease, checkAssetUrl, stageVerifiedAsset, RELEASES_API, SUMS_NAME };
+module.exports = { updateCommand, releaseAssetName, parseStableVersion, compareVersions, parseSha256Sums, selectUpdatePlan, promptUpdate, defaultHealthcheck, windowsHelperScript, latestStableRelease, checkAssetUrl, stageVerifiedAsset, acquireLock, RELEASES_API, SUMS_NAME };
