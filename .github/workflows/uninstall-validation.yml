@@ -1,15 +1,18 @@
 name: uninstall-command validation (real Windows install, no publication)
 # Native proof for the Windows uninstall handoff. Compiles the real Inno
 # installer with a stub payload, installs it for real, drives the production
-# uninstall handoff (detached PowerShell helper) and checks the uninstaller
-# actually starts and removes the program. This workflow never tags, uploads
-# or publishes a release.
+# uninstall handoff (background PowerShell helper) and checks the uninstaller
+# actually starts and removes the program, then proves the CLI update handoff's
+# cmd.exe helper runs through the same production spawn. This workflow never
+# tags, uploads or publishes a release.
 on:
   workflow_dispatch:
   pull_request:
     paths:
       - 'packaging/uninstall.js'
       - 'packaging/uninstall-windows.js'
+      - 'packaging/update.js'
+      - 'packaging/windows-helper-spawn.js'
       - 'lib/install-record.js'
       - 'installer/windows-setup.iss'
       - 'scripts/windows-uninstall-handoff-proof.js'
@@ -20,6 +23,8 @@ on:
     paths:
       - 'packaging/uninstall.js'
       - 'packaging/uninstall-windows.js'
+      - 'packaging/update.js'
+      - 'packaging/windows-helper-spawn.js'
       - 'lib/install-record.js'
       - 'installer/windows-setup.iss'
       - 'scripts/windows-uninstall-handoff-proof.js'
@@ -76,7 +81,7 @@ jobs:
         run: |
           # The proof driver stays alive watching the helper: the runner kills
           # a step's process tree when the step's main process exits, so a
-          # handoff proof split across steps would kill the detached helper.
+          # handoff proof split across steps would kill the background helper.
           Remove-Item "$env:TEMP\educationperfected-uninstall.log" -Force -ErrorAction SilentlyContinue
           node scripts\windows-uninstall-handoff-proof.js "$env:INSTALLED_DIR"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -1,22 +1,26 @@
-// Native Windows proof driver for the uninstall handoff. The
+// Native Windows proof driver for the maintenance handoffs. The
 // uninstall-validation workflow compiles the real Inno installer with a stub
 // payload and installs it; this script then drives the PRODUCTION
 // uninstallCommand against that real install - install record, inno plan,
-// detached PowerShell helper and all, with the production default spawns - and
-// verifies the helper really starts the uninstaller on real Windows
+// background PowerShell helper and all, with the production default spawns -
+// and verifies the helper really starts the uninstaller on real Windows
 // PowerShell, the failure mode unit tests with injected spawns cannot see.
+// It then proves the CLI update handoff the same way: the production
+// windowsHelperScript + spawnBackgroundHelper against fixture files, asserting
+// the cmd.exe helper actually runs (receipt written, staging cleaned up).
 //
 // Everything happens inside this one process on purpose: the CI runner kills
-// a step's process tree when the step's main process exits, so a detached
-// helper spawned by a process that immediately exits never runs there. The
-// helper's pid wait is exercised with a controlled short-lived child instead:
-// this process stays alive and watches. Runs only on Windows; skips elsewhere.
+// a step's process tree when the step's main process exits, so a helper
+// spawned by a process that immediately exits never runs there. The
+// uninstall helper's pid wait is exercised with a controlled short-lived
+// child instead: this process stays alive and watches. Runs only on Windows;
+// skips elsewhere.
 'use strict';
 const os = require('node:os'), path = require('node:path'), fs = require('node:fs');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 
 if (process.platform !== 'win32') {
-    console.log('Windows uninstall handoff proof: skipped off Windows (runs in the windows-2025 CI lane).');
+    console.log('Windows handoff proof: skipped off Windows (runs in the windows-2025 CI lane).');
     process.exit(0);
 }
 
@@ -28,10 +32,13 @@ if (!installDir) {
 
 const { uninstallCommand } = require('../packaging/uninstall');
 const { readInstallRecord } = require('../lib/install-record');
+const { windowsHelperScript } = require('../packaging/update');
+const { resolvePowerShell } = require('../packaging/uninstall-windows');
+const { spawnBackgroundHelper } = require('../packaging/windows-helper-spawn');
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-(async () => {
+async function proveUninstallHandoff() {
     const exe = path.join(installDir, 'educationperfected.exe');
     const record = readInstallRecord(exe);
     if (!record) throw new Error('no readable install record next to ' + exe);
@@ -61,7 +68,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
         confirmInno: async () => true,
         output: { write: line => process.stdout.write('[uninstall] ' + line) },
         // spawn and spawnDetached are deliberately NOT injected: the production
-        // defaults (real spawnSync, real detached PowerShell helper) are under test.
+        // defaults (real spawnSync, real background PowerShell helper) are under test.
     });
     if (!result.helperStarted) throw new Error('the handoff did not report helperStarted: ' + JSON.stringify(result));
     console.log('helper spawn confirmed; watching for the uninstaller (pid ' + marker.pid + ' releases after ~3s).');
@@ -71,7 +78,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     while (Date.now() < deadline) {
         // unins000 running is the regression assertion for "the app quits but
         // the uninstaller never starts". tasklist avoids a WMI dependency.
-        const list = require('node:child_process').spawnSync('tasklist', ['/FI', 'IMAGENAME eq unins000.exe', '/NH'], { encoding: 'utf8' });
+        const list = spawnSync('tasklist', ['/FI', 'IMAGENAME eq unins000.exe', '/NH'], { encoding: 'utf8' });
         if (list.stdout && list.stdout.includes('unins000.exe')) { seen = true; break }
         const text = fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '';
         if (/FAILED to start the uninstaller|uninstaller exit code/.test(text)) break;
@@ -79,37 +86,22 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     }
     if (seen) {
         console.log('unins000.exe is RUNNING: the handoff started the uninstaller.');
-        require('node:child_process').spawnSync('taskkill', ['/F', '/IM', 'unins000.exe'], { stdio: 'ignore' });
+        spawnSync('taskkill', ['/F', '/IM', 'unins000.exe'], { stdio: 'ignore' });
         await sleep(3000);
     }
     if (!fs.existsSync(log)) {
-        // Diagnostic: rerun the same helper with its output captured, so a
+        // Diagnostic: rerun the newest helper with its output captured, so a
         // silent PowerShell startup failure says why instead of vanishing.
-        // Diagnostic matrix: the production spawn options (detached, stdio
-        // ignore, windowsHide) silently killed the console-subsystem helper.
-        // Vary one factor at a time to pin down which.
-        console.error('helper log missing; running a spawn-option matrix for diagnostics');
-        const cp = require('node:child_process');
-        const ps = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-        const variants = {
-            'A-production': { detached: true, stdio: 'ignore', windowsHide: true },
-            'B-no-detached': { detached: false, stdio: 'ignore', windowsHide: true },
-            'C-no-hide': { detached: true, stdio: 'ignore', windowsHide: false },
-            'D-pipes': { detached: true, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
-        };
-        for (const [name, opts] of Object.entries(variants)) {
-            const markerFile = path.join(os.tmpdir(), 'ep-spawn-diag-' + name + '.txt');
-            fs.rmSync(markerFile, { force: true });
-            const c = cp.spawn(ps, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-Command', `Set-Content -LiteralPath '${markerFile}' -Value ran`], opts);
-            if (opts.detached) c.unref();
-            if (c.stderr) c.stderr.on('data', d => process.stdout.write('[' + name + ' stderr] ' + d));
-            c.on('error', e => console.log('[' + name + ' error]', e.message));
-            c.on('exit', (code, sig) => console.log('[' + name + ' exit]', code, sig));
-        }
-        await sleep(15000);
-        for (const name of Object.keys(variants)) {
-            const markerFile = path.join(os.tmpdir(), 'ep-spawn-diag-' + name + '.txt');
-            console.log('[matrix]', name, fs.existsSync(markerFile) ? 'RAN' : 'NEVER RAN');
+        console.error('helper log missing; rerunning the helper with captured output');
+        const helpers = fs.readdirSync(os.tmpdir()).filter(name => /^educationperfected-uninstall-.*\.ps1$/.test(name))
+            .map(name => path.join(os.tmpdir(), name))
+            .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
+        if (helpers.length === 0) {
+            console.error('no helper script found in ' + os.tmpdir() + ': the handoff never wrote one');
+        } else {
+            console.error('rerunning ' + helpers[0]);
+            const rerun = spawnSync(resolvePowerShell(process.env), ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', helpers[0]], { encoding: 'utf8' });
+            console.error('rerun exit ' + rerun.status + ' signal ' + rerun.signal + '\n--- stdout ---\n' + rerun.stdout + '\n--- stderr ---\n' + rerun.stderr);
         }
         throw new Error('helper log missing: the PowerShell helper never ran');
     }
@@ -121,5 +113,51 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
         throw new Error('the uninstaller never started: no running process and no exit code in the helper log');
     }
     console.log('Windows uninstall handoff proof passed: real install, real helper, uninstaller started.');
+}
+
+// The CLI update handoff spawns the same cmd.exe helper shape through the same
+// spawnBackgroundHelper, and it broke the same way (a detached console helper
+// never executes). Prove the production script generator and spawn module end
+// to end with fixture files. The stub "executables" are text, so the helper's
+// version check cannot pass: a rollback receipt is the expected outcome and
+// still proves the helper ran, swapped and restored.
+async function proveUpdateHandoff() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ep-update-proof-'));
+    const executable = path.join(root, 'educationperfected.exe');
+    const staging = path.join(root, 'staging');
+    const staged = path.join(staging, 'educationperfected.exe');
+    const backup = executable + '.backup';
+    const receipt = executable + '.update-result';
+    fs.writeFileSync(executable, 'old build');
+    fs.mkdirSync(staging);
+    fs.writeFileSync(staged, 'new build');
+    const helper = staging + '.cmd';
+    // The production pieces under test: windowsHelperScript builds the helper
+    // exactly as startWindowsHelper does, spawnBackgroundHelper is the
+    // production default spawnDetached.
+    fs.writeFileSync(helper, windowsHelperScript({ executable, staged, backup, version: '9.9.9-proof', receipt, staging }), { mode: 0o700 });
+    spawnBackgroundHelper(process.env.ComSpec || 'cmd.exe', ['/c', helper]);
+    console.log('update helper spawned through spawnBackgroundHelper; waiting for the receipt.');
+
+    const deadline = Date.now() + 60000;
+    while (Date.now() < deadline && !fs.existsSync(receipt)) await sleep(1000);
+    if (!fs.existsSync(receipt)) throw new Error('update helper receipt missing: the cmd.exe helper never ran');
+    const outcome = fs.readFileSync(receipt, 'utf8').trim();
+    console.log('update helper receipt: ' + outcome);
+    if (outcome !== 'rollback version-check-failed' && !outcome.startsWith('ok ')) {
+        throw new Error('unexpected update helper receipt: ' + outcome);
+    }
+    if (outcome.startsWith('rollback') && fs.readFileSync(executable, 'utf8') !== 'old build') {
+        throw new Error('the rollback receipt lied: the original executable was not restored');
+    }
+    if (fs.existsSync(backup)) throw new Error('the update helper left the backup behind');
+    if (fs.existsSync(staging)) throw new Error('the update helper left the staging directory behind');
+    if (fs.existsSync(helper)) throw new Error('the update helper did not remove itself');
+    console.log('Windows update handoff proof passed: real helper, ran, rolled the stub back, cleaned up.');
+}
+
+(async () => {
+    await proveUninstallHandoff();
+    await proveUpdateHandoff();
     process.exit(0);
 })().catch(error => { console.error(error && error.stack || error); process.exit(1); });

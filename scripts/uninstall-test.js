@@ -146,7 +146,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
   assert.deepEqual(s.spawns.map(([c,a])=>[c,...a]),[['sudo','rm','-rf',s.exe,s.recordFile],['sudo','pkgutil','--forget','com.404pf.educationperfected']]);
   cleanup(s);
  }
- // Windows install.ps1: detached helper, PATH entry and files passed through, exe still present.
+ // Windows install.ps1: background helper, PATH entry and files passed through, exe still present.
  {
   const s=await runProgramScenario({method:'install-ps1',record:{pathEntries:['C:\\\\Programs\\\\EducationPerfected']},platform:'win32',choices:{program:true},execName:'educationperfected.exe'});
   assert.equal(s.detached.length,1);assert.equal(s.detached[0][0],'powershell.exe');
