@@ -117,6 +117,15 @@ jobs:
             Get-ChildItem $env:TEMP -Filter '_iu*' -ErrorAction SilentlyContinue | ForEach-Object { "temp copy after: $($_.FullName) ($($_.Length) bytes)" }
             exit 1
           }
-          if (Test-Path $env:INSTALLED_DIR) { throw 'install directory survived a full uninstall' }
+          # The launcher can report exit 0 a beat before its TEMP copy finishes
+          # deleting; give the removal a grace window instead of racing it, and
+          # show the uninstaller's own log either way.
+          $grace = (Get-Date).AddSeconds(30)
+          while ((Test-Path $env:INSTALLED_DIR) -and ((Get-Date) -lt $grace)) { Start-Sleep -Seconds 1 }
+          if (Test-Path "$env:TEMP\ep-proof-uninstall.log") { Get-Content "$env:TEMP\ep-proof-uninstall.log" | Out-Host }
+          if (Test-Path $env:INSTALLED_DIR) {
+            Get-ChildItem $env:INSTALLED_DIR -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object { "left behind: $($_.FullName)" }
+            throw 'install directory survived a full uninstall'
+          }
           $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
           if ($userPath -and ($userPath.ToLower() -like ('*' + $env:INSTALLED_DIR.ToLower() + '*'))) { throw 'the user PATH entry survived a full uninstall' }
