@@ -1,61 +1,393 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="EducationPerfected is an independent desktop app and CLI for Education Perfect automation. Explore supported tasks, download for your OS, and understand the limits before use.">
-  <meta name="theme-color" content="#f5f8ff">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
-  <title>EducationPerfected | Your tasks. Your controls.</title>
-  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="assets/site.css">
-</head>
-<body>
-<a class="skip" href="#main">Skip to content</a>
-<header class="header wrap">
-  <a class="brand" href="#" aria-label="EducationPerfected home"><img src="assets/logo.svg" width="44" height="44" alt=""><span>Education<span class="brand-end">Perfected</span></span></a>
-  <nav aria-label="Main navigation"><a href="#features">Features</a><a href="#download">Download</a><a href="https://github.com/404-Page-Found/EducationPerfected">GitHub <span aria-hidden="true">↗</span></a></nav>
-</header>
-<main id="main">
-  <section class="hero wrap" aria-labelledby="hero-title">
-    <div class="hero-copy">
-      <p class="eyebrow"><span class="dot" aria-hidden="true"></span> Independent. Open source. In your control.</p>
-      <h1 id="hero-title">Your tasks.<br>Your <span>controls.</span></h1>
-      <p class="intro">Education Perfect automation, with a desktop app to bring it together. Supported language tasks, a built-in browser, and controls that stay within reach.</p>
-      <div class="actions"><a class="button primary" href="#download">Find your download <span aria-hidden="true">↓</span></a><a class="text-link" href="https://github.com/404-Page-Found/EducationPerfected#supported-question-types">Check task support <span aria-hidden="true">↗</span></a></div>
-      <p class="hero-note">For Windows, macOS &amp; Linux. A terminal CLI is included with the OS installers.</p>
-    </div>
-    <div class="hero-art" role="img" aria-label="Desktop app, browser panel and terminal CLI share one answer engine">
-      <div class="orbit orbit-one" aria-hidden="true"></div><div class="orbit orbit-two" aria-hidden="true"></div>
-      <div class="logo-tile"><img src="assets/logo.svg" width="224" height="224" alt="EducationPerfected app logo"></div>
-      <div class="art-label art-desktop"><span class="mini-icon" aria-hidden="true">▣</span><span><strong>Desktop app</strong><small>Browser built in</small></span></div>
-      <div class="art-label art-panel"><span class="mini-icon" aria-hidden="true">☷</span><span><strong>Browser panel</strong><small>Controls on the page</small></span></div>
-      <div class="art-label art-cli"><span class="mini-icon mono" aria-hidden="true">&gt;_</span><span><strong>Terminal CLI</strong><small>The same engine</small></span></div>
-      <p class="art-caption">THREE WAYS IN. ONE SHARED CORE.</p>
-    </div>
-  </section>
-  <div class="notice wrap"><span class="notice-mark" aria-hidden="true">i</span><p><strong>Know what you are running.</strong> This software fills and submits answers. It is not affiliated with Education Perfect, and using it can breach school or service rules. <a href="https://github.com/404-Page-Found/EducationPerfected/blob/main/docs/disclaimer.md">Read the disclaimer before use ↗</a></p></div>
-  <section class="section wrap" id="features" aria-labelledby="features-title">
-    <div class="section-heading"><div><p class="eyebrow">THE TOOLKIT</p><h2 id="features-title">Less window juggling.<br>More control.</h2></div><p>One shared engine, whether you prefer a window, an on-page panel, or the terminal.</p></div>
-    <div class="features">
-      <article class="feature featured"><span class="feature-number">01 / WORKSPACE</span><h3>A browser, already there.</h3><p>The OS installers include the desktop app and its embedded browser. Open the app, sign in, and choose a task. No separate Node.js install or terminal setup for the desktop route.</p><div class="feature-tags"><span>Desktop app</span><span>Embedded browser</span><span>Optional saved login</span></div></article>
-      <article class="feature"><span class="feature-number">02 / TASKS</span><h3>Support with boundaries.</h3><p>Word-to-word, listening, dictation and supported Smart Lesson question types. Dash choice and typed rounds have fixture coverage, not a full live sprint verification.</p><a href="https://github.com/404-Page-Found/EducationPerfected#supported-question-types">See the support matrix <span aria-hidden="true">↗</span></a></article>
-      <article class="feature"><span class="feature-number">03 / CONTROLS</span><h3>You set the pace.</h3><p>Start and stop, refresh a task's word list, switch between auto and semi-auto, and adjust pacing and optional first-try accuracy simulation. Semi-auto leaves submission to you.</p><a href="https://github.com/404-Page-Found/EducationPerfected#quick-start">Explore the controls <span aria-hidden="true">↗</span></a></article>
-      <article class="feature"><span class="feature-number">04 / EVERYDAY USE</span><h3>Keep the essentials close.</h3><p>An on-page control panel, a terminal CLI, and optional login storage in the OS credential store. Installed desktop apps can check for updates from Settings.</p><a href="https://github.com/404-Page-Found/EducationPerfected#saved-settings">Settings &amp; storage <span aria-hidden="true">↗</span></a></article>
-    </div>
-  </section>
-  <section class="download-section" id="download" aria-labelledby="download-title"><div class="wrap">
-    <div class="section-heading"><div><p class="eyebrow">PICK YOUR PLATFORM</p><h2 id="download-title">Make yourself at home.</h2></div><p>All download buttons open the latest published release. Choose the named installer and check it against <code>SHA256SUMS</code> before running it.</p></div>
-    <div class="platforms">
-      <article class="platform"><span class="os-symbol" aria-hidden="true">⊞</span><h3>Windows</h3><p class="architecture">64-bit · x64</p><p>Choose <code>educationperfected-windows-x64-setup.exe</code>.</p><a class="button platform-button" href="https://github.com/404-Page-Found/EducationPerfected/releases/latest">Get Windows installer <span aria-hidden="true">↗</span></a><div class="platform-detail"><h4>Install</h4><p>Run the per-user setup, then open EducationPerfected from Start. No admin needed. Builds are unsigned; read the full instructions if Windows shows a warning.</p><h4>Uninstall</h4><p>Settings → Apps → Installed apps → EducationPerfected → Uninstall.</p></div><a class="guide-link" href="https://github.com/404-Page-Found/EducationPerfected#installation">Full Windows steps ↗</a></article>
-      <article class="platform"><span class="os-symbol" aria-hidden="true">⌘</span><h3>macOS</h3><p class="architecture">Apple Silicon · Intel</p><p>Choose <code>educationperfected-macos-arm64.pkg</code> or <code>educationperfected-macos-x64.pkg</code>.</p><a class="button platform-button" href="https://github.com/404-Page-Found/EducationPerfected/releases/latest">Get macOS installer <span aria-hidden="true">↗</span></a><div class="platform-detail"><h4>Install</h4><p>Run the package for your Mac, then open EducationPerfected from Applications. Builds are unsigned; read the full instructions for macOS security prompts.</p><h4>Uninstall</h4><p>Move EducationPerfected from Applications to the Bin. See the guide to also remove the CLI and app data.</p></div><a class="guide-link" href="https://github.com/404-Page-Found/EducationPerfected#installation">Full macOS steps ↗</a></article>
-      <article class="platform"><span class="os-symbol" aria-hidden="true">◇</span><h3>Linux</h3><p class="architecture">x64 · ARM64</p><p>Choose the <code>.deb</code> or <code>.rpm</code> matching your distribution and architecture.</p><a class="button platform-button" href="https://github.com/404-Page-Found/EducationPerfected/releases/latest">Get Linux package <span aria-hidden="true">↗</span></a><div class="platform-detail"><h4>Install</h4><p>Install with your package manager, then open EducationPerfected from your application menu. The package includes the desktop app and CLI.</p><h4>Uninstall</h4><p>Remove the package with your package manager or software center. See the guide for app-data cleanup.</p></div><a class="guide-link" href="https://github.com/404-Page-Found/EducationPerfected#installation">Full Linux steps ↗</a></article>
-    </div>
-    <p class="download-footnote">Prefer the terminal? Install scripts, npm and raw binaries are CLI-only routes. <a href="https://github.com/404-Page-Found/EducationPerfected#installation">See all install options ↗</a><br>For CLI installs or a full cleanup, see <a href="https://github.com/404-Page-Found/EducationPerfected#uninstall">uninstall instructions</a>. Keep or remove saved data explicitly.</p>
-    <p class="release-note"><strong>Release notes matter.</strong> Main can contain fixes not yet in a published download. Check the <a href="https://github.com/404-Page-Found/EducationPerfected/releases/latest">release notes</a> for the version you install. If an older Windows CLI update left you without the desktop app, run the latest setup installer once.</p>
-  </div></section>
-  <section class="section wrap honesty" aria-labelledby="status-title"><div><p class="eyebrow">CLEAR EXPECTATIONS</p><h2 id="status-title">A continuation.<br>Not a guarantee.</h2><p>EducationPerfected continues the archived project by <a href="https://github.com/akioweh/EducationPerfected">akioweh</a>. It is an independent hobby project, not made, endorsed or supported by Education Perfect.</p><a class="text-link" href="https://github.com/404-Page-Found/EducationPerfected/blob/main/docs/disclaimer.md">Read the full disclaimer <span aria-hidden="true">↗</span></a></div><div class="limits"><article><h3>Tested does not mean universal.</h3><p>The word-to-word flow has run end to end on the live service. Other types have bounded live checks or synthetic coverage. Dash has no end-to-end live verification.</p></article><article><h3>Unsupported means stop.</h3><p>Assessments and unsupported shapes are refused rather than guessed at. Service changes can still break a supported flow or leave an incomplete answer.</p></article><article><h3>Your account. Your responsibility.</h3><p>Automation may be detected, marked wrong, or acted on. It is not recommended for homework. Use only where you have permission and supervise it while it runs.</p></article></div></section>
-</main>
-<footer class="footer"><div class="wrap footer-inner"><div class="footer-brand"><img src="assets/logo.svg" width="36" height="36" alt=""><div><strong>EducationPerfected</strong><p>Independent tools. Honest limits.</p></div></div><nav aria-label="Footer navigation"><a href="https://github.com/404-Page-Found/EducationPerfected">Source</a><a href="https://github.com/404-Page-Found/EducationPerfected/issues">Issues</a><a href="https://github.com/404-Page-Found/EducationPerfected/blob/main/CHANGELOG.md">Changelog</a><a href="https://github.com/404-Page-Found/EducationPerfected/blob/main/LICENSE">License &amp; scope</a></nav><p class="legal">No analytics, no external fonts, no tracking scripts. The MIT grant has a limited scope; see the repository's license and rights notes.</p></div></footer>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="EducationPerfected is an independent desktop app and CLI for Education Perfect automation. Explore supported tasks, download for your OS, and understand the limits before use."
+    />
+    <meta name="theme-color" content="#f5f8ff" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"
+    />
+    <title>EducationPerfected | Your tasks. Your controls.</title>
+    <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="assets/site.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="header wrap">
+      <a class="brand" href="#" aria-label="EducationPerfected home"
+        ><img src="assets/logo.svg" width="44" height="44" alt="" /><span
+          >Education<span class="brand-end">Perfected</span></span
+        ></a
+      >
+      <nav aria-label="Main navigation">
+        <a href="#features">Features</a><a href="#download">Download</a
+        ><a href="https://github.com/404-Page-Found/EducationPerfected"
+          >GitHub <span aria-hidden="true">↗</span></a
+        >
+      </nav>
+    </header>
+    <main id="main">
+      <section class="hero wrap" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">
+            <span class="dot" aria-hidden="true"></span> Independent. Open
+            source. In your control.
+          </p>
+          <h1 id="hero-title">Your tasks.<br />Your <span>controls.</span></h1>
+          <p class="intro">
+            Education Perfect automation, with a desktop app to bring it
+            together. Supported language tasks, a built-in browser, and controls
+            that stay within reach.
+          </p>
+          <div class="actions">
+            <a class="button primary" href="#download"
+              >Find your download <span aria-hidden="true">↓</span></a
+            ><a
+              class="text-link"
+              href="https://github.com/404-Page-Found/EducationPerfected#supported-question-types"
+              >Check task support <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <p class="hero-note">
+            For Windows, macOS &amp; Linux. A terminal CLI is included with the
+            OS installers.
+          </p>
+        </div>
+        <div
+          class="hero-art"
+          role="img"
+          aria-label="Desktop app, browser panel and terminal CLI share one answer engine"
+        >
+          <div class="orbit orbit-one" aria-hidden="true"></div>
+          <div class="orbit orbit-two" aria-hidden="true"></div>
+          <div class="logo-tile">
+            <img
+              src="assets/logo.svg"
+              width="224"
+              height="224"
+              alt="EducationPerfected app logo"
+            />
+          </div>
+          <div class="art-label art-desktop">
+            <span class="mini-icon" aria-hidden="true">▣</span
+            ><span
+              ><strong>Desktop app</strong><small>Browser built in</small></span
+            >
+          </div>
+          <div class="art-label art-panel">
+            <span class="mini-icon" aria-hidden="true">☷</span
+            ><span
+              ><strong>Browser panel</strong
+              ><small>Controls on the page</small></span
+            >
+          </div>
+          <div class="art-label art-cli">
+            <span class="mini-icon mono" aria-hidden="true">&gt;_</span
+            ><span
+              ><strong>Terminal CLI</strong><small>The same engine</small></span
+            >
+          </div>
+          <p class="art-caption">THREE WAYS IN. ONE SHARED CORE.</p>
+        </div>
+      </section>
+      <div class="notice wrap">
+        <span class="notice-mark" aria-hidden="true">i</span>
+        <p>
+          <strong>Know what you are running.</strong> This software fills and
+          submits answers. It is not affiliated with Education Perfect, and
+          using it can breach school or service rules.
+          <a
+            href="https://github.com/404-Page-Found/EducationPerfected/blob/main/docs/disclaimer.md"
+            >Read the disclaimer before use ↗</a
+          >
+        </p>
+      </div>
+      <section
+        class="section wrap"
+        id="features"
+        aria-labelledby="features-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">THE TOOLKIT</p>
+            <h2 id="features-title">
+              Less window juggling.<br />More control.
+            </h2>
+          </div>
+          <p>
+            One shared engine, whether you prefer a window, an on-page panel, or
+            the terminal.
+          </p>
+        </div>
+        <div class="features">
+          <article class="feature featured">
+            <span class="feature-number">01 / WORKSPACE</span>
+            <h3>A browser, already there.</h3>
+            <p>
+              The OS installers include the desktop app and its embedded
+              browser. Open the app, sign in, and choose a task. No separate
+              Node.js install or terminal setup for the desktop route.
+            </p>
+            <div class="feature-tags">
+              <span>Desktop app</span><span>Embedded browser</span
+              ><span>Optional saved login</span>
+            </div>
+          </article>
+          <article class="feature">
+            <span class="feature-number">02 / TASKS</span>
+            <h3>Support with boundaries.</h3>
+            <p>
+              Word-to-word, listening, dictation and supported Smart Lesson
+              question types. Dash choice and typed rounds have fixture
+              coverage, not a full live sprint verification.
+            </p>
+            <a
+              href="https://github.com/404-Page-Found/EducationPerfected#supported-question-types"
+              >See the support matrix <span aria-hidden="true">↗</span></a
+            >
+          </article>
+          <article class="feature">
+            <span class="feature-number">03 / CONTROLS</span>
+            <h3>You set the pace.</h3>
+            <p>
+              Start and stop, refresh a task's word list, switch between auto
+              and semi-auto, and adjust pacing and optional first-try accuracy
+              simulation. Semi-auto leaves submission to you.
+            </p>
+            <a
+              href="https://github.com/404-Page-Found/EducationPerfected#quick-start"
+              >Explore the controls <span aria-hidden="true">↗</span></a
+            >
+          </article>
+          <article class="feature">
+            <span class="feature-number">04 / EVERYDAY USE</span>
+            <h3>Keep the essentials close.</h3>
+            <p>
+              An on-page control panel, a terminal CLI, and optional login
+              storage in the OS credential store. Installed desktop apps can
+              check for updates from Settings.
+            </p>
+            <a
+              href="https://github.com/404-Page-Found/EducationPerfected#saved-settings"
+              >Settings &amp; storage <span aria-hidden="true">↗</span></a
+            >
+          </article>
+        </div>
+      </section>
+      <section
+        class="download-section"
+        id="download"
+        aria-labelledby="download-title"
+      >
+        <div class="wrap">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">PICK YOUR PLATFORM</p>
+              <h2 id="download-title">Make yourself at home.</h2>
+            </div>
+            <p>
+              All download buttons open the latest published release. Choose the
+              named installer and check it against
+              <code>SHA256SUMS</code> before running it.
+            </p>
+          </div>
+          <div class="platforms">
+            <article class="platform">
+              <span class="os-symbol" aria-hidden="true">⊞</span>
+              <h3>Windows</h3>
+              <p class="architecture">64-bit · x64</p>
+              <p>
+                Choose <code>educationperfected-windows-x64-setup.exe</code>.
+              </p>
+              <a
+                class="button platform-button"
+                href="https://github.com/404-Page-Found/EducationPerfected/releases/latest"
+                >Get Windows installer <span aria-hidden="true">↗</span></a
+              >
+              <div class="platform-detail">
+                <h4>Install</h4>
+                <p>
+                  Run the per-user setup, then open EducationPerfected from
+                  Start. No admin needed. Builds are unsigned; read the full
+                  instructions if Windows shows a warning.
+                </p>
+                <h4>Uninstall</h4>
+                <p>
+                  Settings → Apps → Installed apps → EducationPerfected →
+                  Uninstall.
+                </p>
+              </div>
+              <a
+                class="guide-link"
+                href="https://github.com/404-Page-Found/EducationPerfected#installation"
+                >Full Windows steps ↗</a
+              >
+            </article>
+            <article class="platform">
+              <span class="os-symbol" aria-hidden="true">⌘</span>
+              <h3>macOS</h3>
+              <p class="architecture">Apple Silicon · Intel</p>
+              <p>
+                Choose <code>educationperfected-macos-arm64.pkg</code> or
+                <code>educationperfected-macos-x64.pkg</code>.
+              </p>
+              <a
+                class="button platform-button"
+                href="https://github.com/404-Page-Found/EducationPerfected/releases/latest"
+                >Get macOS installer <span aria-hidden="true">↗</span></a
+              >
+              <div class="platform-detail">
+                <h4>Install</h4>
+                <p>
+                  Run the package for your Mac, then open EducationPerfected
+                  from Applications. Builds are unsigned; read the full
+                  instructions for macOS security prompts.
+                </p>
+                <h4>Uninstall</h4>
+                <p>
+                  Move EducationPerfected from Applications to the Bin. See the
+                  guide to also remove the CLI and app data.
+                </p>
+              </div>
+              <a
+                class="guide-link"
+                href="https://github.com/404-Page-Found/EducationPerfected#installation"
+                >Full macOS steps ↗</a
+              >
+            </article>
+            <article class="platform">
+              <span class="os-symbol" aria-hidden="true">◇</span>
+              <h3>Linux</h3>
+              <p class="architecture">x64 · ARM64</p>
+              <p>
+                Choose the <code>.deb</code> or <code>.rpm</code> matching your
+                distribution and architecture.
+              </p>
+              <a
+                class="button platform-button"
+                href="https://github.com/404-Page-Found/EducationPerfected/releases/latest"
+                >Get Linux package <span aria-hidden="true">↗</span></a
+              >
+              <div class="platform-detail">
+                <h4>Install</h4>
+                <p>
+                  Install with your package manager, then open
+                  EducationPerfected from your application menu. The package
+                  includes the desktop app and CLI.
+                </p>
+                <h4>Uninstall</h4>
+                <p>
+                  Remove the package with your package manager or software
+                  center. See the guide for app-data cleanup.
+                </p>
+              </div>
+              <a
+                class="guide-link"
+                href="https://github.com/404-Page-Found/EducationPerfected#installation"
+                >Full Linux steps ↗</a
+              >
+            </article>
+          </div>
+          <p class="download-footnote">
+            Prefer the terminal? Install scripts, npm and raw binaries are
+            CLI-only routes.
+            <a
+              href="https://github.com/404-Page-Found/EducationPerfected#installation"
+              >See all install options ↗</a
+            ><br />For CLI installs or a full cleanup, see
+            <a
+              href="https://github.com/404-Page-Found/EducationPerfected#uninstall"
+              >uninstall instructions</a
+            >. Keep or remove saved data explicitly.
+          </p>
+          <p class="release-note">
+            <strong>Release notes matter.</strong> Main can contain fixes not
+            yet in a published download. Check the
+            <a
+              href="https://github.com/404-Page-Found/EducationPerfected/releases/latest"
+              >release notes</a
+            >
+            for the version you install. If an older Windows CLI update left you
+            without the desktop app, run the latest setup installer once.
+          </p>
+        </div>
+      </section>
+      <section class="section wrap honesty" aria-labelledby="status-title">
+        <div>
+          <p class="eyebrow">CLEAR EXPECTATIONS</p>
+          <h2 id="status-title">A continuation.<br />Not a guarantee.</h2>
+          <p>
+            EducationPerfected continues the archived project by
+            <a href="https://github.com/akioweh/EducationPerfected">akioweh</a>.
+            It is an independent hobby project, not made, endorsed or supported
+            by Education Perfect.
+          </p>
+          <a
+            class="text-link"
+            href="https://github.com/404-Page-Found/EducationPerfected/blob/main/docs/disclaimer.md"
+            >Read the full disclaimer <span aria-hidden="true">↗</span></a
+          >
+        </div>
+        <div class="limits">
+          <article>
+            <h3>Tested does not mean universal.</h3>
+            <p>
+              The word-to-word flow has run end to end on the live service.
+              Other types have bounded live checks or synthetic coverage. Dash
+              has no end-to-end live verification.
+            </p>
+          </article>
+          <article>
+            <h3>Unsupported means stop.</h3>
+            <p>
+              Assessments and unsupported shapes are refused rather than guessed
+              at. Service changes can still break a supported flow or leave an
+              incomplete answer.
+            </p>
+          </article>
+          <article>
+            <h3>Your account. Your responsibility.</h3>
+            <p>
+              Automation may be detected, marked wrong, or acted on. It is not
+              recommended for homework. Use only where you have permission and
+              supervise it while it runs.
+            </p>
+          </article>
+        </div>
+      </section>
+    </main>
+    <footer class="footer">
+      <div class="wrap footer-inner">
+        <div class="footer-brand">
+          <img src="assets/logo.svg" width="36" height="36" alt="" />
+          <div>
+            <strong>EducationPerfected</strong>
+            <p>Independent tools. Honest limits.</p>
+          </div>
+        </div>
+        <nav aria-label="Footer navigation">
+          <a href="https://github.com/404-Page-Found/EducationPerfected"
+            >Source</a
+          ><a href="https://github.com/404-Page-Found/EducationPerfected/issues"
+            >Issues</a
+          ><a
+            href="https://github.com/404-Page-Found/EducationPerfected/blob/main/CHANGELOG.md"
+            >Changelog</a
+          ><a
+            href="https://github.com/404-Page-Found/EducationPerfected/blob/main/LICENSE"
+            >License &amp; scope</a
+          >
+        </nav>
+        <p class="legal">
+          No analytics, no external fonts, no tracking scripts. The MIT grant
+          has a limited scope; see the repository's license and rights notes.
+        </p>
+      </div>
+    </footer>
+  </body>
 </html>
