@@ -139,8 +139,7 @@ function linuxInstallCommand({ method, file }) {
     throw new Error('This install method has no Linux package to update through: ' + method);
 }
 
-// The install itself runs through spawnSync, like every other elevated
-// command in the codebase (packaging/app-maintenance.js): the window is
+// The install itself runs through spawnSync: the window is
 // already in its terminal "installing / closing" state while the desktop's
 // password prompt or package manager runs, and the app closes right after a
 // successful install.

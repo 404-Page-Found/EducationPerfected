@@ -87,6 +87,16 @@ _Auto-login only fills in EP's own username/password form. If you sign in throug
 
 _NOTE: `npm ci` normally downloads a compatible Chrome browser automatically (via Puppeteer's install script). If the first run can't find a browser, run `npx puppeteer browsers install chrome` in the same folder. If your npm does not run install scripts (for example npm 12's `allowScripts` gate), that download is skipped and this step is required._
 
+## Uninstall
+
+Uninstall the app from your OS or package manager, the same as any other installed program:
+
+- **Windows:** **Settings > Apps > Installed apps > EducationPerfected > Uninstall**. The uninstaller removes the app, the `educationperfected` command, the shortcuts and the PATH entry, then asks about the saved login and app data (each kept unless you choose to remove it).
+- **macOS:** move **EducationPerfected** from Applications to the Bin.
+- **Linux:** remove the package with your package manager (for example `sudo apt remove educationperfected` or `sudo rpm -e educationperfected`), or from your desktop's software center.
+
+The terminal command `educationperfected uninstall` removes everything in one run, on every install method. It asks about each item - the program itself, the saved login, app data and downloaded browsers - and keeps each one unless you choose to remove it (the Windows setup exe's own uninstaller asks the same questions instead). Use it for installs without an OS entry (install script or npm), and on macOS/Linux when you also want the command and app data gone. A raw binary that is not on your PATH runs it by its file path instead (for example, `.\educationperfected-windows-x64.exe uninstall` or `./educationperfected-macos-arm64 uninstall`).
+
 ## Quick start
 
 For a Windows installer-based installation, start **EducationPerfected** from the Start menu. On any installer-based installation you can run `educationperfected` in a terminal. For a source installation, open a terminal in the folder where `index.js` is located, run `npm ci` once, then:
@@ -246,5 +256,5 @@ The dedicated desktop app ships with the OS installers; its remaining goals are 
 - **Licensing and rights:** the code is under the [MIT license](LICENSE). The scope note and rights status are in [release/license-and-rights.md](release/license-and-rights.md).
 - **Release status:** [release/README.md](release/README.md) indexes the release gates and native validation.
 - **Downloadable stable-release preparation:** see [release/README.md](release/README.md#downloadable-stable-release-preparation-moved-from-readme). The policy is in [release/downloadable-beta-policy.md](release/downloadable-beta-policy.md).
-- **Packaged maintenance:** see [runtime storage and uninstall](release/runtime-storage.md). `uninstall` requires typed confirmation and keeps each item unless you choose otherwise. `update` uses published stable GitHub Releases with verified checksums. The desktop app keeps update and uninstall reachable in App settings before startup and after a startup failure. The buttons are disabled in a source or development copy, which keeps the terminal commands.
+- **Packaged maintenance:** see [runtime storage and uninstall](release/runtime-storage.md). `uninstall` requires typed confirmation and keeps each item unless you choose otherwise. `update` uses published stable GitHub Releases with verified checksums. The desktop app keeps update reachable in App settings before startup and after a startup failure (disabled in a source or development copy, which keeps the terminal commands); uninstall the app from your OS or package manager (see [Uninstall](#uninstall)).
 - **Disclaimer:** read the [detailed disclaimer](docs/disclaimer.md) before use: automating schoolwork can breach school or service rules, and may be detected, marked wrong, or acted on. The software is provided as-is, at your own risk.

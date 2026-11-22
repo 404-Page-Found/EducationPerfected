@@ -115,12 +115,6 @@
             <pre id="update-log" class="log" hidden></pre>
             <p id="update-manual" class="fine" hidden></p>
 
-            <h3>Uninstall</h3>
-            <p class="fine">Removes the program, and only the items you choose.</p>
-            <div class="row">
-                <button id="open-uninstall">Uninstall EducationPerfected</button>
-            </div>
-            <pre id="maintenance-log" class="log" hidden></pre>
     </details>
     <footer id="app-footer"><span id="version"></span></footer>
 </main>
@@ -131,25 +125,6 @@
         <p>The Education Perfect page opens here. The browser is built into the app; your regular browser is not used or changed.</p>
     </div>
 </aside>
-</div>
-
-<div id="uninstall-modal" hidden role="dialog" aria-modal="true" aria-labelledby="uninstall-title">
-    <div class="card">
-        <h2 id="uninstall-title">Uninstall EducationPerfected</h2>
-        <p id="uninstall-intro"></p>
-        <div id="uninstall-choices">
-            <label><input type="checkbox" id="uninstall-login"> Remove the saved login from the OS credential store</label>
-            <label><input type="checkbox" id="uninstall-data"> Remove app data (settings, saved sessions and temporary files)</label>
-            <label><input type="checkbox" id="uninstall-browsers"> Remove downloaded browsers (about 200 MB)</label>
-            <label><input type="checkbox" id="uninstall-program"> <span id="uninstall-program-label">Remove the program itself</span></label>
-        </div>
-        <p class="fine">Nothing is removed unless you choose it. Close every other EducationPerfected copy (including the terminal CLI) and its Chrome window first.</p>
-        <div class="row">
-            <button id="confirm-uninstall" class="primary">Uninstall</button>
-            <button id="cancel-uninstall">Cancel</button>
-        </div>
-        <p id="uninstall-error" class="error" role="alert" hidden></p>
-    </div>
 </div>
 
 <div id="reflection-modal" hidden role="dialog" aria-modal="true" aria-labelledby="reflection-title">
