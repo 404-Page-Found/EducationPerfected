@@ -88,6 +88,19 @@ async function proveUninstallHandoff() {
     }
     if (seen) {
         console.log('unins000.exe is RUNNING: the handoff started the uninstaller.');
+        const windows = spawnSync(resolvePowerShell(process.env), ['-NoProfile', '-Command', `
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public class WindowProof {
+ [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+}
+'@
+Get-Process | Where-Object { $_.Name -like '*unins*' -or $_.Name -like '_iu*' } | ForEach-Object {
+  Write-Output ("UNINSTALL_WINDOW pid={0} name={1} handle={2} visible={3} title={4}" -f $_.Id,$_.Name,$_.MainWindowHandle,[WindowProof]::IsWindowVisible($_.MainWindowHandle),$_.MainWindowTitle)
+}
+`], { encoding: 'utf8' });
+        console.log(windows.stdout, windows.stderr);
         // The Inno uninstaller re-executes itself from a TEMP copy whose image
         // name (_unins.tmp on Inno 6, _iu*.tmp on older builds) escapes a
         // by-name taskkill, and it is not reliably a child of the launcher, so
