@@ -175,6 +175,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
  // Windows npm: helper runs npm uninstall after exit.
  {
   const s=await runProgramScenario({method:'npm',record:{},platform:'win32',choices:{program:true},execName:'educationperfected.exe'});
+  assert.equal(s.detached.length,1,'npm removal launches exactly one helper');
   const helper=fs.readFileSync(scriptFor(s.tmp),'utf8');
   assert.ok(helper.includes('npm.cmd'),'helper locates npm');assert.ok(helper.includes('uninstall -g educationperfected'));
   assert.equal(s.result.programPending,true);
@@ -269,7 +270,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
    setTimeout(()=>child.emit('spawn'),20);
    let settled=false;
    const pending=uninstallCommand({home,ownDirectory:runtime.directory,cleanupOwn:async()=>{runtime.remove(true);},executable:exe,platform:'win32',env:{},tmpDir:tmp,pid:1,confirm:async()=>({login:false,data:false,browsers:false,program:true}),output:{write:()=>{}},store:{async remove(){}},spawnDetached:(...args)=>{spawned.push(args);return child;}});
-   pending.then(()=>{settled=true;});
+   pending.then(()=>{settled=true;},()=>{settled=true;});
    await new Promise(resolve=>setTimeout(resolve,40));
    assert.equal(settled,false,'spawn acknowledgement alone must not finish uninstallCommand');
    const helperPath=scriptFor(tmp);

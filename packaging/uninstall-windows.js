@@ -30,7 +30,7 @@ function windowsUninstallHelperScript({ pid, mode, log, files = [], pathEntries 
         'Log "waiting for cli pid ' + pid + ' to exit (up to 600 seconds)"',
         'if (Get-Process -Id ' + pid + ' -ErrorAction SilentlyContinue) {',
         '  try { Wait-Process -Id ' + pid + ' -Timeout 600 -ErrorAction Stop } catch {',
-        '    if (Get-Process -Id ' + pid + ' -ErrorAction SilentlyContinue) { Log "FAILED: CLI is still running; nothing removed"; exit 1 }',
+        '    if (Get-Process -Id ' + pid + ' -ErrorAction SilentlyContinue) { Log "FAILED: CLI is still running; nothing removed"; Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue; exit 1 }',
         '  }',
         '}',
         'Log "CLI exited; starting removal"',

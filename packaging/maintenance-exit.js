@@ -2,7 +2,7 @@
 // for unrelated console handles/timers to let Node's event loop become idle.
 'use strict';
 function shouldExitAfterWindowsUninstall(result, { platform = process.platform, hasLiveWorkers = false } = {}) {
-    return platform === 'win32' && !hasLiveWorkers && !result?.incomplete &&
+    return platform === 'win32' && !hasLiveWorkers &&
         (result?.helperStarted === true || result?.programPending === true);
 }
 function flush(stream) {

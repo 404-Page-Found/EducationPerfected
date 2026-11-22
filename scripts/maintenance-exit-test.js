@@ -4,10 +4,10 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { shouldExitAfterWindowsUninstall, exitAfterMaintenanceHandoff } = require('../packaging/maintenance-exit');
 (async () => {
-    for (const result of [undefined, {}, { cancelled: true }, { helperStarted: true, incomplete: true }]) {
+    for (const result of [undefined, {}, { cancelled: true }, { incomplete: true }]) {
         assert.equal(shouldExitAfterWindowsUninstall(result, { platform: 'win32' }), false);
     }
-    for (const result of [{ helperStarted: true }, { programPending: true }]) {
+    for (const result of [{ helperStarted: true }, { programPending: true }, { programPending: true, incomplete: true }]) {
         assert.equal(shouldExitAfterWindowsUninstall(result, { platform: 'win32' }), true);
         assert.equal(shouldExitAfterWindowsUninstall(result, { platform: 'darwin' }), false);
         assert.equal(shouldExitAfterWindowsUninstall(result, { platform: 'win32', hasLiveWorkers: true }), false);
@@ -29,5 +29,5 @@ const { shouldExitAfterWindowsUninstall, exitAfterMaintenanceHandoff } = require
     assert.ok(source.includes('shouldExitAfterWindowsUninstall(result'));
     assert.ok(source.includes('finally { cleanup(); handoffSignals();'));
     assert.ok(source.includes('main().then(result =>'));
-    console.log('Windows handoff exits with a referenced timer only after output drains; canceled/incomplete/live-worker/non-Windows cases never force exit.');
+    console.log('Windows handoff exits with a referenced timer only after output drains; canceled/no-handoff/live-worker/non-Windows cases never force exit; incomplete data cleanup keeps its exit status.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
