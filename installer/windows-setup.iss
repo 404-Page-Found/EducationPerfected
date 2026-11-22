@@ -121,11 +121,11 @@ begin
 end;
 
 function Hex4(N: Integer): string;
-const
-  Digits = '0123456789abcdef';
 var
+  Digits: string;
   K: Integer;
 begin
+  Digits := '0123456789abcdef';
   Result := '';
   for K := 1 to 4 do
   begin
