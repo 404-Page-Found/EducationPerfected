@@ -1,0 +1,112 @@
+name: uninstall-command validation (real Windows install, no publication)
+# Native proof for the Windows uninstall handoff. Compiles the real Inno
+# installer with a stub payload, installs it for real, drives the production
+# uninstall handoff (detached PowerShell helper) and checks the uninstaller
+# actually starts and removes the program. This workflow never tags, uploads
+# or publishes a release.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'packaging/uninstall.js'
+      - 'packaging/uninstall-windows.js'
+      - 'lib/install-record.js'
+      - 'installer/windows-setup.iss'
+      - 'scripts/windows-uninstall-handoff-proof.js'
+      - 'scripts/uninstall-workflow-policy-test.js'
+      - '.github/workflows/uninstall-validation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packaging/uninstall.js'
+      - 'packaging/uninstall-windows.js'
+      - 'lib/install-record.js'
+      - 'installer/windows-setup.iss'
+      - 'scripts/windows-uninstall-handoff-proof.js'
+      - 'scripts/uninstall-workflow-policy-test.js'
+      - '.github/workflows/uninstall-validation.yml'
+permissions:
+  contents: read
+jobs:
+  windows-uninstall-proof:
+    name: Install, hand off and uninstall for real on Windows
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.4
+      - name: Compile the installer with a stub payload
+        shell: pwsh
+        run: |
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw 'Inno Setup 6 (ISCC.exe) not found on this runner image.' }
+          $root = (Get-Location).Path
+          $stub = Join-Path $root 'build\uninstall-proof'
+          New-Item -ItemType Directory -Force -Path $stub | Out-Null
+          Set-Content -Path (Join-Path $stub 'educationperfected.exe') -Value 'stub executable, uninstall proof only'
+          $src = Join-Path $stub 'educationperfected.exe'
+          $payload = Join-Path $stub 'app-payload'
+          New-Item -ItemType Directory -Force -Path $payload | Out-Null
+          Set-Content -Path (Join-Path $payload 'stub.txt') -Value 'stub app payload, uninstall proof only'
+          $iss = Join-Path $root 'installer\windows-setup.iss'
+          & $iscc "/DAppVersion=0.0.0" "/DSourceExe=$src" "/DAppPayload=$payload" "/DOutputDir=$stub" $iss | Out-Host
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install silently into a non-ASCII directory with the PATH task
+        shell: pwsh
+        run: |
+          # Non-ASCII install dir on purpose: the install record, the helper
+          # script's quoting and the BOM-less PowerShell 5.1 misparse the BOM
+          # guards against are all exercised through it.
+          $dir = Join-Path $env:LOCALAPPDATA 'Programs\EducätionPerfected Proof'
+          Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
+          $setup = 'build\uninstall-proof\educationperfected-windows-x64-setup.exe'
+          & $setup /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS="addtopath" "/DIR=$dir" "/LOG=$env:TEMP\ep-proof-install.log" | Out-Host
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path (Join-Path $dir 'unins000.exe'))) { throw 'unins000.exe missing after install' }
+          if (-not (Test-Path (Join-Path $dir 'educationperfected-install.json'))) { throw 'install record missing after install' }
+          $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+          if (-not ($userPath -and ($userPath.ToLower() -like '*educationperfected proof*'))) { throw 'PATH task selected but the install dir is not on the user PATH' }
+          "INSTALLED_DIR=$dir" >> $env:GITHUB_ENV
+      - name: Run the production uninstall handoff against the real install
+        shell: pwsh
+        run: |
+          Remove-Item "$env:TEMP\educationperfected-uninstall.log" -Force -ErrorAction SilentlyContinue
+          node scripts\windows-uninstall-handoff-proof.js "$env:INSTALLED_DIR"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify the helper starts the uninstaller
+        shell: pwsh
+        run: |
+          # The detached helper waits for the node process above to exit,
+          # sleeps, then starts unins000.exe. Seeing the process is the
+          # regression assertion for "the app quits but the uninstaller never
+          # starts"; on a session without a visible desktop the uninstaller
+          # can exit on its own, so its exit code in the helper log counts too.
+          $log = "$env:TEMP\educationperfected-uninstall.log"
+          $seen = $false
+          for ($i = 0; $i -lt 24; $i++) {
+            if (Get-Process unins000 -ErrorAction SilentlyContinue) { $seen = $true; break }
+            Start-Sleep -Seconds 5
+          }
+          if ($seen) {
+            Write-Host 'unins000.exe is RUNNING: the handoff started the uninstaller'
+            Stop-Process -Name unins000 -Force
+            Start-Sleep -Seconds 5
+          }
+          if (-not (Test-Path $log)) { throw 'helper log missing: the PowerShell helper never ran' }
+          $text = Get-Content $log -Raw
+          Write-Host $text
+          if ($text -match 'FAILED to start the uninstaller') { throw 'the helper failed to start the uninstaller' }
+          if ($text -notmatch 'uninstall helper started \(mode inno') { throw 'helper log lacks the start marker' }
+          if (-not $seen -and $text -notmatch 'uninstaller exit code') { throw 'the uninstaller never started: no running process and no exit code in the helper log' }
+      - name: Prove the uninstaller removes the program, the record and the PATH entry
+        shell: pwsh
+        run: |
+          & "$env:INSTALLED_DIR\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/LOG=$env:TEMP\ep-proof-uninstall.log" | Out-Host
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (Test-Path $env:INSTALLED_DIR) { throw 'install directory survived a full uninstall' }
+          $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+          if ($userPath -and ($userPath.ToLower() -like '*educationperfected proof*')) { throw 'the user PATH entry survived a full uninstall' }
