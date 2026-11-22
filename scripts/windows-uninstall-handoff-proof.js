@@ -88,13 +88,13 @@ async function proveUninstallHandoff() {
     }
     if (seen) {
         console.log('unins000.exe is RUNNING: the handoff started the uninstaller.');
-        // The Inno uninstaller re-executes itself from a TEMP copy whose random
-        // _iu*.tmp image name escapes a by-name taskkill, and it is not reliably
-        // a child of the launcher, so /T cannot be trusted either. A survivor
-        // holds the uninstall mutex and the workflow's real silent uninstall
-        // right after hangs on it. Sweep both names through PowerShell and
-        // prove none remain.
-        const sweep = "Get-Process | Where-Object { $_.Name -like 'unins*' -or $_.Name -like '_iu*' }";
+        // The Inno uninstaller re-executes itself from a TEMP copy whose image
+        // name (_unins.tmp on Inno 6, _iu*.tmp on older builds) escapes a
+        // by-name taskkill, and it is not reliably a child of the launcher, so
+        // /T cannot be trusted either. A survivor sits at its wizard dialog
+        // holding the uninstall mutex, and every later silent uninstall then
+        // exits 1 instantly. Sweep all those names and prove none remain.
+        const sweep = "Get-Process | Where-Object { $_.Name -like '*unins*' -or $_.Name -like '_iu*' }";
         spawnSync(resolvePowerShell(process.env), ['-NoProfile', '-Command', sweep + ' | Stop-Process -Force'], { stdio: 'ignore' });
         await sleep(3000);
         const check = spawnSync(resolvePowerShell(process.env), ['-NoProfile', '-Command', 'if (' + sweep + ') { \'leftover\' } else { \'clean\' }'], { encoding: 'utf8' });

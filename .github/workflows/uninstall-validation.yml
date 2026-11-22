@@ -89,10 +89,10 @@ jobs:
         shell: pwsh
         run: |
           # Sweep any survivor of the proof step's killed uninstaller first:
-          # its random-named TEMP copy (_iu*.tmp) holds the uninstall mutex and
+          # its TEMP copy (_unins.tmp on Inno 6) holds the uninstall mutex and
           # would hang this step. Then run the real uninstall with a bounded
           # wait so a hang fails fast with the uninstaller's own log.
-          Get-Process | Where-Object { $_.Name -like 'unins*' -or $_.Name -like '_iu*' } | Stop-Process -Force -ErrorAction SilentlyContinue
+          Get-Process | Where-Object { $_.Name -like '*unins*' -or $_.Name -like '_iu*' } | Stop-Process -Force -ErrorAction SilentlyContinue
           "unins000.exe present: $(Test-Path "$env:INSTALLED_DIR\unins000.exe")"
           "unins000.dat present: $(Test-Path "$env:INSTALLED_DIR\unins000.dat")"
           Get-ChildItem $env:TEMP -Filter '_iu*' -ErrorAction SilentlyContinue | ForEach-Object { "temp copy before: $($_.FullName) ($($_.Length) bytes)" }
@@ -102,7 +102,7 @@ jobs:
             $proc | Wait-Process -Timeout 180 -ErrorAction SilentlyContinue
             if (-not $proc.HasExited) {
               "attempt $i`: unins000.exe did not exit within 180s; killing it and retrying"
-              Get-Process | Where-Object { $_.Name -like 'unins*' -or $_.Name -like '_iu*' } | Stop-Process -Force -ErrorAction SilentlyContinue
+              Get-Process | Where-Object { $_.Name -like '*unins*' -or $_.Name -like '_iu*' } | Stop-Process -Force -ErrorAction SilentlyContinue
               Start-Sleep -Seconds 5
             } elseif ($proc.ExitCode -eq 0) { $done = $true } else {
               "attempt $i`: unins000.exe exit code $($proc.ExitCode)"
