@@ -56,22 +56,37 @@ assert.equal(
   "use the approved app logo unchanged",
 );
 assert.ok(fs.existsSync(path.join(root, "docs/.nojekyll")));
+// The favicon crops the logo's transparent margin so it fills the browser tab.
+const favicon = fs.readFileSync(path.join(root, "docs/assets/favicon.svg"), "utf8");
+assert.match(favicon, /viewBox="164 162 696 698"/, "favicon is cropped to the icon shape");
+assert.match(html, /rel="icon" href="assets\/favicon\.svg"/);
+assert.match(html, /rel="icon" href="assets\/favicon-48\.png"/);
+assert.match(html, /rel="apple-touch-icon" href="assets\/apple-touch-icon\.png"/);
 const platforms = html.match(/<article class="platform">[\s\S]*?<\/article>/g);
 assert.equal(platforms.length, 3);
 for (const [i, os] of ["Windows", "macOS", "Linux"].entries()) {
   assert.match(platforms[i], new RegExp(`<h3>${os}</h3>`));
-  assert.match(platforms[i], /releases\/latest/);
+  assert.match(platforms[i], /releases\/(?:latest\/download|download\/v[\d.]+)\/educationperfected[^"]*\.(?:exe|pkg|deb)"/, "direct installer download");
   assert.match(platforms[i], /<h4>Install<\/h4>/);
   assert.match(platforms[i], /<h4>Uninstall<\/h4>/);
   assert.match(platforms[i], /#installation/);
 }
+const stable = /releases\/latest\/download\/(educationperfected-(?:windows-x64-setup\.exe|macos-(?:arm64|x64)\.pkg))"/g;
+assert.deepEqual([...html.matchAll(stable)].map((m) => m[1]).sort((a, b) => a.localeCompare(b)), ["educationperfected-macos-arm64.pkg", "educationperfected-macos-x64.pkg", "educationperfected-windows-x64-setup.exe"], "stable-name direct links for Windows and macOS");
+const pinned = [...html.matchAll(/releases\/download\/(v[\d.]+)\/(educationperfected[^"]+)"/g)];
+assert.equal(pinned.length, 4, "four Linux package links");
+for (const [, tag, file] of pinned) {
+  assert.ok(file.includes(tag.slice(1)), `Linux file matches its tag: ${file}`);
+}
+assert.equal(new Set(pinned.map((m) => m[1])).size, 1, "Linux links share one release tag");
 assert.match(html, /not affiliated with Education Perfect/);
 assert.match(html, /docs\/disclaimer.md/);
 assert.match(html, /Dash has no end-to-end live verification/);
 assert.match(html, /Main can contain fixes not yet in a published download/);
 assert.match(html, /Assessments and unsupported shapes are refused/);
+// Versioned filenames are allowed only inside the pinned Linux release URLs checked above.
 assert.doesNotMatch(
-  html,
+  html.replace(/releases\/download\/v[\d.]+\//g, ""),
   /uninstall from (?:the app|Settings)|undetectable|guaranteed|v2026\./i,
 );
 assert.match(css, /prefers-reduced-motion/);

@@ -815,3 +815,6 @@ code {
     transition: none !important;
   }
 }
+
+.platform > p.alt-builds{min-height:0;margin:0 0 18px;font-size:12px;line-height:1.6}
+.alt-builds a{overflow-wrap:anywhere}
