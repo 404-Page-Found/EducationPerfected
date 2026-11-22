@@ -47,6 +47,9 @@ jobs:
       - name: Prove accepting the real interactive prompt exits
         shell: pwsh
         run: python scripts/windows-uninstall-prompt-proof.py
+      - name: Prove the helper survives closing its parent console
+        shell: pwsh
+        run: python scripts/windows-uninstall-console-lifetime-proof.py
       - name: Compile the installer with a stub payload
         shell: pwsh
         run: |
