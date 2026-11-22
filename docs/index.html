@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#f5f8ff">
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"
    >
     <title>EducationPerfected | Your tasks. Your controls.</title>
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
@@ -46,8 +46,9 @@
             that stay within reach.
           </p>
           <div class="actions">
-            <a class="button primary" href="#download"
-              >Find your download <span aria-hidden="true">↓</span></a
+            <a class="button primary" id="hero-download" href="#download"
+              ><span id="hero-download-label">Find your download</span>
+              <span aria-hidden="true">↓</span></a
             ><a
               class="text-link"
               href="https://github.com/404-Page-Found/EducationPerfected#supported-question-types"
@@ -192,8 +193,8 @@
               <h2 id="download-title">Make yourself at home.</h2>
             </div>
             <p>
-              Download buttons fetch the installer file directly. Check it against
-              <code>SHA256SUMS</code> from the
+              Every installer variant has its own container and fetches the file
+              directly. Check it against <code>SHA256SUMS</code> from the
               <a href="https://github.com/404-Page-Found/EducationPerfected/releases/latest">release page</a> before running it.
             </p>
           </div>
@@ -202,105 +203,129 @@
               <span class="os-symbol" aria-hidden="true">⊞</span>
               <h3>Windows</h3>
               <p class="architecture">64-bit · x64</p>
-              <p>
-                Downloads <code>educationperfected-windows-x64-setup.exe</code>.
-              </p>
-              <a
-                class="button platform-button"
-                href="https://github.com/404-Page-Found/EducationPerfected/releases/latest/download/educationperfected-windows-x64-setup.exe"
-                >Download Windows installer <span aria-hidden="true">↗</span></a
-              >
-              <p class="alt-builds">Single installer for 64-bit Windows.</p>
-              <div class="platform-detail">
-                <h4>Install</h4>
-                <p>
-                  Run the per-user setup, then open EducationPerfected from
-                  Start. No admin needed. Builds are unsigned; read the full
-                  instructions if Windows shows a warning.
-                </p>
-                <h4>Uninstall</h4>
-                <p>
-                  Settings → Apps → Installed apps → EducationPerfected →
-                  Uninstall.
-                </p>
+              <div class="installers">
+                <div class="installer">
+                  <p class="installer-name">Setup installer</p>
+                  <p class="installer-file">
+                    <code>educationperfected-windows-x64-setup.exe</code>
+                  </p>
+                  <a
+                    class="button platform-button"
+                    href="https://github.com/404-Page-Found/EducationPerfected/releases/latest/download/educationperfected-windows-x64-setup.exe"
+                    >Download for Windows <span aria-hidden="true">↗</span></a
+                  >
+                </div>
               </div>
-              <a
-                class="guide-link"
-                href="https://github.com/404-Page-Found/EducationPerfected#installation"
-                >Full Windows steps ↗</a
-              >
+              <p class="platform-links">
+                <a
+                  href="https://github.com/404-Page-Found/EducationPerfected#installation"
+                  >Install steps ↗</a
+                >
+                <a
+                  href="https://github.com/404-Page-Found/EducationPerfected#uninstall"
+                  >Uninstall steps ↗</a
+                >
+              </p>
             </article>
             <article class="platform">
               <span class="os-symbol" aria-hidden="true">⌘</span>
               <h3>macOS</h3>
               <p class="architecture">Apple Silicon · Intel</p>
-              <p>
-                Downloads <code>educationperfected-macos-arm64.pkg</code>. On an
-                Intel Mac, use the Intel package below.
-              </p>
-              <a
-                class="button platform-button"
-                href="https://github.com/404-Page-Found/EducationPerfected/releases/latest/download/educationperfected-macos-arm64.pkg"
-                >Download for Apple Silicon <span aria-hidden="true">↗</span></a
-              >
-              <p class="alt-builds">
-                <a href="https://github.com/404-Page-Found/EducationPerfected/releases/latest/download/educationperfected-macos-x64.pkg">Download for Intel (x64)</a>
-              </p>
-              <div class="platform-detail">
-                <h4>Install</h4>
-                <p>
-                  Run the package for your Mac, then open EducationPerfected
-                  from Applications. Builds are unsigned; read the full
-                  instructions for macOS security prompts.
-                </p>
-                <h4>Uninstall</h4>
-                <p>
-                  Move EducationPerfected from Applications to the Bin. See the
-                  guide to also remove the CLI and app data.
-                </p>
+              <div class="installers">
+                <div class="installer">
+                  <p class="installer-name">Apple Silicon</p>
+                  <p class="installer-file">
+                    <code>educationperfected-macos-arm64.pkg</code>
+                  </p>
+                  <a
+                    class="button platform-button"
+                    href="https://github.com/404-Page-Found/EducationPerfected/releases/latest/download/educationperfected-macos-arm64.pkg"
+                    >Download for Apple Silicon <span aria-hidden="true">↗</span></a
+                  >
+                </div>
+                <div class="installer">
+                  <p class="installer-name">Intel (x64)</p>
+                  <p class="installer-file">
+                    <code>educationperfected-macos-x64.pkg</code>
+                  </p>
+                  <a
+                    class="button platform-button"
+                    href="https://github.com/404-Page-Found/EducationPerfected/releases/latest/download/educationperfected-macos-x64.pkg"
+                    >Download for Intel (x64) <span aria-hidden="true">↗</span></a
+                  >
+                </div>
               </div>
-              <a
-                class="guide-link"
-                href="https://github.com/404-Page-Found/EducationPerfected#installation"
-                >Full macOS steps ↗</a
-              >
+              <p class="platform-links">
+                <a
+                  href="https://github.com/404-Page-Found/EducationPerfected#installation"
+                  >Install steps ↗</a
+                >
+                <a
+                  href="https://github.com/404-Page-Found/EducationPerfected#uninstall"
+                  >Uninstall steps ↗</a
+                >
+              </p>
             </article>
             <article class="platform">
               <span class="os-symbol" aria-hidden="true">◇</span>
               <h3>Linux</h3>
-              <p class="architecture">x64 · ARM64</p>
-              <p>
-                Downloads <code>educationperfected_2026.11.22_amd64.deb</code>.
-                Other architectures and <code>.rpm</code> are below.
-              </p>
-              <a
-                class="button platform-button"
-                href="https://github.com/404-Page-Found/EducationPerfected/releases/download/v2026.11.22/educationperfected_2026.11.22_amd64.deb"
-                >Download .deb (x64) <span aria-hidden="true">↗</span></a
-              >
-              <p class="alt-builds">
-                <a href="https://github.com/404-Page-Found/EducationPerfected/releases/download/v2026.11.22/educationperfected_2026.11.22_arm64.deb">.deb (ARM64)</a>
-                · <a href="https://github.com/404-Page-Found/EducationPerfected/releases/download/v2026.11.22/educationperfected-2026.11.22-1.x86_64.rpm">.rpm (x64)</a>
-                · <a href="https://github.com/404-Page-Found/EducationPerfected/releases/download/v2026.11.22/educationperfected-2026.11.22-1.aarch64.rpm">.rpm (ARM64)</a>
-              </p>
-              <div class="platform-detail">
-                <h4>Install</h4>
-                <p>
-                  Install with your package manager, then open
-                  EducationPerfected from your application menu. The package
-                  includes the desktop app and CLI.
-                </p>
-                <h4>Uninstall</h4>
-                <p>
-                  Remove the package with your package manager or software
-                  center. See the guide for app-data cleanup.
-                </p>
+              <p class="architecture">deb · rpm · x64 · ARM64</p>
+              <div class="installers two-col">
+                <div class="installer">
+                  <p class="installer-name">.deb (x64)</p>
+                  <p class="installer-file">
+                    <code>educationperfected_2026.11.22_amd64.deb</code>
+                  </p>
+                  <a
+                    class="button platform-button"
+                    href="https://github.com/404-Page-Found/EducationPerfected/releases/download/v2026.11.22/educationperfected_2026.11.22_amd64.deb"
+                    >Download <span aria-hidden="true">↗</span></a
+                  >
+                </div>
+                <div class="installer">
+                  <p class="installer-name">.deb (ARM64)</p>
+                  <p class="installer-file">
+                    <code>educationperfected_2026.11.22_arm64.deb</code>
+                  </p>
+                  <a
+                    class="button platform-button"
+                    href="https://github.com/404-Page-Found/EducationPerfected/releases/download/v2026.11.22/educationperfected_2026.11.22_arm64.deb"
+                    >Download <span aria-hidden="true">↗</span></a
+                  >
+                </div>
+                <div class="installer">
+                  <p class="installer-name">.rpm (x64)</p>
+                  <p class="installer-file">
+                    <code>educationperfected-2026.11.22-1.x86_64.rpm</code>
+                  </p>
+                  <a
+                    class="button platform-button"
+                    href="https://github.com/404-Page-Found/EducationPerfected/releases/download/v2026.11.22/educationperfected-2026.11.22-1.x86_64.rpm"
+                    >Download <span aria-hidden="true">↗</span></a
+                  >
+                </div>
+                <div class="installer">
+                  <p class="installer-name">.rpm (ARM64)</p>
+                  <p class="installer-file">
+                    <code>educationperfected-2026.11.22-1.aarch64.rpm</code>
+                  </p>
+                  <a
+                    class="button platform-button"
+                    href="https://github.com/404-Page-Found/EducationPerfected/releases/download/v2026.11.22/educationperfected-2026.11.22-1.aarch64.rpm"
+                    >Download <span aria-hidden="true">↗</span></a
+                  >
+                </div>
               </div>
-              <a
-                class="guide-link"
-                href="https://github.com/404-Page-Found/EducationPerfected#installation"
-                >Full Linux steps ↗</a
-              >
+              <p class="platform-links">
+                <a
+                  href="https://github.com/404-Page-Found/EducationPerfected#installation"
+                  >Install steps ↗</a
+                >
+                <a
+                  href="https://github.com/404-Page-Found/EducationPerfected#uninstall"
+                  >Uninstall steps ↗</a
+                >
+              </p>
             </article>
           </div>
           <p class="download-footnote">
@@ -399,5 +424,6 @@
         </p>
       </div>
     </footer>
+    <script src="assets/download.js" defer></script>
   </body>
 </html>
