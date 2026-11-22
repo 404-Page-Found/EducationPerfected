@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.23.4
+      - name: Test static landing page contracts
+        run: node scripts/landing-page-test.js
       - name: Install pinned dependencies without lifecycle hooks
         run: npm ci --ignore-scripts
       - name: Install pinned local-test browser

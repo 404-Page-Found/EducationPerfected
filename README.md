@@ -1,5 +1,7 @@
 # EducationPerfected
 
+The [project landing page](https://404-page-found.github.io/EducationPerfected/) has downloads, platform setup summaries and support limits.
+
 #### A JavaScript program that automatically answers Education Perfect language questions at **super** speeds.
 
 It automates word-to-word (translation) tasks, audio tasks (Listening and Dictation) and multiple-choice questions in auto-marked Smart Lessons, plus choice and typed rounds in Dash (timed sprint) on [Education Perfect](https://www.educationperfect.com/). The question types and their limits are listed in [Supported question types](#supported-question-types).
