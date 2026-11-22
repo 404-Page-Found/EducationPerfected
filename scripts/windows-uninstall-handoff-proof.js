@@ -37,6 +37,8 @@ const { resolvePowerShell } = require('../packaging/uninstall-windows');
 const { spawnBackgroundHelper } = require('../packaging/windows-helper-spawn');
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+// Absolute System32 paths: never resolve OS tools through PATH.
+const system32 = name => path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', name);
 
 async function proveUninstallHandoff() {
     const exe = path.join(installDir, 'educationperfected.exe');
@@ -78,7 +80,7 @@ async function proveUninstallHandoff() {
     while (Date.now() < deadline) {
         // unins000 running is the regression assertion for "the app quits but
         // the uninstaller never starts". tasklist avoids a WMI dependency.
-        const list = spawnSync('tasklist', ['/FI', 'IMAGENAME eq unins000.exe', '/NH'], { encoding: 'utf8' });
+        const list = spawnSync(system32('tasklist.exe'), ['/FI', 'IMAGENAME eq unins000.exe', '/NH'], { encoding: 'utf8' });
         if (list.stdout && list.stdout.includes('unins000.exe')) { seen = true; break }
         const text = fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '';
         if (/FAILED to start the uninstaller|uninstaller exit code/.test(text)) break;
@@ -86,7 +88,7 @@ async function proveUninstallHandoff() {
     }
     if (seen) {
         console.log('unins000.exe is RUNNING: the handoff started the uninstaller.');
-        spawnSync('taskkill', ['/F', '/IM', 'unins000.exe'], { stdio: 'ignore' });
+        spawnSync(system32('taskkill.exe'), ['/F', '/IM', 'unins000.exe'], { stdio: 'ignore' });
         await sleep(3000);
     }
     if (!fs.existsSync(log)) {
@@ -151,6 +153,10 @@ async function proveUpdateHandoff() {
         throw new Error('the rollback receipt lied: the original executable was not restored');
     }
     if (fs.existsSync(backup)) throw new Error('the update helper left the backup behind');
+    // The helper writes its receipt BEFORE cleaning up, so give the cleanup a
+    // moment to land instead of racing it.
+    const cleanupDeadline = Date.now() + 30000;
+    while (Date.now() < cleanupDeadline && (fs.existsSync(staging) || fs.existsSync(helper))) await sleep(500);
     if (fs.existsSync(staging)) throw new Error('the update helper left the staging directory behind');
     if (fs.existsSync(helper)) throw new Error('the update helper did not remove itself');
     console.log('Windows update handoff proof passed: real helper, ran, rolled the stub back, cleaned up.');
