@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a static GitHub Pages landing page with equal Windows/macOS/Linux download and setup guidance, feature and verification limits, and the project disclaimer. No external assets, scripts, analytics or build step.
+
 - Windows setup installations now use the full verified setup installer when updated from the CLI, instead of replacing only the CLI executable and leaving the desktop app and Start-menu launcher unchanged. A missing desktop payload allows same-version installer repair after a previous CLI-only update; existing raw-update backups are kept. Users already affected by the v2026.11.16 updater need to run the latest Windows setup once over their existing installation.
 
 - The desktop app drops its in-app uninstaller (reported broken on the v2026.11.22 draft): graphical users uninstall from the OS or package manager - Settings > Apps on Windows, Applications on macOS, the package manager on Linux - and the terminal CLI keeps `educationperfected uninstall` with its per-item default-No prompts for every install method (the Windows setup exe's own uninstaller asks the same questions). The app's update control is unchanged; the README gains an Uninstall section covering every OS equally.
