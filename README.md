@@ -258,3 +258,9 @@ The dedicated desktop app ships with the OS installers; its remaining goals are 
 - **Downloadable stable-release preparation:** see [release/README.md](release/README.md#downloadable-stable-release-preparation-moved-from-readme). The policy is in [release/downloadable-beta-policy.md](release/downloadable-beta-policy.md).
 - **Packaged maintenance:** see [runtime storage and uninstall](release/runtime-storage.md). `uninstall` requires typed confirmation and keeps each item unless you choose otherwise. `update` uses published stable GitHub Releases with verified checksums. The desktop app keeps update reachable in App settings before startup and after a startup failure (disabled in a source or development copy, which keeps the terminal commands); uninstall the app from your OS or package manager (see [Uninstall](#uninstall)).
 - **Disclaimer:** read the [detailed disclaimer](docs/disclaimer.md) before use: automating schoolwork can breach school or service rules, and may be detected, marked wrong, or acted on. The software is provided as-is, at your own risk.
+
+### Upgrading a Windows CLI-only installation
+
+If updating from v2026.11.16 reports v2026.11.22 but the Start-menu app still opens a terminal and a separate browser, the old updater replaced only the CLI. It did not install the desktop app or update the shortcut. Run the Windows setup installer from the latest stable release once, over the existing installation. Do not uninstall first. Open EducationPerfected from the Start menu afterward, not the `educationperfected.exe` CLI in the install folder.
+
+Newer CLI builds use the full setup installer for `educationperfected update` on Windows setup installations, upgrading the desktop app and CLI together. If a previous CLI-only update left the desktop app missing, the command can reinstall the same release to repair it. Standalone executables and PowerShell/npm installations remain CLI-only.

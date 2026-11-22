@@ -41,12 +41,15 @@ function installerAssetName({ method, arch = process.arch, version } = {}) {
 // Pick the newest stable release strictly newer than currentVersion and plan
 // the installer download from it. Mirrors update.selectUpdatePlan, with the
 // installer asset chosen by install method instead of the raw CLI binary.
-function planAppUpdate({ method, arch = process.arch, currentVersion, releases }) {
+function planAppUpdate({ method, arch = process.arch, currentVersion, releases, repair = false }) {
     const current = update.parseStableVersion(currentVersion);
     if (!current) throw new Error('Unrecognized current version ' + currentVersion);
     const best = update.latestStableRelease(releases);
     if (!best) return { newer: false, latest: null };
-    if (update.compareVersions(best.parsed, current) <= 0) return { newer: false, latest: best.parsed.version };
+    const comparison = update.compareVersions(best.parsed, current);
+    // A CLI-only upgrade can leave the version current but the desktop absent.
+    // Allow reinstalling that exact version, never downgrading to an older one.
+    if (comparison < 0 || (comparison === 0 && !repair)) return { newer: false, latest: best.parsed.version };
     const tag = best.release.tag_name;
     const name = installerAssetName({ method, arch, version: best.parsed.version });
     const assets = Array.isArray(best.release.assets) ? best.release.assets : [];

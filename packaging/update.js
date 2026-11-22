@@ -112,8 +112,13 @@ async function promptUpdate(plan, backup, { input = process.stdin, output = proc
     const size = plan.asset.size === null ? 'unknown size' : (plan.asset.size / 1048576).toFixed(1) + ' MB';
     output.write('EducationPerfected update available: ' + plan.currentVersion + ' -> ' + plan.version + ' (' + plan.asset.name + ', ' + size + ').\n');
     output.write('Integrity limit: the download is checked against the ' + SUMS_NAME + ' file published in the SAME GitHub release. This detects download corruption, not a compromised publisher. Releases are unsigned; there is no independent signing trust anchor.\n');
-    output.write('The current executable is kept as ' + backup + ' and restored automatically if the new build fails its version check.\n');
-    output.write('Type update to replace this executable, or anything else to cancel: ');
+    if (plan.installer) {
+        output.write('The Windows setup installer upgrades the desktop app and CLI together and repairs the Start-menu launcher. Close any running desktop app before continuing. This is an installer update, not a single-executable swap; no automatic binary rollback is provided.\n');
+        output.write('Type update to run the verified installer, or anything else to cancel: ');
+    } else {
+        output.write('The current executable is kept as ' + backup + ' and restored automatically if the new build fails its version check.\n');
+        output.write('Type update to replace this executable, or anything else to cancel: ');
+    }
     const rl = require('node:readline').createInterface({ input, output });
     try { return await new Promise(resolve => { rl.once('line', line => resolve(line.trim() === 'update')); rl.once('close', () => resolve(false)); }); }
     finally { rl.close(); }
@@ -281,6 +286,11 @@ async function updateCommand({
         return { status: 'source-checkout' };
     }
     if (typeof fetchImpl !== 'function') throw new Error('Network fetch unavailable in this Node runtime');
+    // The setup install owns more than its CLI binary. A raw swap would leave
+    // Electron absent/stale and preserve the v2026.11.16 CLI Start-menu target.
+    if (platform === 'win32' && require('../lib/install-record').detectInstall({ executable, platform, spawn }).method === 'setup-exe') {
+        return require('./installed-update').updateWindowsInstall({ executable, currentVersion, arch, input, output, fetchImpl, confirm, spawnDetached });
+    }
     const directory = preflightExecutable(executable);
     const assetName = releaseAssetName(platform, arch);
     const backup = executable + '.backup';
