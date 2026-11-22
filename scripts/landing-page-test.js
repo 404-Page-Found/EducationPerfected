@@ -66,7 +66,7 @@ for (const [i, os] of ["Windows", "macOS", "Linux"].entries()) {
   assert.match(platforms[i], /#installation/);
 }
 const stable = /releases\/latest\/download\/(educationperfected-(?:windows-x64-setup\.exe|macos-(?:arm64|x64)\.pkg))"/g;
-assert.deepEqual([...html.matchAll(stable)].map((m) => m[1]).sort(), ["educationperfected-macos-arm64.pkg", "educationperfected-macos-x64.pkg", "educationperfected-windows-x64-setup.exe"], "stable-name direct links for Windows and macOS");
+assert.deepEqual([...html.matchAll(stable)].map((m) => m[1]).sort((a, b) => a.localeCompare(b)), ["educationperfected-macos-arm64.pkg", "educationperfected-macos-x64.pkg", "educationperfected-windows-x64-setup.exe"], "stable-name direct links for Windows and macOS");
 const pinned = [...html.matchAll(/releases\/download\/(v[\d.]+)\/(educationperfected[^"]+)"/g)];
 assert.equal(pinned.length, 4, "four Linux package links");
 for (const [, tag, file] of pinned) {
