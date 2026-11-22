@@ -100,9 +100,11 @@ remove instead of guessing.
 
 The desktop app carries no uninstaller: graphical users uninstall from the OS
 or package manager (Settings > Apps on Windows, which runs the setup exe's Inno
-uninstaller with its own per-item prompts; Applications on macOS; the package
-manager on Linux), and the terminal CLI keeps `uninstall` with the per-item
-default-No prompts above.
+uninstaller with its own per-item prompts; the package manager on Linux), and
+the terminal CLI keeps `uninstall` with the per-item default-No prompts above.
+On macOS, moving the app from Applications to the Bin removes only the app;
+`uninstall` also removes the command, the install record and (by choice) the
+saved login and app data.
 
 Per method: the setup exe delegates to its own Inno uninstaller (which removes
 the program, shortcuts and PATH entry and asks about the saved login and app

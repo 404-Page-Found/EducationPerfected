@@ -7,7 +7,7 @@ const path = require('node:path');
 // Where each OS installer puts the CLI relative to the app it installed
 // (installer design: installers install app and CLI together). Anything else -
 // a source checkout, `npm run app`, an unpacked development build - has no
-// paired CLI: null, and the app hides its update controls.
+// paired CLI: null, and the app keeps its update control visible but disabled.
 function resolveCliExecutable({ platform = process.platform, execPath = process.execPath } = {}) {
     if (platform === 'win32') {
         // <install>\app\EducationPerfected.exe pairs with <install>\educationperfected.exe.

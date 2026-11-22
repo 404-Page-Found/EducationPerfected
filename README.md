@@ -95,7 +95,7 @@ Uninstall the app from your OS or package manager, the same as any other install
 - **macOS:** move **EducationPerfected** from Applications to the Bin.
 - **Linux:** remove the package with your package manager (for example `sudo apt remove educationperfected` or `sudo rpm -e educationperfected`), or from your desktop's software center.
 
-The terminal command `educationperfected uninstall` removes everything in one run, on every install method: the program itself, and only the items you choose from the saved login, app data and downloaded browsers (each kept unless you choose to remove it). Use it for installs without an OS entry (install script, npm, raw binary), and on macOS/Linux when you also want the command and app data gone.
+The terminal command `educationperfected uninstall` removes everything in one run, on every install method. It asks about each item - the program itself, the saved login, app data and downloaded browsers - and keeps each one unless you choose to remove it (the Windows setup exe's own uninstaller asks the same questions instead). Use it for installs without an OS entry (install script or npm), and on macOS/Linux when you also want the command and app data gone. A raw binary that is not on your PATH runs it by its file path instead (for example, `.\educationperfected-windows-x64.exe uninstall` or `./educationperfected-macos-arm64 uninstall`).
 
 ## Quick start
 

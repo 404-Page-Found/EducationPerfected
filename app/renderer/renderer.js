@@ -194,8 +194,11 @@ function renderMaintenance(state) {
     }
 }
 
-// Update progress lines land in state between polls; re-render on each.
-api.onMaintenanceProgress(() => { if (latest) renderMaintenance(latest); });
+// Update progress means the session's log grew; pull fresh state so the
+// lines show as they land instead of at the next one-second poll.
+api.onMaintenanceProgress(() => {
+    api.getState().then(state => render(state)).catch(() => { /* window closing */ });
+});
 
 // --- Update buttons ---
 $('check-update').addEventListener('click', () => {
