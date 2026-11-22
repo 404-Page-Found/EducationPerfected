@@ -112,8 +112,10 @@ data itself); npm runs `npm uninstall -g educationperfected`; `.deb` runs
 `sudo apt remove educationperfected`; `.rpm` runs `sudo rpm -e educationperfected`;
 `.pkg` deletes its recorded files with sudo and runs `sudo pkgutil --forget
 com.404pf.educationperfected`; install.sh/install.ps1/raw binaries delete their
-recorded files (and the install.ps1 PATH entry). On Windows a background PowerShell helper waits for the CLI process to exit
-before deleting anything. It records the wait and each removal stage in
+recorded files (and the install.ps1 PATH entry). On Windows a PowerShell helper starts in its own hidden console and writes a
+readiness acknowledgement before the CLI reports a handoff. It survives the
+CLI and its terminal closing, then waits for the CLI process to exit before
+deleting anything. It records the wait and each removal stage in
 `%TEMP%\educationperfected-uninstall.log`; the setup-exe path also enables
 Inno diagnostics in the adjacent `educationperfected-uninstall.log.inno.log`.
 The helper refuses removal if the CLI is still running after ten minutes.
