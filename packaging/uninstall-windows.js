@@ -74,16 +74,46 @@ function windowsUninstallHelperScript({ pid, mode, log, files = [], pathEntries 
     return lines.join('\r\n');
 }
 
-function startWindowsUninstallHelper({ pid, mode, log, files, pathEntries, shortcuts, uninstaller, tmp, spawnDetached }) {
-    const helper = path.join(tmp, 'educationperfected-uninstall-' + pid + '-' + Date.now().toString(36) + '.ps1');
-    fs.writeFileSync(helper, windowsUninstallHelperScript({ pid, mode, log, files, pathEntries, shortcuts, uninstaller }), { mode: 0o700 });
-    const child = spawnDetached('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', helper]);
-    // A failed spawn (no powershell.exe) emits 'error' asynchronously; without a
-    // listener it would crash the CLI after uninstall already returned.
-    if (child && typeof child.on === 'function') {
-        child.on('error', error => { try { fs.appendFileSync(log, 'helper spawn failed: ' + error.message + '\n'); } catch { /* log is best-effort */ } });
+// powershell.exe is resolved through PATH, which a broken user PATH defeats;
+// the Windows PowerShell 5.1 binary has a stable absolute location instead.
+function resolvePowerShell(env = process.env) {
+    const root = env.SystemRoot || env.windir;
+    if (root && !/[\r\n]/.test(root)) {
+        const full = path.join(root, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+        if (fs.existsSync(full)) return full;
     }
+    return 'powershell.exe';
+}
+
+// stdio is ignored, so spawn success or failure surfaces only through the
+// 'spawn'/'error' events. Confirming the helper actually started before the
+// caller reports a handoff (and quits) is what turns a silent no-op into a
+// shown error.
+function awaitHelperSpawn(child, log) {
+    if (!child || typeof child.once !== 'function') return Promise.resolve();
+    return new Promise((resolve, reject) => {
+        const cleanup = () => { clearTimeout(timer); child.removeListener('spawn', onSpawn); child.removeListener('error', onError); };
+        const onSpawn = () => { cleanup(); resolve(); };
+        const onError = error => {
+            cleanup();
+            try { fs.appendFileSync(log, 'helper spawn failed: ' + error.message + '\n'); } catch { /* log is best-effort */ }
+            reject(new Error('Could not start the uninstall helper (' + error.message + '). Nothing was removed.'));
+        };
+        const timer = setTimeout(() => { cleanup(); resolve(); }, 10000);
+        if (typeof timer.unref === 'function') timer.unref();
+        child.once('spawn', onSpawn);
+        child.once('error', onError);
+    });
+}
+
+async function startWindowsUninstallHelper({ pid, mode, log, files, pathEntries, shortcuts, uninstaller, tmp, env = process.env, spawnDetached }) {
+    const helper = path.join(tmp, 'educationperfected-uninstall-' + pid + '-' + Date.now().toString(36) + '.ps1');
+    // The BOM matters: Windows PowerShell 5.1 reads a BOM-less .ps1 as ANSI,
+    // which mangles non-ASCII characters in install paths.
+    fs.writeFileSync(helper, '\uFEFF' + windowsUninstallHelperScript({ pid, mode, log, files, pathEntries, shortcuts, uninstaller }), { mode: 0o700 });
+    const child = spawnDetached(resolvePowerShell(env), ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', helper]);
+    await awaitHelperSpawn(child, log);
     return helper;
 }
 
-module.exports = { windowsUninstallHelperScript, startWindowsUninstallHelper, psLiteral };
+module.exports = { windowsUninstallHelperScript, startWindowsUninstallHelper, resolvePowerShell, awaitHelperSpawn, psLiteral };

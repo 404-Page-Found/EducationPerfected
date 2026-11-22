@@ -210,7 +210,8 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
   assert.equal(s.result.incomplete,false);
   cleanup(s);
  }
- // A failing powershell.exe spawn (error event) is logged, never a crash.
+ // A failing powershell.exe spawn (error event) rejects the uninstall with a
+ // shown error instead of a silent no-op after quit, and is logged.
  {
   const {EventEmitter}=require('node:events');
   const home=fs.mkdtempSync(path.join(os.tmpdir(),'ep-uninstall-spawnerr-'));
@@ -219,13 +220,44 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
    const runtime=createRuntimeDirectory({home});
    const exe=path.join(home,'educationperfected.exe');fs.writeFileSync(exe,'inert');
    fs.writeFileSync(path.join(home,'educationperfected-install.json'),JSON.stringify({version:1,method:'install-ps1',files:[exe]}));
-   const child=new EventEmitter();let output='';
-   const result=await uninstallCommand({home,ownDirectory:runtime.directory,cleanupOwn:async()=>{runtime.remove(true);},executable:exe,platform:'win32',env:{},tmpDir:tmp,pid:1,confirm:async()=>({login:false,data:false,browsers:false,program:true}),output:{write:t=>{output+=t;}},store:{async remove(){}},spawnDetached:()=>child});
-   assert.equal(result.programPending,true);
-   child.emit('error',new Error('inert spawn failure'));
+   const child=new EventEmitter();
+   setTimeout(()=>child.emit('error',new Error('inert spawn failure')),20);
+   await assert.rejects(
+    uninstallCommand({home,ownDirectory:runtime.directory,cleanupOwn:async()=>{runtime.remove(true);},executable:exe,platform:'win32',env:{},tmpDir:tmp,pid:1,confirm:async()=>({login:false,data:false,browsers:false,program:true}),output:{write:()=>{}},store:{async remove(){}},spawnDetached:()=>child}),
+    /Could not start the uninstall helper \(inert spawn failure\)/);
+   assert.ok(fs.existsSync(exe),'exe untouched when the helper never started');
    const log=path.join(tmp,'educationperfected-uninstall.log');
    assert.ok(fs.readFileSync(log,'utf8').includes('helper spawn failed: inert spawn failure'));
   }finally{fs.rmSync(home,{recursive:true,force:true});fs.rmSync(tmp,{recursive:true,force:true});}
+ }
+ // A confirmed helper spawn (spawn event) hands off and the helper script is
+ // written with a UTF-8 BOM so PowerShell 5.1 parses non-ASCII paths.
+ {
+  const {EventEmitter}=require('node:events');
+  const home=fs.mkdtempSync(path.join(os.tmpdir(),'ep-uninstall-spawnok-'));
+  const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'ep-uninstall-tmp-'));
+  try{
+   const runtime=createRuntimeDirectory({home});
+   const exe=path.join(home,'educationperfected.exe');fs.writeFileSync(exe,'inert');
+   fs.writeFileSync(path.join(home,'educationperfected-install.json'),JSON.stringify({version:1,method:'install-ps1',files:[exe]}));
+   const child=new EventEmitter();const spawned=[];
+   setTimeout(()=>child.emit('spawn'),20);
+   const result=await uninstallCommand({home,ownDirectory:runtime.directory,cleanupOwn:async()=>{runtime.remove(true);},executable:exe,platform:'win32',env:{},tmpDir:tmp,pid:1,confirm:async()=>({login:false,data:false,browsers:false,program:true}),output:{write:()=>{}},store:{async remove(){}},spawnDetached:(...args)=>{spawned.push(args);return child;}});
+   assert.equal(result.programPending,true);
+   const ps1=spawned[0][1].find(a=>a.endsWith('.ps1'));
+   const bytes=fs.readFileSync(ps1);
+   assert.deepEqual([...bytes.subarray(0,3)],[0xEF,0xBB,0xBF],'helper script starts with a UTF-8 BOM');
+  }finally{fs.rmSync(home,{recursive:true,force:true});fs.rmSync(tmp,{recursive:true,force:true});}
+ }
+ // resolvePowerShell prefers the stable absolute SystemRoot path when it exists.
+ {
+  const {resolvePowerShell}=require('../packaging/uninstall-windows');
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'ep-uninstall-winroot-'));
+  try{
+   const full=path.join(root,'System32','WindowsPowerShell','v1.0');fs.mkdirSync(full,{recursive:true});fs.writeFileSync(path.join(full,'powershell.exe'),'inert');
+   assert.equal(resolvePowerShell({SystemRoot:root}),path.join(full,'powershell.exe'));
+   assert.equal(resolvePowerShell({}),'powershell.exe');
+  }finally{fs.rmSync(root,{recursive:true,force:true});}
  }
  // Unknown system package (no record, /usr/bin, neither dpkg nor rpm owns it): no program prompt, manual line.
  {
