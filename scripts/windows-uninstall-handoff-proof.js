@@ -88,8 +88,12 @@ async function proveUninstallHandoff() {
     }
     if (seen) {
         console.log('unins000.exe is RUNNING: the handoff started the uninstaller.');
-        spawnSync(system32('taskkill.exe'), ['/F', '/IM', 'unins000.exe'], { stdio: 'ignore' });
-        await sleep(3000);
+        // /T matters: the Inno uninstaller re-executes itself from a TEMP copy
+        // (a child process), and a surviving copy holds the uninstall mutex, so
+        // the workflow's real silent uninstall right after would exit 1
+        // instantly. Kill the whole tree and let the mutex go.
+        spawnSync(system32('taskkill.exe'), ['/F', '/T', '/IM', 'unins000.exe'], { stdio: 'ignore' });
+        await sleep(5000);
     }
     if (!fs.existsSync(log)) {
         // Diagnostic: rerun the newest helper with its output captured, so a

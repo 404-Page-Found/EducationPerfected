@@ -88,8 +88,17 @@ jobs:
       - name: Prove the uninstaller removes the program, the record and the PATH entry
         shell: pwsh
         run: |
-          & "$env:INSTALLED_DIR\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/LOG=$env:TEMP\ep-proof-uninstall.log" | Out-Host
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Retry: the proof step force-killed the helper-launched uninstaller,
+          # and its TEMP copy can take a moment to release the uninstall mutex.
+          $done = $false
+          for ($i = 0; $i -lt 3 -and -not $done; $i++) {
+            & "$env:INSTALLED_DIR\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/LOG=$env:TEMP\ep-proof-uninstall.log" | Out-Host
+            if ($LASTEXITCODE -eq 0) { $done = $true } else { Start-Sleep -Seconds 10 }
+          }
+          if (-not $done) {
+            if (Test-Path "$env:TEMP\ep-proof-uninstall.log") { Get-Content "$env:TEMP\ep-proof-uninstall.log" | Out-Host }
+            exit 1
+          }
           if (Test-Path $env:INSTALLED_DIR) { throw 'install directory survived a full uninstall' }
           $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
           if ($userPath -and ($userPath.ToLower() -like ('*' + $env:INSTALLED_DIR.ToLower() + '*'))) { throw 'the user PATH entry survived a full uninstall' }
