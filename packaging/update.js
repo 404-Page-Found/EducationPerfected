@@ -125,7 +125,7 @@ function defaultHealthcheck(executable, version, spawn = require('node:child_pro
     return String(result.stdout || '').trim() === version;
 }
 
-// cmd.exe helper: a running Windows executable cannot replace itself, so a detached
+// cmd.exe helper: a running Windows executable cannot replace itself, so a background
 // helper waits for this process to exit, swaps the verified staged build in, runs
 // the version healthcheck, rolls back on failure and writes a one-line receipt.
 // Paths containing % or ! are rejected: cmd would expand them inside the script.
@@ -256,7 +256,7 @@ function startWindowsHelper({ executable, staging, staged, backup, receipt, vers
     const helper = staging + '.cmd';
     fs.writeFileSync(helper, windowsHelperScript({ executable, staged, backup, version, receipt, staging }), { mode: 0o700 });
     spawnDetached(process.env.ComSpec || 'cmd.exe', ['/c', helper]);
-    write('Windows cannot replace a running executable, so a detached helper finishes this update after the program exits: it swaps in ' + version + ', runs its version check, and restores the previous build on failure.');
+    write('Windows cannot replace a running executable, so a background helper finishes this update after the program exits: it swaps in ' + version + ', runs its version check, and restores the previous build on failure.');
     write('Result receipt: ' + receipt + ' (shown again on the next update run). Previous build will be kept as ' + backup + '.');
     return { status: 'helper-started', version };
 }
@@ -272,7 +272,7 @@ async function updateCommand({
     fetchImpl = globalThis.fetch,
     confirm = promptUpdate,
     spawn = require('node:child_process').spawnSync,
-    spawnDetached = (command, args) => require('node:child_process').spawn(command, args, { detached: true, stdio: 'ignore', windowsHide: true }).unref(),
+    spawnDetached = (command, args) => require('./windows-helper-spawn').spawnBackgroundHelper(command, args),
     healthcheck,
 } = {}) {
     const write = line => output.write(line + '\n');

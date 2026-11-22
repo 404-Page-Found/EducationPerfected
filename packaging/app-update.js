@@ -73,7 +73,7 @@ async function fetchAppUpdatePlan({ method, arch = process.arch, currentVersion,
 }
 
 // cmd.exe helper, same pattern as the CLI's own Windows update helper: the
-// running app cannot be replaced, so a detached helper waits for the app
+// running app cannot be replaced, so a background helper waits for the app
 // process to exit, runs the verified installer silently, records a one-line
 // receipt the next app launch reports, then removes the staging directory and
 // itself. Paths containing % or ! are rejected: cmd would expand them.
@@ -163,7 +163,7 @@ async function applyAppUpdate(plan, {
     stagingParent = os.tmpdir(),
     receipt,
     fetchImpl = globalThis.fetch,
-    spawnDetached = (command, args) => require('node:child_process').spawn(command, args, { detached: true, stdio: 'ignore', windowsHide: true }).unref(),
+    spawnDetached = (command, args) => require('./windows-helper-spawn').spawnBackgroundHelper(command, args),
     spawnSync = require('node:child_process').spawnSync,
     hasPkexec,
     beforeHandoff = async () => {},

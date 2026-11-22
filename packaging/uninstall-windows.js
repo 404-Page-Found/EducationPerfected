@@ -1,4 +1,4 @@
-// Windows program removal runs through a detached PowerShell helper: a running
+// Windows program removal runs through a background PowerShell helper: a running
 // executable cannot delete itself, and npm cannot remove the package directory
 // of the running CLI. The helper waits for this process to exit, finishes the
 // removal, appends to a small log and deletes itself.
