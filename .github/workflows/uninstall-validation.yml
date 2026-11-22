@@ -88,12 +88,20 @@ jobs:
       - name: Prove the uninstaller removes the program, the record and the PATH entry
         shell: pwsh
         run: |
-          # Retry: the proof step force-killed the helper-launched uninstaller,
-          # and its TEMP copy can take a moment to release the uninstall mutex.
+          # Sweep any survivor of the proof step's killed uninstaller first:
+          # its random-named TEMP copy (_iu*.tmp) holds the uninstall mutex and
+          # would hang this step. Then run the real uninstall with a bounded
+          # wait so a hang fails fast with the uninstaller's own log.
+          Get-Process | Where-Object { $_.Name -like 'unins*' -or $_.Name -like '_iu*' } | Stop-Process -Force -ErrorAction SilentlyContinue
           $done = $false
           for ($i = 0; $i -lt 3 -and -not $done; $i++) {
-            & "$env:INSTALLED_DIR\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/LOG=$env:TEMP\ep-proof-uninstall.log" | Out-Host
-            if ($LASTEXITCODE -eq 0) { $done = $true } else { Start-Sleep -Seconds 10 }
+            $proc = Start-Process -PassThru -FilePath "$env:INSTALLED_DIR\unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/LOG=$env:TEMP\ep-proof-uninstall.log"
+            $proc | Wait-Process -Timeout 180 -ErrorAction SilentlyContinue
+            if (-not $proc.HasExited) {
+              "unins000.exe did not exit within 180s; killing it and retrying"
+              Get-Process | Where-Object { $_.Name -like 'unins*' -or $_.Name -like '_iu*' } | Stop-Process -Force -ErrorAction SilentlyContinue
+              Start-Sleep -Seconds 5
+            } elseif ($proc.ExitCode -eq 0) { $done = $true } else { Start-Sleep -Seconds 10 }
           }
           if (-not $done) {
             if (Test-Path "$env:TEMP\ep-proof-uninstall.log") { Get-Content "$env:TEMP\ep-proof-uninstall.log" | Out-Host }

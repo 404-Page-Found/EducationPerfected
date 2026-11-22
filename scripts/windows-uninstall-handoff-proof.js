@@ -88,12 +88,17 @@ async function proveUninstallHandoff() {
     }
     if (seen) {
         console.log('unins000.exe is RUNNING: the handoff started the uninstaller.');
-        // /T matters: the Inno uninstaller re-executes itself from a TEMP copy
-        // (a child process), and a surviving copy holds the uninstall mutex, so
-        // the workflow's real silent uninstall right after would exit 1
-        // instantly. Kill the whole tree and let the mutex go.
-        spawnSync(system32('taskkill.exe'), ['/F', '/T', '/IM', 'unins000.exe'], { stdio: 'ignore' });
-        await sleep(5000);
+        // The Inno uninstaller re-executes itself from a TEMP copy whose random
+        // _iu*.tmp image name escapes a by-name taskkill, and it is not reliably
+        // a child of the launcher, so /T cannot be trusted either. A survivor
+        // holds the uninstall mutex and the workflow's real silent uninstall
+        // right after hangs on it. Sweep both names through PowerShell and
+        // prove none remain.
+        const sweep = "Get-Process | Where-Object { $_.Name -like 'unins*' -or $_.Name -like '_iu*' }";
+        spawnSync(resolvePowerShell(process.env), ['-NoProfile', '-Command', sweep + ' | Stop-Process -Force'], { stdio: 'ignore' });
+        await sleep(3000);
+        const check = spawnSync(resolvePowerShell(process.env), ['-NoProfile', '-Command', 'if (' + sweep + ') { \'leftover\' } else { \'clean\' }'], { encoding: 'utf8' });
+        if ((check.stdout || '').trim() !== 'clean') throw new Error('the helper-launched uninstaller survived the cleanup sweep: ' + (check.stdout || '').trim());
     }
     if (!fs.existsSync(log)) {
         // Diagnostic: rerun the newest helper with its output captured, so a
