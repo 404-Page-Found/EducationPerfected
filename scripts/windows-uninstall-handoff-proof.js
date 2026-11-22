@@ -85,25 +85,32 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     if (!fs.existsSync(log)) {
         // Diagnostic: rerun the same helper with its output captured, so a
         // silent PowerShell startup failure says why instead of vanishing.
-        console.error('helper log missing; re-running the helper with captured output for diagnostics');
-        const { startWindowsUninstallHelper } = require('../packaging/uninstall-windows');
+        // Diagnostic matrix: the production spawn options (detached, stdio
+        // ignore, windowsHide) silently killed the console-subsystem helper.
+        // Vary one factor at a time to pin down which.
+        console.error('helper log missing; running a spawn-option matrix for diagnostics');
         const cp = require('node:child_process');
-        const helper = await startWindowsUninstallHelper({
-            pid: marker.pid, mode: 'inno', log, uninstaller: record.uninstaller, tmp: os.tmpdir(), env: process.env,
-            spawnDetached: (command, args) => {
-                console.log('[diag spawn]', command, JSON.stringify(args));
-                const c = cp.spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-                c.stdout.on('data', d => process.stdout.write('[helper stdout] ' + d));
-                c.stderr.on('data', d => process.stdout.write('[helper stderr] ' + d));
-                c.on('exit', (code, sig) => console.log('[helper exit]', code, sig));
-                return c;
-            },
-        });
-        console.log('--- helper script (' + helper + ') ---');
-        console.log(fs.readFileSync(helper, 'utf8'));
-        console.log('--- end helper script ---');
-        await sleep(20000);
-        console.log(fs.existsSync(log) ? 'the diagnostic helper DID write the log' : 'the diagnostic helper also wrote no log');
+        const ps = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+        const variants = {
+            'A-production': { detached: true, stdio: 'ignore', windowsHide: true },
+            'B-no-detached': { detached: false, stdio: 'ignore', windowsHide: true },
+            'C-no-hide': { detached: true, stdio: 'ignore', windowsHide: false },
+            'D-pipes': { detached: true, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
+        };
+        for (const [name, opts] of Object.entries(variants)) {
+            const markerFile = path.join(os.tmpdir(), 'ep-spawn-diag-' + name + '.txt');
+            fs.rmSync(markerFile, { force: true });
+            const c = cp.spawn(ps, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-Command', `Set-Content -LiteralPath '${markerFile}' -Value ran`], opts);
+            if (opts.detached) c.unref();
+            if (c.stderr) c.stderr.on('data', d => process.stdout.write('[' + name + ' stderr] ' + d));
+            c.on('error', e => console.log('[' + name + ' error]', e.message));
+            c.on('exit', (code, sig) => console.log('[' + name + ' exit]', code, sig));
+        }
+        await sleep(15000);
+        for (const name of Object.keys(variants)) {
+            const markerFile = path.join(os.tmpdir(), 'ep-spawn-diag-' + name + '.txt');
+            console.log('[matrix]', name, fs.existsSync(markerFile) ? 'RAN' : 'NEVER RAN');
+        }
         throw new Error('helper log missing: the PowerShell helper never ran');
     }
     const text = fs.readFileSync(log, 'utf8');
