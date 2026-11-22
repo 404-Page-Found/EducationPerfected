@@ -13,10 +13,17 @@ assert.equal((html.match(/<h1\b/g) || []).length, 1);
 assert.match(html, /Content-Security-Policy/);
 assert.match(html, /default-src 'none'/);
 assert.doesNotMatch(html, /<(?:script|iframe|form|object|embed)\b/i);
-assert.doesNotMatch(html, /\son\w+=/i);
+const inlineHandler = /\son\w+\s*=/i;
+assert.match(' onload = "bad()"', inlineHandler);
+assert.match(' onerror="bad()"', inlineHandler);
+assert.doesNotMatch(html, inlineHandler);
 assert.doesNotMatch(css, /@import|url\s*\(/i);
 const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
 assert.equal(new Set(ids).size, ids.length, "unique anchor IDs");
+const projectPath = (value) => value === "/404-Page-Found/EducationPerfected" || value.startsWith("/404-Page-Found/EducationPerfected/");
+assert.equal(projectPath("/404-Page-Found/EducationPerfected-other"), false);
+assert.equal(projectPath("/404-Page-Found/EducationPerfected"), true);
+assert.equal(projectPath("/404-Page-Found/EducationPerfected/releases/latest"), true);
 for (const [, value] of html.matchAll(/\b(?:href|src)="([^"]+)"/g)) {
   if (value === "#") continue;
   if (value.startsWith("#")) {
@@ -29,7 +36,7 @@ for (const [, value] of html.matchAll(/\b(?:href|src)="([^"]+)"/g)) {
       `unexpected external host: ${value}`,
     );
     assert.ok(
-      url.pathname.startsWith("/404-Page-Found/EducationPerfected") ||
+      projectPath(url.pathname) ||
         url.pathname === "/akioweh/EducationPerfected",
     );
   } else {

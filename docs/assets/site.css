@@ -129,7 +129,7 @@ h1 {
   font-size: clamp(54px, 5.1vw, 74px);
   font-weight: 750;
   line-height: 1.03;
-  letter-spacing: -5px;
+  letter-spacing: -0.045em;
   margin-bottom: 26px;
 }
 h1 span {
@@ -656,7 +656,7 @@ code {
   }
   h1 {
     font-size: 52px;
-    letter-spacing: -2.8px;
+    letter-spacing: -0.045em;
   }
   .eyebrow {
     font-size: 9px;
