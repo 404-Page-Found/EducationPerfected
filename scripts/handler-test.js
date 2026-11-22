@@ -709,6 +709,15 @@ async function bootRealProgram(origin) {
     let output = '';
     child.stdout.on('data', d => { output += d; });
     child.stderr.on('data', d => { output += d; });
+    const waitForCheckpoint = async checkpoint => {
+        const deadline = Date.now() + 15000;
+        while (!output.includes(checkpoint)) {
+            if (child.exitCode !== null || child.signalCode !== null || Date.now() >= deadline) {
+                throw new Error(`index.js did not reach ${checkpoint}. Output:\n${output}`);
+            }
+            await new Promise(resolve => setTimeout(resolve, 20));
+        }
+    };
     let browser;
     try {
         const wsEndpoint = await new Promise((resolve, reject) => {
@@ -726,6 +735,7 @@ async function bootRealProgram(origin) {
         // log in through the mock (any credentials pass), so the program finishes
         // startup and exposes its controls
         await page.waitForSelector('#loginId', { timeout: 15000 });
+        await waitForCheckpoint('EP_TEST_LOGIN_READY');
         await page.type('#loginId', 'someone@example.com');
         await page.type('#password', 'not-a-real-password');
         await Promise.all([
@@ -736,7 +746,17 @@ async function bootRealProgram(origin) {
                 button.click();
             }),
         ]);
-        await page.waitForFunction(() => typeof window.startAnswer === 'function', { timeout: 15000 });
+        // startAnswer is exposed before the other bindings and the final
+        // startup evaluations. Navigating at that point can destroy their
+        // execution context and make startup cleanup close this browser.
+        // Wait for the owner's completed startup, not one partial binding.
+        await waitForCheckpoint('Education Perfected V2026 fully Loaded.');
+        await page.waitForFunction(() =>
+            ['startAnswer', 'toggleMode', 'epTestState', 'epTestStop'].every(name => typeof window[name] === 'function') &&
+            window.__epHotkeysInstalled === true,
+        { timeout: 15000 }).catch(error => {
+            throw new Error(`index.js controls were not ready: ${error.message}\nOutput:\n${output}`, { cause: error });
+        });
         return { child, browser, page, output: () => output };
     } catch (e) {
         if (browser) await browser.close().catch(() => {});
