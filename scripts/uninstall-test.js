@@ -274,6 +274,18 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
    assert.deepEqual([...bytes.subarray(0,3)],[0xEF,0xBB,0xBF],'helper script starts with a UTF-8 BOM');
   }finally{fs.rmSync(home,{recursive:true,force:true});fs.rmSync(tmp,{recursive:true,force:true});}
  }
+ // Readiness must come from the actual independent helper, never spawn alone.
+ {
+  const {waitForHelperReady}=require('../packaging/uninstall-windows');
+  const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'ep-helper-ready-'));
+  try{
+   const ready=path.join(tmp,'helper.ready');
+   await assert.rejects(waitForHelperReady(ready,1),/did not become ready/);
+   fs.writeFileSync(ready,'ready');
+   await waitForHelperReady(ready,1);
+   assert.equal(fs.existsSync(ready),false,'readiness acknowledgement is consumed');
+  }finally{fs.rmSync(tmp,{recursive:true,force:true});}
+ }
  // resolvePowerShell prefers the stable absolute SystemRoot path when it exists.
  {
   const {resolvePowerShell}=require('../packaging/uninstall-windows');
