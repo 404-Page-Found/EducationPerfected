@@ -120,6 +120,20 @@ begin
     RegWriteExpandStringValue(HKCU, EnvironmentKey, 'Path', Cleaned);
 end;
 
+function Hex4(N: Integer): string;
+const
+  Digits = '0123456789abcdef';
+var
+  K: Integer;
+begin
+  Result := '';
+  for K := 1 to 4 do
+  begin
+    Result := Digits[(N and $F) + 1] + Result;
+    N := N shr 4;
+  end;
+end;
+
 function JsonEscape(S: string): string;
 var
   I: Integer;
@@ -137,7 +151,7 @@ begin
     else if Ord(S[I]) < 128 then
       Result := Result + S[I]
     else
-      Result := Result + '\u' + Lowercase(IntToHex(Ord(S[I]), 4));
+      Result := Result + '\u' + Hex4(Ord(S[I]));
 end;
 
 { Install record: the CLI uninstall reads this to learn the install method and

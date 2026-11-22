@@ -17,7 +17,7 @@ for(const required of [
 // a non-ASCII Windows username puts one in the default install location, and
 // an unescaped byte came back mangled, pointing the uninstall handoff at a
 // nonexistent uninstaller (the app quit, nothing started).
-assert.ok(iss.includes(String.raw`\u' + Lowercase(IntToHex(Ord(S[I]), 4))`),'JsonEscape emits \\uXXXX for non-ASCII');
+assert.ok(iss.includes(String.raw`\u' + Hex4(Ord(S[I]))`),'JsonEscape emits \\uXXXX for non-ASCII');
 assert.ok(iss.includes('else if Ord(S[I]) < 128'),'JsonEscape passes ASCII through only');
 // The desktop browser is part of AppPayload, copied by [Files] before the
 // finish page. A leftover [Run] hook starts an unrelated CLI download in a
