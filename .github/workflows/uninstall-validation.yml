@@ -71,37 +71,15 @@ jobs:
           $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
           if (-not ($userPath -and ($userPath.ToLower() -like ('*' + $dir.ToLower() + '*')))) { throw 'PATH task selected but the install dir is not on the user PATH' }
           "INSTALLED_DIR=$dir" >> $env:GITHUB_ENV
-      - name: Run the production uninstall handoff against the real install
+      - name: Run the production uninstall handoff and verify the helper starts the uninstaller
         shell: pwsh
         run: |
+          # The proof driver stays alive watching the helper: the runner kills
+          # a step's process tree when the step's main process exits, so a
+          # handoff proof split across steps would kill the detached helper.
           Remove-Item "$env:TEMP\educationperfected-uninstall.log" -Force -ErrorAction SilentlyContinue
           node scripts\windows-uninstall-handoff-proof.js "$env:INSTALLED_DIR"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Verify the helper starts the uninstaller
-        shell: pwsh
-        run: |
-          # The detached helper waits for the node process above to exit,
-          # sleeps, then starts unins000.exe. Seeing the process is the
-          # regression assertion for "the app quits but the uninstaller never
-          # starts"; on a session without a visible desktop the uninstaller
-          # can exit on its own, so its exit code in the helper log counts too.
-          $log = "$env:TEMP\educationperfected-uninstall.log"
-          $seen = $false
-          for ($i = 0; $i -lt 24; $i++) {
-            if (Get-Process unins000 -ErrorAction SilentlyContinue) { $seen = $true; break }
-            Start-Sleep -Seconds 5
-          }
-          if ($seen) {
-            Write-Host 'unins000.exe is RUNNING: the handoff started the uninstaller'
-            Stop-Process -Name unins000 -Force
-            Start-Sleep -Seconds 5
-          }
-          if (-not (Test-Path $log)) { throw 'helper log missing: the PowerShell helper never ran' }
-          $text = Get-Content $log -Raw
-          Write-Host $text
-          if ($text -match 'FAILED to start the uninstaller') { throw 'the helper failed to start the uninstaller' }
-          if ($text -notmatch 'uninstall helper started \(mode inno') { throw 'helper log lacks the start marker' }
-          if (-not $seen -and $text -notmatch 'uninstaller exit code') { throw 'the uninstaller never started: no running process and no exit code in the helper log' }
       - name: Prove the uninstaller removes the program, the record and the PATH entry
         shell: pwsh
         run: |

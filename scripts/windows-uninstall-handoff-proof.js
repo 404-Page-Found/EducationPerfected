@@ -3,11 +3,17 @@
 // payload and installs it; this script then drives the PRODUCTION
 // uninstallCommand against that real install - install record, inno plan,
 // detached PowerShell helper and all, with the production default spawns - and
-// exits so the helper's process wait releases. The workflow asserts the
-// uninstaller actually starts, which is the failure mode unit tests with
-// injected spawns cannot see. Runs only on Windows; skips elsewhere.
+// verifies the helper really starts the uninstaller on real Windows
+// PowerShell, the failure mode unit tests with injected spawns cannot see.
+//
+// Everything happens inside this one process on purpose: the CI runner kills
+// a step's process tree when the step's main process exits, so a detached
+// helper spawned by a process that immediately exits never runs there. The
+// helper's pid wait is exercised with a controlled short-lived child instead:
+// this process stays alive and watches. Runs only on Windows; skips elsewhere.
 'use strict';
 const os = require('node:os'), path = require('node:path'), fs = require('node:fs');
+const { spawn } = require('node:child_process');
 
 if (process.platform !== 'win32') {
     console.log('Windows uninstall handoff proof: skipped off Windows (runs in the windows-2025 CI lane).');
@@ -23,6 +29,8 @@ if (!installDir) {
 const { uninstallCommand } = require('../packaging/uninstall');
 const { readInstallRecord } = require('../lib/install-record');
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 (async () => {
     const exe = path.join(installDir, 'educationperfected.exe');
     const record = readInstallRecord(exe);
@@ -31,6 +39,14 @@ const { readInstallRecord } = require('../lib/install-record');
     if (!record.uninstaller) throw new Error('the install record carries no uninstaller path');
     if (!fs.existsSync(record.uninstaller)) throw new Error('the recorded uninstaller does not exist: ' + record.uninstaller);
     console.log('install record ok: method ' + record.method + ', uninstaller ' + record.uninstaller);
+
+    const log = path.join(os.tmpdir(), 'educationperfected-uninstall.log');
+    fs.rmSync(log, { force: true });
+
+    // The helper waits for the "app" process to exit before launching the
+    // uninstaller. Hand it a controlled ~3s child as that process; this proof
+    // process itself must stay alive (see the header comment).
+    const marker = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 3000)'], { stdio: 'ignore' });
     const result = await uninstallCommand({
         store: { async remove() { throw new Error('the inno handoff must not touch the credential store'); } },
         ownDirectory: null,
@@ -39,7 +55,7 @@ const { readInstallRecord } = require('../lib/install-record');
         executable: exe,
         platform: process.platform,
         env: process.env,
-        pid: process.pid,
+        pid: marker.pid,
         tmpDir: os.tmpdir(),
         confirm: async () => ({}),
         confirmInno: async () => true,
@@ -48,6 +64,32 @@ const { readInstallRecord } = require('../lib/install-record');
         // defaults (real spawnSync, real detached PowerShell helper) are under test.
     });
     if (!result.helperStarted) throw new Error('the handoff did not report helperStarted: ' + JSON.stringify(result));
-    console.log('helper spawn confirmed; exiting so the helper process wait releases.');
+    console.log('helper spawn confirmed; watching for the uninstaller (pid ' + marker.pid + ' releases after ~3s).');
+
+    let seen = false;
+    const deadline = Date.now() + 120000;
+    while (Date.now() < deadline) {
+        // unins000 running is the regression assertion for "the app quits but
+        // the uninstaller never starts". tasklist avoids a WMI dependency.
+        const list = require('node:child_process').spawnSync('tasklist', ['/FI', 'IMAGENAME eq unins000.exe', '/NH'], { encoding: 'utf8' });
+        if (list.stdout && list.stdout.includes('unins000.exe')) { seen = true; break }
+        const text = fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '';
+        if (/FAILED to start the uninstaller|uninstaller exit code/.test(text)) break;
+        await sleep(2000);
+    }
+    if (seen) {
+        console.log('unins000.exe is RUNNING: the handoff started the uninstaller.');
+        require('node:child_process').spawnSync('taskkill', ['/F', '/IM', 'unins000.exe'], { stdio: 'ignore' });
+        await sleep(3000);
+    }
+    if (!fs.existsSync(log)) throw new Error('helper log missing: the PowerShell helper never ran');
+    const text = fs.readFileSync(log, 'utf8');
+    console.log('--- helper log ---\n' + text + '------------------');
+    if (/FAILED to start the uninstaller/.test(text)) throw new Error('the helper failed to start the uninstaller');
+    if (!text.includes('uninstall helper started (mode inno')) throw new Error('helper log lacks the start marker');
+    if (!seen && !text.includes('uninstaller exit code')) {
+        throw new Error('the uninstaller never started: no running process and no exit code in the helper log');
+    }
+    console.log('Windows uninstall handoff proof passed: real install, real helper, uninstaller started.');
     process.exit(0);
 })().catch(error => { console.error(error && error.stack || error); process.exit(1); });
