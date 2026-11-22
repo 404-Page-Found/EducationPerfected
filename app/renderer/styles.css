@@ -51,6 +51,30 @@ main {
 header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 header h1 { font-size: 18px; margin: 0; flex: 1; }
 #version { color: var(--faint); font-size: 12px; }
+#app-footer {
+    position: sticky;
+    bottom: 0;
+    text-align: right;
+    background: var(--bg);
+    padding: 4px 0;
+}
+/* Master-pane collapse: the header's toggle stays as the rail's only control. */
+#pane-toggle {
+    color: var(--faint);
+    min-width: 34px;
+    min-height: 34px;
+    padding: 3px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+#pane-toggle:hover { color: var(--text); }
+#pane-toggle svg { display: block; width: 24px; height: 24px; }
+#pane-toggle svg[hidden] { display: none; }
+main.collapsed { width: 52px; min-width: 52px; padding: 8px 6px; overflow: hidden; }
+main.collapsed > *:not(header) { display: none; }
+main.collapsed header { margin-bottom: 0; justify-content: center; }
+main.collapsed header img, main.collapsed header h1 { display: none; }
 .card {
     background: var(--card);
     border: 1px solid var(--border);
