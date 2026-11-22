@@ -56,6 +56,12 @@ assert.equal(
   "use the approved app logo unchanged",
 );
 assert.ok(fs.existsSync(path.join(root, "docs/.nojekyll")));
+// The favicon crops the logo's transparent margin so it fills the browser tab.
+const favicon = fs.readFileSync(path.join(root, "docs/assets/favicon.svg"), "utf8");
+assert.match(favicon, /viewBox="164 162 696 698"/, "favicon is cropped to the icon shape");
+assert.match(html, /rel="icon" href="assets\/favicon\.svg"/);
+assert.match(html, /rel="icon" href="assets\/favicon-48\.png"/);
+assert.match(html, /rel="apple-touch-icon" href="assets\/apple-touch-icon\.png"/);
 const platforms = html.match(/<article class="platform">[\s\S]*?<\/article>/g);
 assert.equal(platforms.length, 3);
 for (const [i, os] of ["Windows", "macOS", "Linux"].entries()) {

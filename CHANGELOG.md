@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The landing page favicon is cropped to the icon shape (SVG plus 48px PNG and a touch icon) so it fills the browser tab instead of rendering small inside the logo's transparent margin.
+
 - The landing page download buttons now fetch the installer file directly instead of opening the release page: Windows setup and the two macOS packages use stable `releases/latest/download/` names so they always follow the newest release, and the Linux `.deb`/`.rpm` links (versioned filenames) are pinned to the current release tag and need updating with each release.
 
 - Add a static GitHub Pages landing page with equal Windows/macOS/Linux download and setup guidance, feature and verification limits, and the project disclaimer. No external assets, scripts, analytics or build step.
