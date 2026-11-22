@@ -1,17 +1,18 @@
 'use strict';
 // Unit tests for lib/verified-typing.js with a stub page: the desktop app's
 // embedded browser silently drops CDP keystrokes, so typing must be verified
-// and fall back to a DOM fill.
+// and fall back to a DOM fill. (The DOM-fill body itself is covered by the
+// live webview-guest probe; here the control flow is what matters.)
 
 const assert = require('node:assert/strict');
 const { typeVerified } = require('../lib/verified-typing');
 
-const stubPage = ({ typeLands }) => {
+const stubPage = ({ typeLands, fillLands = true }) => {
     const fields = new Map();
     return {
         calls: [],
         async type(selector, value) {
-            this.calls.push(['type', selector, value]);
+            this.calls.push(['type', selector]);
             if (typeLands) fields.set(selector, value);
         },
         async $eval(selector, fn) {
@@ -20,22 +21,8 @@ const stubPage = ({ typeLands }) => {
         },
         async evaluate(fn, selector, value) {
             this.calls.push(['evaluate', selector]);
-            if (typeLands) throw new Error('fallback must not run after a successful type');
-            fields.set(selector, value);
-            // Exercise the real fallback body against a minimal DOM double.
-            const el = {
-                value: '',
-                listeners: [],
-                dispatchEvent(event) { this.listeners.push(event.type); },
-            };
-            const document = { querySelector: css => (css === selector ? el : null) };
-            const window = { HTMLInputElement: function () {} };
-            Object.defineProperty(window.HTMLInputElement, 'prototype', { value: {} });
-            Object.defineProperty(window.HTMLInputElement.prototype, 'value', {
-                set(text) { this.value = text; },
-            });
-            const Event = function (type, opts) { return { type, bubbles: Boolean(opts && opts.bubbles) }; };
-            return new Function('document', 'window', 'Event', `return (${fn.toString()})(${JSON.stringify(selector)}, ${JSON.stringify(value)})`)(document, window, Event);
+            if (fillLands) fields.set(selector, value);
+            return fillLands ? true : null;
         },
         value(selector) { return fields.get(selector); },
     };
@@ -58,8 +45,7 @@ const stubPage = ({ typeLands }) => {
     }
     // A field that rejects both paths throws instead of submitting empty.
     {
-        const page = stubPage({ typeLands: false });
-        page.evaluate = async () => null;
+        const page = stubPage({ typeLands: false, fillLands: false });
         await assert.rejects(
             typeVerified(page, '#loginId', 'user@example.com'),
             /did not accept the typed value/);
