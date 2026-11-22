@@ -21,6 +21,26 @@ const uninstallLogLines = [];
 
 // --- Wiring ---
 
+// Master-pane collapse: hide the pane down to a rail, keep the toggle as its
+// only control. Session-only; the pane starts expanded on every launch.
+$('pane-toggle').addEventListener('click', () => {
+    const pane = $('app');
+    const collapsed = pane.classList.toggle('collapsed');
+    const toggle = $('pane-toggle');
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    toggle.title = collapsed ? 'Show the pane' : 'Hide this pane';
+    toggle.setAttribute('aria-label', toggle.title);
+    // SVG elements do not reflect the hidden IDL property, so the attribute
+    // itself has to move (renderer styles hide svg[hidden] explicitly).
+    if (collapsed) {
+        toggle.querySelector('.icon-collapse').setAttribute('hidden', '');
+        toggle.querySelector('.icon-expand').removeAttribute('hidden');
+    } else {
+        toggle.querySelector('.icon-collapse').removeAttribute('hidden');
+        toggle.querySelector('.icon-expand').setAttribute('hidden', '');
+    }
+});
+
 // --- Plain-language status, same wording as the browser control panel ---
 function describeStatus(status) {
     const lines = [];

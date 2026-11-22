@@ -13,7 +13,10 @@
     <header>
         <img id="logo" src="../../branding/icon-128.png" alt="" width="28" height="28">
         <h1>EducationPerfected</h1>
-        <span id="version"></span>
+        <button id="pane-toggle" title="Hide this pane" aria-label="Hide this pane" aria-expanded="true">
+            <svg class="icon-collapse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><rect x="5.5" y="6.5" width="4" height="11" rx="1" fill="currentColor" stroke="none" opacity="0.85"/></svg>
+            <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><rect x="3" y="4" width="18" height="16" rx="2"/><rect x="14.5" y="6.5" width="4" height="11" rx="1" fill="currentColor" stroke="none" opacity="0.85"/></svg>
+        </button>
     </header>
 
     <section id="loading-screen" class="screen">
@@ -119,6 +122,7 @@
             </div>
             <pre id="maintenance-log" class="log" hidden></pre>
     </details>
+    <footer id="app-footer"><span id="version"></span></footer>
 </main>
 
 <aside id="browser-pane">
