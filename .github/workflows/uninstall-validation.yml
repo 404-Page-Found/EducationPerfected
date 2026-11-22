@@ -79,6 +79,16 @@ jobs:
           $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
           if (-not ($userPath -and ($userPath.ToLower() -like ('*' + $dir.ToLower() + '*')))) { throw 'PATH task selected but the install dir is not on the user PATH' }
           "INSTALLED_DIR=$dir" >> $env:GITHUB_ENV
+      - name: Download the existing draft CLI for baseline packaged diagnosis
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download v2026.11.22 --repo "${{ github.repository }}" --pattern educationperfected-windows-x64.exe --dir build/uninstall-proof
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item build/uninstall-proof/educationperfected-windows-x64.exe "$env:INSTALLED_DIR/educationperfected.exe" -Force
+          python scripts/windows-uninstall-packaged-proof.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Prove accepting the real handoff exits the actual CLI process
         shell: pwsh
         run: python scripts/windows-uninstall-prompt-proof.py
