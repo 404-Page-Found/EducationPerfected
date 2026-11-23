@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Mixed formula/plain single-choice options now stay on the exact cached-renderer association path instead of requiring formula syntax in every option. Plain alternatives need the supported literal/block grammar and matching current rendered text; stale, ambiguous or unsupported choices still stop unanswered. Source-derived fixtures only, not live account verification.
 - Information-slide Continue no longer stops when the floating EducationPerfected menu covers it: move only that recognized menu to the opposite corner for the guarded click, then restore its position. Foreign overlays still stop the run without a click. Reproduced with the real shadow-menu implementation in local fixtures; the covering element in the reported live run was not captured.
 
 - Information slide support (#327): Smart Lesson information slides (content-only, `questionType` EP_INFORMATION 7, no answer controls) no longer stop the run as unsupported. A new reader whitelists exactly the captured no-input shape and the handler waits out EP's countdown, then clicks the lesson's own Continue once - never Submit, never typed input. Any deviation (any question component, any visible answer control, a visible Submit, Assessment or Dash context) still stops unanswered. Synthetic fixture coverage only; no live information slide has been advanced by the program yet.

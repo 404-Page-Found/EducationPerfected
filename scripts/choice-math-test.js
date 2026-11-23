@@ -67,6 +67,96 @@ const { setup } = require('./choice-renderer-fixture');
         await playChoiceRound(page, resolved, { enter: false, timeout: 30, shouldStop: () => resolvedSelected,
             log: message => { if (message.startsWith('Selected ')) resolvedSelected = true; } });
         assert.deepEqual(await page.evaluate(() => window.mathFixture.clicks), resolved.correct);
+        // A group with a formula choice can also contain plain alternatives.
+        // This reproduced raw-template/template before the mixed-option fix.
+        const mixed = async (correctPlain = true, block = false) => {
+            await setup(page, origin);
+            await page.evaluate(({ correctPlain, block }) => {
+                const f = window.mathFixture;
+                const text = block ? '[block\nNone of these\n]' : 'None of these';
+                f.comp.Options[0].TextTemplate = text;
+                f.metadata.Options[0].TextTemplate = text;
+                f.previews[0].renderer.templateString = text;
+                const render = f.previews[0].fields.renderGroup;
+                render.replaceChildren();
+                if (block) { const p = document.createElement('p'); p.textContent = 'None of these'; render.append(p); }
+                else render.textContent = text;
+                f.metadata.Options.forEach((o, i) => { o.Correct = String(i === (correctPlain ? 0 : 1)); f.previews[i].correct = i === (correctPlain ? 0 : 1); });
+                f.group.prepend(f.previews[2].element); f.previews.reverse();
+            }, { correctPlain, block });
+        };
+        for (const [plain, block] of [[true, false], [false, false], [true, true]]) {
+            await mixed(plain, block);
+            const d = await detectQuestion(page);
+            assert.equal(d.kind, 'choice', JSON.stringify(d));
+            assert.equal(d.representation, 'renderer-template');
+            let selected = false;
+            await playChoiceRound(page, d, { enter: false, timeout: 30, shouldStop: () => selected,
+                log: message => { if (message.startsWith('Selected ')) selected = true; } });
+            assert.deepEqual(await page.evaluate(() => window.mathFixture.clicks), d.correct);
+        }
+        for (const mutation of ['plain-mismatch', 'plain-loading', 'plain-math', 'plain-image', 'plain-control', 'plain-directive', 'plain-format', 'plain-blank', 'duplicate-plain', 'foreign-plain-option']) {
+            await mixed();
+            await page.evaluate(mutation => {
+                const f = window.mathFixture, p = f.previews.find(p => p.option === f.metadata.Options[0]);
+                if (mutation === 'plain-mismatch') p.fields.renderGroup.textContent = 'Different';
+                if (mutation === 'plain-loading') p.fields.renderGroup.textContent = '';
+                if (mutation === 'plain-math') p.fields.renderGroup.innerHTML = '<span class="inline-formula">None of these</span>';
+                if (mutation === 'plain-image') p.fields.renderGroup.append(document.createElement('img'));
+                if (mutation === 'plain-control') p.fields.renderGroup.append(document.createElement('input'));
+                if (mutation === 'foreign-plain-option') p.option = { ...p.option };
+                for (const [kind, text] of [['plain-directive', '[image id="unknown"]'], ['plain-format', '**None of these**'], ['plain-blank', ' ']]) {
+                    if (mutation === kind) { f.comp.Options[0].TextTemplate = text; f.metadata.Options[0].TextTemplate = text; p.renderer.templateString = text; p.fields.renderGroup.textContent = text; }
+                }
+                if (mutation === 'duplicate-plain') f.metadata.Options[1].TextTemplate = f.metadata.Options[0].TextTemplate;
+            }, mutation);
+            assert.equal((await detectQuestion(page)).kind, 'unsupported', mutation);
+            assert.equal(await page.evaluate(() => window.mathFixture.clicks.length), 0, mutation);
+        }
+        for (const mutation of ['formula-checkbox', 'formula-text-input', 'formula-disabled', 'formula-name', 'formula-parent', 'formula-foreign-check']) {
+            await mixed();
+            await page.evaluate(mutation => {
+                const f = window.mathFixture, p = f.previews.find(p => p.option === f.metadata.Options[1]), check = p.fields.check;
+                if (mutation === 'formula-checkbox') check.type = 'checkbox';
+                if (mutation === 'formula-text-input') check.type = 'text';
+                if (mutation === 'formula-disabled') check.disabled = true;
+                if (mutation === 'formula-name') check.name = 'foreign';
+                if (mutation === 'formula-parent') p.element.append(check);
+                if (mutation === 'formula-foreign-check') p.fields.check = f.previews.find(p => p.option === f.metadata.Options[0]).fields.check;
+            }, mutation);
+            const d = await detectQuestion(page);
+            assert.equal(d.kind, 'unsupported', mutation);
+            assert.equal(d.diagnostic.check, 'input-binding', mutation);
+            assert.equal(await page.evaluate(() => window.mathFixture.clicks.length), 0, mutation);
+        }
+        // Renderer-category detection can originate outside the option render
+        // groups; even then every literal option needs its own exact binding.
+        await mixed();
+        await page.evaluate(() => {
+            const f = window.mathFixture;
+            for (const [i, option] of f.metadata.Options.entries()) {
+                const p = f.previews.find(p => p.option === option), text = 'Literal alternative ' + i;
+                f.comp.Options[i].TextTemplate = text; option.TextTemplate = text;
+                p.renderer.templateString = text; p.fields.renderGroup.textContent = text;
+            }
+            const marker = document.createElement('span'); marker.className = 'katex'; f.group.append(marker);
+        });
+        assert.equal((await detectQuestion(page)).kind, 'choice');
+        await page.evaluate(() => { window.mathFixture.previews[0].fields.renderGroup.textContent = 'Changed'; });
+        assert.equal((await detectQuestion(page)).kind, 'unsupported');
+        assert.equal(await page.evaluate(() => window.mathFixture.clicks.length), 0);
+        for (const mutation of ['plain-text', 'plain-identity', 'plain-marking']) {
+            await mixed(); const d = await detectQuestion(page);
+            await page.evaluate(mutation => {
+                const f = window.mathFixture, p = f.previews.find(p => p.option === f.metadata.Options[0]);
+                if (mutation === 'plain-text') p.fields.renderGroup.textContent = 'Changed';
+                if (mutation === 'plain-identity') p.option = { ...p.option };
+                if (mutation === 'plain-marking') p.correct = false;
+            }, mutation);
+            const result = await playChoiceRound(page, d, { enter: false, timeout: 20, shouldStop: () => false });
+            assert.equal(result.status, 'stopped', mutation);
+            assert.equal(await page.evaluate(() => window.mathFixture.clicks.length), 0, mutation);
+        }
         for (const loading of ['all-math-missing', 'placeholder-text']) {
             await setup(page, origin);
             await page.evaluate(loading => {
@@ -144,7 +234,7 @@ const { setup } = require('./choice-renderer-fixture');
             assert.equal(result.status, 'stopped', mutation);
             assert.equal(await page.evaluate(() => window.mathFixture.clicks.length), 0, mutation);
         }
-        console.log('Math choice association: positive exact match despite duplicated rendered math and reordered DOM/previews; auto keyed advance, 2 full-loading-gap refusals, 25 malformed/foreign/stale refusal cases; resolved template+marking exact selection and 8 click-time guards passed. Synthetic only.');
+        console.log('Math choice association: positive exact match despite duplicated rendered math and reordered DOM/previews; auto keyed advance, 2 full-loading-gap refusals, 25 malformed/foreign/stale refusal cases; resolved template+marking exact selection and 8 click-time guards; mixed alternatives: 3 selection positives, 10 plain refusals, 6 formula-radio refusals, 3 click-time guards and 1 all-literal/external-math-marker binding pair passed. Synthetic only.');
     } finally {
         try { await browser?.close(); } finally { server.closeAllConnections(); server.close(); }
     }
