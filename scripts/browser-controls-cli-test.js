@@ -60,7 +60,7 @@ const { installControlMenu } = require('../lib/browser-controls');
         assert.match(await result(), /Pacing: /, 'status result explains pacing in words');
         assert.ok(!(await result()).includes('"state"'), 'readable result hides raw JSON');
         assert.match(await raw(), /"state": "stopped"/, 'raw JSON stays under Technical details');
-        assert.match(await live(), /^stopped \| semi \| accuracy 70-90% \| pacing off$/, 'live bar is one compact line');
+        assert.match(await live(), /^stopped \| semi \| accuracy on \(70-90%\) \| pacing off$/, 'live bar is one compact line');
         const topDown = await page.evaluate(() => {
             const root = document.getElementById('educationperfected-controls').shadowRoot;
             const after = (a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
@@ -127,7 +127,7 @@ const { installControlMenu } = require('../lib/browser-controls');
         }
         await command('inspect-dash', 'EP_DASH_INSPECT ', 'terminal keeps the read-only capture command');
         await command('accuracy off', '"enabled":false');
-        await page.waitForFunction(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('live').textContent.includes('accuracy 100%'));
+        await page.waitForFunction(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('live').textContent.includes('accuracy off'));
         if (process.env.EP_PANEL_SCREENSHOT) {
             await page.setViewport({ width: 1100, height: 1000 });
             await page.evaluate(() => {
