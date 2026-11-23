@@ -231,7 +231,7 @@ async function setup(page, origin) {
         assert.ok(!JSON.stringify(resolvedRefusal.diagnostic).includes('url='));
         assert.equal(await page.evaluate(() => mathFixture.clicks.length), 0);
         const boundaries = {
-            'no-parser': 'renderer-graph', 'foreign-index': 'renderer-graph', image: 'option-dom', math: 'raw-template', // injected katex flips detection to the formula path, whose raw templates carry no backticks
+            'no-parser': 'renderer-graph', 'foreign-index': 'renderer-graph', image: 'option-dom', math: 'option-dom', // injected katex flips detection to the formula path, whose raw templates carry no backticks
             'extra-editable': 'option-dom', 'render-text': 'option-dom', 'unknown-grammar': 'raw-template', 'unknown-attribute': 'raw-template',
             'mixed-plain': 'raw-template', 'nested-directive': 'raw-template', blank: 'raw-template', 'wrong-group': 'component-binding',
             'wrong-state': 'option-graph', 'wrong-preview': 'option-dom', 'wrong-renderer': 'option-dom', 'duplicate-template': 'raw-template',
@@ -240,7 +240,7 @@ async function setup(page, origin) {
             'leading-block': 'raw-template', 'embedded-block': 'raw-template',
         };
         const checks = {
-            image: 'option-binding', math: 'template', 'extra-editable': 'input-binding', 'render-text': 'render-text',
+            image: 'option-binding', math: 'render-structure', 'extra-editable': 'input-binding', 'render-text': 'render-text',
             'unknown-grammar': 'header', 'unknown-attribute': 'header', 'mixed-plain': 'line-count', 'nested-directive': 'body-bracket',
             blank: 'body-blank', 'wrong-preview': 'option-binding', 'wrong-renderer': 'option-binding', 'duplicate-template': 'duplicate',
             'single-line-block': 'line-count', 'leading-block': 'header', 'embedded-block': 'header',
