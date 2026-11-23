@@ -34,8 +34,8 @@ AppContainer data under LocalAppData/Packages is outside this app-owned root
 and cannot be moved by changing the Puppeteer profile directory. There is no
 persistent answer database/log added by this change. Interactive accuracy and delay
 settings are stored in `config.json` at the app root, for source and packaged runs.
-The version-1 file contains only validated accuracy/pacing preferences, never
-credentials. Missing, corrupt, unknown-version or unreadable files use defaults.
+The version-2 file contains only boolean accuracy/pacing preferences, never
+credentials. Version-1 settings reset to off on upgrade; later version-2 choices persist. Old numeric targets and custom ranges never migrate. Missing, corrupt, unknown-version or unreadable files use defaults.
 Writes use a private `0600` temporary file and an atomic rename; write failures
 leave the current session working and print a warning. Startup precedence is
 CLI accuracy flags > environment variables > saved settings > built-in defaults

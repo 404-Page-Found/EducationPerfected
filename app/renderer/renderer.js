@@ -54,7 +54,7 @@ function describeStatus(status) {
         : 'Semi-auto mode: answers are filled in, you submit them.');
     const a = status.accuracy || {};
     if (status.accuracy) {
-        if (!a.enabled) lines.push('Accuracy: every answer goes in correct (accuracy control off).');
+        if (!a.enabled) lines.push('Accuracy: off, no intentional mistakes.');
         else {
             const target = a.target ?? a.fixedTarget;
             lines.push(target != null

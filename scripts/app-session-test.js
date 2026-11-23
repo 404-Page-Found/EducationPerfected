@@ -195,9 +195,9 @@ async function main() {
         await session.action('stop');
         await session.action('refresh');
         await session.action('mode', 'semi');
-        await session.action('accuracy', '70-90');
+        await session.action('accuracy', 'on');
         await session.action('delay', 'off');
-        assert.deepEqual(calls, ['start', 'stop', 'refresh', 'mode:semi', 'accuracy:70-90', 'delay:off']);
+        assert.deepEqual(calls, ['start', 'stop', 'refresh', 'mode:semi', 'accuracy:on', 'delay:off']);
         await expectReject(session.action('mode', 'weird'), /Mode must be auto or semi/);
         await expectReject(session.action('delay', 'bad'), /Use delay, delay on or delay off/);
         console.log('ok control action mapping and validation');

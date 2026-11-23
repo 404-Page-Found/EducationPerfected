@@ -406,14 +406,14 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
     // program at a lookalike host or disable the host protection below.
     const TEST_BOOT = process.env.EP_TEST_BOOT === '1';
     // Issue #222 random accuracy: OFF by default (perfect answers); enable it
-    // with `accuracy on`, a target/band, CLI flags or env. Also perfect under
+    // with `accuracy on`, CLI flags or env. Also perfect under
     // TEST_BOOT unless explicitly enabled.
     // Validation one-shot sessions stay perfect: precise fill-only proofs
     // must never inject mistakes.
     const validationFlags = Boolean(gapsFillOnly || choiceSelectOnly || gapsSubmitOnce || textboxFillOnly || dropdownSubmitOnce || multiSelectOnly);
     const { readConfig, writeConfig } = require('./lib/app-config');
     // Fixtures and one-shot validators never read or change personal settings.
-    const savedConfig = TEST_BOOT || validationFlags ? { version: 1 } : readConfig();
+    const savedConfig = TEST_BOOT || validationFlags ? { version: 2 } : readConfig();
     let accuracyConfig;
     try {
         accuracyConfig = require('./lib/accuracy').resolveAccuracyConfig({ cli: accuracy || {}, env: process.env, config: savedConfig.accuracy });
@@ -3036,7 +3036,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 if (text === '' || text === 'show' || text === 'status') return controls.status();
                 const state = baseStatus().state;
                 if (!['stopped', 'completed', 'error'].includes(state)) throw new Error('Stop the run before changing accuracy.');
-                if (['off', 'perfect', 'no-mistakes', 'no-mistake', '100'].includes(text)) {
+                if (['off', 'perfect', 'no-mistakes', 'no-mistake'].includes(text)) {
                     accuracyConfig = { ...accuracyConfig, enabled: false, fixedTarget: 100, source: 'interactive:off' };
                     accuracyRun = null;
                     console.log('Accuracy disabled (100% - perfect).');
@@ -3049,31 +3049,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     console.log(`Accuracy enabled with default band ${DEFAULT_MIN}-${DEFAULT_MAX}%.`);
                     return controls.status();
                 }
-                const rangeMatch = text.replace(/%/g, '').match(/^(\d{1,3})\s*[-:–—]\s*(\d{1,3})$/);
-                if (rangeMatch) {
-                    const lo = Number(rangeMatch[1]), hi = Number(rangeMatch[2]);
-                    if (lo < 0 || lo > 100 || hi < 0 || hi > 100 || lo > hi) throw new Error('Accuracy range must be MIN-MAX within 0-100 (e.g. 70-90).');
-                    accuracyConfig = { enabled: true, min: lo, max: hi, fixedTarget: null, source: 'interactive:range' };
-                    accuracyRun = null;
-                    console.log(`Accuracy band set to ${lo}-${hi}% (randomized per run).`);
-                    return controls.status();
-                }
-                const single = text.replace(/%$/, '').trim();
-                if (/^\d{1,3}$/.test(single)) {
-                    const value = Number(single);
-                    if (value < 0 || value > 100) throw new Error('Accuracy must be 0-100.');
-                    if (value === 100) {
-                        accuracyConfig = { ...accuracyConfig, enabled: false, fixedTarget: 100, source: 'interactive:100' };
-                        accuracyRun = null;
-                        console.log('Accuracy disabled (100% - perfect).');
-                    } else {
-                        accuracyConfig = { ...accuracyConfig, enabled: true, fixedTarget: value, source: 'interactive:fixed' };
-                        accuracyRun = null;
-                        console.log(`Accuracy target set to ${value}% (fixed).`);
-                    }
-                    return controls.status();
-                }
-                throw new Error('Usage: accuracy [n|min-max|off|on] (e.g. accuracy 82, accuracy 70-90, accuracy off).');
+                throw new Error('Usage: accuracy [on|off] (on = 70-90% band).');
             };
             const updateAccuracy = controls.setAccuracy;
             controls.setAccuracy = async raw => {

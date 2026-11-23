@@ -50,7 +50,7 @@ const { installControlMenu } = require('../lib/browser-controls');
         assert.equal(placed.bottomAnchor, '12px', 'first expand keeps the bottom/right anchoring');
         assert.ok(placed.top >= 0 && placed.left >= 0 && placed.bottom <= placed.vh && placed.right <= placed.vw, 'first expand keeps the panel fully on screen');
         await press('mode', 'semi'); assert.equal((await page.evaluate(() => window.epControl('status'))).mode, 'semi');
-        await press('accuracy', '82'); assert.equal((await page.evaluate(() => window.epControl('status'))).accuracy.fixedTarget, 82);
+        await press('accuracy', 'on'); assert.equal((await page.evaluate(() => window.epControl('status'))).accuracy.enabled, true);
         await press('accuracy', 'bad'); assert.match(await message(), /^Couldn't apply accuracy: /, 'errors read as a sentence'); assert.match(await message(), /Usage/);
         await press('delay', 'on');
         await press('delay', '1.5-4'); assert.match(await message(), /^Couldn't apply pacing: /, 'errors read as a sentence'); assert.match(await message(), /Use delay, delay on or delay off/);
@@ -60,7 +60,7 @@ const { installControlMenu } = require('../lib/browser-controls');
         assert.match(await result(), /Pacing: /, 'status result explains pacing in words');
         assert.ok(!(await result()).includes('"state"'), 'readable result hides raw JSON');
         assert.match(await raw(), /"state": "stopped"/, 'raw JSON stays under Technical details');
-        assert.match(await live(), /^stopped \| semi \| accuracy 82% \| pacing off$/, 'live bar is one compact line');
+        assert.match(await live(), /^stopped \| semi \| accuracy 70-90% \| pacing off$/, 'live bar is one compact line');
         const topDown = await page.evaluate(() => {
             const root = document.getElementById('educationperfected-controls').shadowRoot;
             const after = (a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
@@ -179,7 +179,7 @@ const { installControlMenu } = require('../lib/browser-controls');
         assert.equal((await page.evaluate(() => window.epControl('status'))).state, 'running');
         await press('mode', 'auto'); assert.match(await message(), /Stop/);
         await press('refresh'); assert.match(await message(), /Stop/);
-        await press('accuracy', '80'); assert.match(await message(), /Stop/);
+        await press('accuracy', 'on'); assert.match(await message(), /Stop/);
         await press('stop'); console.log('Panel stop completed'); assert.equal((await page.evaluate(() => window.epControl('status'))).state, 'stopped');
         for (const route of ['/lesson', '/app', '/lesson']) {
             await page.goto(origin + route); await ready(); console.log('Panel navigation', route);

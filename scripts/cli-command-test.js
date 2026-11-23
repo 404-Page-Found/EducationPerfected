@@ -14,27 +14,15 @@ assert.ok(parseCommand(['uninstall','--browser-only']).error);
 // accuracy options for this invocation only; bare/status stays read-only.
 assert.equal(parseCommand(['accuracy']).command,'accuracy-status');
 assert.equal(parseCommand(['accuracy','status']).command,'accuracy-status');
-assert.deepEqual(parseCommand(['accuracy','82']),{command:'run',accuracy:{fixedTarget:82}});
-assert.deepEqual(parseCommand(['accuracy','0']),{command:'run',accuracy:{fixedTarget:0}});
-assert.deepEqual(parseCommand(['accuracy','70-90']),{command:'run',accuracy:{min:70,max:90}});
-assert.deepEqual(parseCommand(['accuracy','85%']),{command:'run',accuracy:{fixedTarget:85}});
+for(const bad of ['82','0','70-90','85%','100','101','90-70','bogus']) assert.match(parseCommand(['accuracy',bad]).error,/Usage: accuracy/);
 assert.deepEqual(parseCommand(['accuracy','off']),{command:'run',accuracy:{perfect:true}});
-assert.deepEqual(parseCommand(['accuracy','perfect']),{command:'run',accuracy:{perfect:true}});
-assert.deepEqual(parseCommand(['accuracy','100']),{command:'run',accuracy:{perfect:true}});
-assert.deepEqual(parseCommand(['accuracy','on']),{command:'run',accuracy:{min:70,max:90}});
-assert.match(parseCommand(['accuracy','bogus']).error,/Usage: accuracy/);
-assert.match(parseCommand(['accuracy','101']).error,/Usage: accuracy/);
-assert.match(parseCommand(['accuracy','90-70']).error,/Usage: accuracy/);
-// `--accuracy` stays a flag, not the legacy-subcommand hint.
-assert.deepEqual(parseCommand(['--accuracy','82']),{command:'run',accuracy:{fixedTarget:82}});
+assert.deepEqual(parseCommand(['accuracy','on']),{command:'run',accuracy:{on:true}});
+assert.deepEqual(parseCommand(['--accuracy','on']),{command:'run',accuracy:{on:true}});
 assert.match(parseCommand(['--accuracy']).error,/Missing value/);
-// Read-only status report resolves defaults and env without launching.
 assert.match(accuracyStatusText({}),/Accuracy: perfect \(100%\)/);
-assert.match(accuracyStatusText({EP_PERFECT:'1'}),/Accuracy: perfect/);
-assert.match(accuracyStatusText({EP_ACCURACY:'82'}),/fixed target 82%/);
-assert.match(accuracyStatusText({EP_ACCURACY_RANGE:'60-80'}),/band 60-80%/);
-assert.throws(()=>accuracyStatusText({EP_ACCURACY:'oops'}),/Invalid EP_ACCURACY/);
-assert.match(helpText(),/educationperfected accuracy <n\|min-max\|off\|on\|status>/);
+assert.match(accuracyStatusText({EP_ACCURACY:'on'}),/band 70-90%/);
+assert.throws(()=>accuracyStatusText({EP_ACCURACY:'82'}),/Invalid EP_ACCURACY/);
+assert.match(helpText(),/educationperfected accuracy <on\|off\|status>/);
 // The real source-checkout dispatch prints the report without launching.
 const statusOut=require('node:child_process').execFileSync(process.execPath,[path.join(__dirname,'../bin/cli.js'),'accuracy','status'],{encoding:'utf8',env:{PATH:process.env.PATH}});
 assert.match(statusOut,/Accuracy: perfect \(100%\)/);
@@ -45,7 +33,7 @@ for(const command of ['setup','check-credentials','forget-credentials','update',
 assert.match(parseCommand(['run','setup','--browser-only']).error,/one subcommand/);
 assert.match(parseCommand(['run','--bogus']).error,/Unknown option/);
 assert.deepEqual(parseCommand(['run']),{command:'run',accuracy:{}});
-assert.deepEqual(parseCommand(['run','--accuracy','82']),{command:'run',accuracy:{fixedTarget:82}});
+assert.deepEqual(parseCommand(['run','--accuracy','on']),{command:'run',accuracy:{on:true}});
 assert.ok(helpText().startsWith('EducationPerfected ' + require('../package.json').version + '\n'),'help header derives the version from package.json');
 const source=fs.readFileSync(path.join(__dirname,'../packaging/bootstrap.js'),'utf8');
 async function probe(args,downloadFails=false,updateFails=false){
@@ -65,11 +53,12 @@ async function probe(args,downloadFails=false,updateFails=false){
   if(id==='./uninstall')return {uninstallCommand:async options=>{assert.equal(options.ownDirectory,'/inert-runtime');assert.equal(options.store.inert,true);events.push('uninstall');await options.cleanupOwn();return {incomplete:false};}};
   if(id==='./download-browser')return {ensureBrowser:async(options)=>{events.push(options&&options.consent?(await options.consent())===true?'acquire-implied':'acquire-refused':'acquire');if(downloadFails)throw Error('inert cancellation');},downloadNotice:()=>'inert notice'};
   if(id==='../bin/cli')return {credentialCommand:async command=>{events.push(command);},runCli:async()=>{throw Error('Must not launch browser');}};
+  if(id==='./maintenance-exit')return {exitAfterMaintenanceHandoff:async()=>false};
   if(id==='../lib/diagnostics')return {diagnostic:()=> 'inert'};
   return require(id);
  };
  vm.runInNewContext(source,{require:load,process:processFixture,Buffer,console:{log:text=>out.push(text),error:text=>out.push(text)}}); // NOSONAR - fixed repository bootstrap only with inert dependencies.
- for(let i=0;i<5;i++)await new Promise(resolve=>setImmediate(resolve));
+ for(let i=0;i<20;i++)await new Promise(resolve=>setImmediate(resolve));
  return {events,out,exitCode:processFixture.exitCode};
 }
 (async()=>{

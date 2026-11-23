@@ -109,7 +109,7 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 
 - `start` - start auto-answering; `stop` - stop it
 - `mode auto` - answer and submit automatically (default); `mode semi` - fill answers but leave submitting to you
-- `accuracy` - show accuracy config, per-run target and first-try stats; `accuracy <n|min-max|off|on>` - set accuracy when stopped (e.g. `accuracy 82`, `accuracy 70-90`, `accuracy off`)
+- `accuracy` - show accuracy config, per-run target and first-try stats; `accuracy on|off` - set accuracy when stopped (on = 70-90% band, off = no intentional mistakes)
 - `delay` - show the human-paced wait before each submission (off by default); `delay on` - enable the per-question-type wait; `delay off` - restore super speed
 - `refresh` - learn the answers from a task starter page's word lists (once per new task)
 - `status` - show current status (including accuracy target)
@@ -143,28 +143,22 @@ Interactive `accuracy` and `delay` changes are saved to
 The next launch reuses them. CLI accuracy options override environment variables,
 which override saved settings, which override built-in defaults. Flags and env
 changes are not saved. `accuracy off` restores perfect answers; `delay on` enables the per-type wait and `delay off` restores super speed. Invalid config files fall back to defaults.
-Credentials stay in the OS keyring, never in this file.
+Version 2 resets old saved accuracy and pacing settings to off on upgrade. Later on/off choices persist; old numeric accuracy targets and custom pacing ranges are not restored. Credentials stay in the OS keyring, never in this file.
 
 ### Random accuracy (off by default)
 
-Runs answer perfectly unless you opt in. When enabled, each `start` picks a first-try target in the configured band (70-90% via `accuracy on`) and, with probability `1 - target`, submits a plausible-but-wrong answer first: a small typo for text/audio, or a neighboring distractor for single-choice. The mistake flows through the normal wrong-answer-modal / retry / Next path, so the run still completes with lower first-try accuracy. Other lesson surfaces stay perfect to preserve their fail-closed completion proofs. The provisional Dash recommendation is perfect answers, because each Dash mistake is expected, unproved live, to burn sprint time and points.
+No intentional mistakes are added unless you opt in. `accuracy on` picks a first-try target between 70% and 90% at each `start`. It occasionally submits a small typo for text/audio or a neighboring distractor for single-choice, then follows the normal retry/advance path. Other lesson surfaces retain their fail-closed completion checks. This is a target, not a guaranteed final score; unsupported rounds are still refused. Accuracy off is the provisional Dash recommendation because mistakes can burn sprint time and points (unproved live).
 
-Startup flags and env enable and tune the simulation (installer command shown; for a source checkout pass the same option to `npm run cli`, e.g. `npm run cli -- --accuracy 82`):
+Accuracy has only on/off settings, with no custom targets or ranges:
 
-    educationperfected --accuracy 82      # or -a 82
-    educationperfected --accuracy-range 70-90   # or -r 70-90
-    educationperfected --perfect          # or -p
+    educationperfected --accuracy on      # or -a on
+    educationperfected --accuracy off
+    educationperfected --perfect          # or -p, same as off
+    educationperfected accuracy on        # 70-90% band for this invocation
+    educationperfected accuracy off       # no intentional mistakes (default)
+    educationperfected accuracy status    # report without launching
 
-The same settings exist as a top-level subcommand (applies to this invocation only;
-interactive commands inside the running app are saved):
-
-    educationperfected accuracy 82        # fixed target for this run
-    educationperfected accuracy 70-90     # band, randomized per run
-    educationperfected accuracy off       # perfect (100%) - the default
-    educationperfected accuracy on        # 70-90 band
-    educationperfected accuracy status    # show the resolved config without launching
-
-`--no-mistakes` is an alias for `--perfect` (100%). Env: `EP_ACCURACY=82`, `EP_ACCURACY_RANGE=70-90`, `EP_PERFECT=0` (enable the default band), `EP_PERFECT=1` (force perfect). `status` shows the active target and first-try stats; the run log reports `Accuracy target X%` at start and a summary at exit.
+Interactive changes inside the running app are saved. Startup flags and environment changes are not saved. Env: `EP_ACCURACY=on|off`, `EP_PERFECT=0` (on) or `EP_PERFECT=1` (off). Numeric env values and `EP_ACCURACY_RANGE` are rejected. `status` shows the target and first-try stats; the log reports a target at start and a summary at exit.
 
 ## How it behaves
 
