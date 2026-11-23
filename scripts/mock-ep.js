@@ -7,6 +7,8 @@
 //   GET /task/play   question (#question-text), answer box (input#answer-text),
 //                    wrong-answer modal (uib-modal-window + td#question-field ...),
 //                    completion button (button.exit-button)
+//   GET /task/play-answers  same classic page, but the round model ships the
+//                    live-captured answer state (validAnswers, 2026-11-23)
 //
 //   GET /dash-task   Dash starter (same word lists, synthetic per #230/#237)
 //   GET /dash-task/play  Dash round: classic markup + invented timer/score/
@@ -170,6 +172,100 @@ const taskPage = (start) => {
     </script>`);
 };
 
+
+// Classic word-to-word with EP's shipped answer state on the round model,
+// captured live 2026-11-23 with the read-only EP_CLASSIC_ANSWERS_READONLY
+// check: gameMode 1, questionType 0, translationMode 0, valid
+// contentID/questionIndex, one validAnswers entry whose outputString is the
+// answer, not the prompt. The type/grade/advance/completion cycle is the same
+// fixture behavior as /task/play; only the model state and the submission
+// counters (localStorage, so tests can prove no wrong-answer modal showed)
+// are added. The round model is exposed as window.__classicAnswersSelf so
+// tests can mutate the captured fields and prove deviations stay answerless.
+const taskAnswersPage = (start) => {
+    const clamped = Number.isInteger(start) && start >= 0 && start < WORDS.length ? start : 0;
+    const round = WORDS.slice(clamped).map(([base, target], i) => ({ question: base, answer: target, contentID: 88001 + clamped + i, questionIndex: clamped + i }));
+    return PAGE(`
+    <main>
+        <table><tr>
+            <td id="question-text">${round[0].question}</td>
+            <td><input id="answer-text" autocomplete="off"></td>
+        </tr></table>
+        <button class="exit-button" hidden onclick="location.href='/learning/dashboard'">Exit</button>
+    </main>
+    <script>
+        const rounds = ${JSON.stringify(round)};
+        const classicSelf = { model: { gameMode: 1, _currentQuestion: null } };
+        window.angular = { element: () => ({ scope: () => ({ self: classicSelf }) }) };
+        window.__classicAnswersSelf = classicSelf;
+        let index = 0;
+        const question = document.getElementById('question-text');
+        const box = document.getElementById('answer-text');
+        const exit = document.querySelector('.exit-button');
+        localStorage.setItem('classicAnswersSubmitted', '0');
+        localStorage.setItem('classicAnswersWrong', '0');
+
+        function render() {
+            if (index >= rounds.length) {
+                classicSelf.model._currentQuestion = null;
+                question.remove();
+                box.parentElement.innerHTML = '';
+                exit.hidden = false;
+                return;
+            }
+            const current = rounds[index];
+            classicSelf.model._currentQuestion = {
+                contentID: current.contentID,
+                questionIndex: current.questionIndex,
+                questionType: 0,
+                translationMode: 0,
+                validAnswers: [{ outputString: current.answer }],
+            };
+            // A throwing accessor on an unlisted field proves the reader
+            // touches only own data properties of the fields it names.
+            Object.defineProperty(classicSelf.model._currentQuestion, 'Answers',
+                { get() { throw new Error('accessor-must-not-run'); } });
+            question.textContent = current.question;
+            box.value = '';
+            box.focus();
+        }
+
+        function showWrong(input) {
+            localStorage.setItem('classicAnswersWrong', String(Number(localStorage.getItem('classicAnswersWrong')) + 1));
+            const modal = document.createElement('div');
+            modal.setAttribute('uib-modal-window', 'modal-window');
+            modal.innerHTML = \`
+                <table class="modal-body">
+                    <tr><td id="question-field">\${rounds[index].question}</td></tr>
+                    <tr><td id="correct-answer-field">\${rounds[index].answer}</td></tr>
+                    <tr><td id="users-answer-field"><span>\${input}</span></td></tr>
+                </table>
+                <button id="continue-button" disabled onclick="advance()">Continue</button>\`;
+            document.body.appendChild(modal);
+        }
+
+        function advance() {
+            document.querySelectorAll('[uib-modal-window]').forEach(m => m.remove());
+            index += 1;
+            render();
+        }
+
+        box.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            const input = box.value;
+            localStorage.setItem('classicAnswersSubmitted', String(Number(localStorage.getItem('classicAnswersSubmitted')) + 1));
+            if (input.trim() === rounds[index].answer) {
+                index += 1;
+                render();
+            } else {
+                showWrong(input);
+            }
+        });
+        render();
+        box.focus();
+    </script>`);
+};
 
 // Issue #230 Dash (timed sprint) fixture. SYNTHETIC, and now known NOT to be
 // the real shape: a live Dash run on 2026-11-19 stopped at the Smart Lesson
@@ -811,6 +907,10 @@ function createServer() {
         if (url.pathname === '/task/play') {
             const start = Number.parseInt(url.searchParams.get('start') || '0', 10);
             return send(taskPage(start));
+        }
+        if (url.pathname === '/task/play-answers') {
+            const start = Number.parseInt(url.searchParams.get('start') || '0', 10);
+            return send(taskAnswersPage(start));
         }
         if (url.pathname === '/dash-task') return send(dashStarterPage);
         if (url.pathname === '/dash-task/play') {
