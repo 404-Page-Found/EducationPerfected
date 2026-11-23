@@ -31,7 +31,7 @@
     "test:macos-packaging": "node scripts/macos-browser-layout-test.js && node scripts/macos-builder-layout-test.js && node scripts/macos-wrapper-test.js && node scripts/macos-sea-steps-test.js && node scripts/macos-bootstrap-test.js && node scripts/macos-archive-roundtrip-test.js",
     "test:packaged:cli": "node scripts/packaged-cli-test.js",
     "test:windows-inert": "node scripts/windows-inert-tests-policy-test.js && node scripts/windows-inert-tests.js",
-    "app": "electron app/main.js",
+    "app": "electron app/start.js",
     "test:app": "node scripts/app-session-test.js && node scripts/app-shell-test.js && node scripts/app-bundle-test.js && node scripts/app-update-test.js && node scripts/app-maintenance-test.js"
   },
   "engines": {

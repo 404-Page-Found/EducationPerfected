@@ -12,21 +12,22 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const sourceLaunch = process.argv[2] === '--source';
 const payloadArg = process.argv[2];
-if (!payloadArg) throw new Error('Usage: app-launch-smoke.js <app-payload directory>');
+if (!payloadArg) throw new Error('Usage: app-launch-smoke.js <app-payload directory> | --source');
 // The payload directory is the fixed build-app.js output name; a caller
 // pointing anywhere else is a wiring error, not a payload to execute.
-const payload = path.resolve(payloadArg); // NOSONAR: constrained to the fixed app-payload directory below; no user-controlled path is executed.
-if (path.basename(payload) !== 'app-payload') throw new Error('Not an app-payload directory: ' + payloadArg);
+const payload = sourceLaunch ? null : path.resolve(payloadArg); // NOSONAR: constrained to the fixed app-payload directory below; no user-controlled path is executed.
+if (!sourceLaunch && path.basename(payload) !== 'app-payload') throw new Error('Not an app-payload directory: ' + payloadArg);
 const executables = {
     win32: 'EducationPerfected.exe',
     darwin: path.join('EducationPerfected.app', 'Contents', 'MacOS', 'EducationPerfected'),
     linux: 'educationperfected-app',
 };
 if (!Object.hasOwn(executables, process.platform)) throw new Error('Unsupported app platform: ' + process.platform);
-const executable = path.join(payload, executables[process.platform]);
-if (!executable.startsWith(payload + path.sep)) throw new Error('Executable escaped the payload directory');
-assert.ok(fs.statSync(executable).isFile(), 'app executable missing: ' + executable); // NOSONAR: the path is the fixed per-platform name inside a directory required to be named app-payload, containment-checked above.
+const executable = sourceLaunch ? process.execPath : path.join(payload, executables[process.platform]);
+if (!sourceLaunch && !executable.startsWith(payload + path.sep)) throw new Error('Executable escaped the payload directory');
+assert.ok(fs.statSync(executable).isFile(), 'app executable missing: ' + executable); // NOSONAR: the current Node executable or the fixed, containment-checked per-platform payload path.
 
 // An isolated HOME keeps POSIX runs hermetic: no profile, credential-store
 // or app-data state from the runner, and nothing left behind there either.
@@ -50,7 +51,9 @@ delete env.ELECTRON_RUN_AS_NODE;
 // executable can abort at startup when its console handles are pipes.
 const logPath = path.join(work, 'smoke-output.log');
 const logFd = fs.openSync(logPath, 'a');
-const child = cp.spawn(executable, [], { env, stdio: ['ignore', logFd, logFd] }); // NOSONAR: fixed per-platform executable name inside a directory required to be named app-payload; array spawn with no shell, built by this same run.
+// Exercise the same launcher and entry as npm run app, not the bundled main.
+const args = sourceLaunch ? [path.join(__dirname, '../node_modules/electron/cli.js'), path.join(__dirname, '../app/start.js')] : [];
+const child = cp.spawn(executable, args, { env, stdio: ['ignore', logFd, logFd] }); // NOSONAR: fixed source paths with the current Node executable, or a containment-checked payload built by this run; array spawn without a shell.
 child.on('close', () => fs.closeSync(logFd));
 const output = () => (fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : '').slice(-2000);
 const kill = setTimeout(() => {
@@ -76,7 +79,7 @@ child.on('close', (code, signal) => {
         assert.equal(report.state.version, version, 'the running app reports the source version');
         assert.equal(report.state.session, 'idle');
         assert.equal(code, 0, 'the app quit cleanly');
-        console.log('App launch smoke: ' + process.platform + '/' + process.arch + ' payload launched, window loaded, preload IPC answered (version ' + report.state.version + ') and the app quit cleanly.');
+        console.log('App launch smoke: ' + process.platform + '/' + process.arch + (sourceLaunch ? ' source checkout' : ' payload') + ' launched, window loaded, preload IPC answered (version ' + report.state.version + ') and the app quit cleanly.');
     } catch (error) {
         console.error(error.message);
         process.exitCode = 1;

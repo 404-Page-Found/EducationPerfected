@@ -70,3 +70,5 @@ jobs:
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
       - name: Launch the built app and require a clean self-quit
         run: node scripts/app-launch-smoke.js build/app-launch/app-payload
+      - name: Launch the source checkout through the npm app entry
+        run: node scripts/app-launch-smoke.js --source

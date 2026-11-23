@@ -10,6 +10,7 @@ for (const required of [
     'npm ci --ignore-scripts', 'node packaging/build-app.js "$CANDIDATE_TARGET" build/app-launch',
     "if: runner.os == 'Linux'", 'Xvfb :99', 'DISPLAY=:99',
     'node scripts/app-launch-smoke.js build/app-launch/app-payload',
+    'node scripts/app-launch-smoke.js --source',
     'persist-credentials: false',
 ]) assert.ok(workflow.includes(required), required);
 assert.doesNotMatch(workflow, /pull_request_target|workflow_dispatch|release:|workflow_run|contents: write|upload-artifact/, 'a no-release launch lane: no artifacts, no write access, no release triggers');
@@ -27,3 +28,7 @@ for (const required of ['EP_APP_SMOKE', 'EP_APP_SMOKE_REPORT', 'did-finish-load'
 assert.ok(main.indexOf("process.env.EP_APP_SMOKE === '1'") > main.indexOf('async function smoke()'), 'the smoke hook is declared before its whenReady call site');
 assert.ok(require('../package.json').scripts['test:phase3'].includes('app-launch-smoke-policy-test.js'), 'wired into test:phase3');
 console.log('App launch smoke policy: the workflow builds and launches the real payload on all five native targets (xvfb on Linux) in a no-release lane; the app self-quits after a proven preload IPC roundtrip.');
+
+assert.equal(require('../package.json').scripts.app, 'electron app/start.js', 'npm app uses the explicit source entry');
+assert.match(fs.readFileSync(path.join(__dirname, '../app/start.js'), 'utf8'), /require\('\.\/main'\)\.startElectronApp\(\)/, 'the source entry starts the app explicitly');
+for (const required of ["process.argv[2] === '--source'", '../node_modules/electron/cli.js', '../app/start.js']) assert.ok(smoke.includes(required), 'source smoke: ' + required);

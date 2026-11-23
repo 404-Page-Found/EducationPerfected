@@ -295,7 +295,7 @@ function createElectronApp({ electron, session }) {
     return { start, createWindow, registerIpc, quit, IPC };
 }
 
-if (require.main === module) {
+function startElectronApp() {
     const { createAppSession } = require('./session');
     const electron = require('electron');
     let forwardedEvent = null;
@@ -307,4 +307,8 @@ if (require.main === module) {
     createElectronApp({ electron, session }).start();
 }
 
-module.exports = { createElectronApp, readDevtoolsEndpoint, applyBrowserUserAgent, BROWSER_PARTITION, IPC, RENDERER_CSP };
+// The bundled payload keeps its existing direct-entry launch. Source checkouts
+// use start.js explicitly because Electron loads file entries as dependencies.
+if (require.main === module) startElectronApp();
+
+module.exports = { startElectronApp, createElectronApp, readDevtoolsEndpoint, applyBrowserUserAgent, BROWSER_PARTITION, IPC, RENDERER_CSP };
