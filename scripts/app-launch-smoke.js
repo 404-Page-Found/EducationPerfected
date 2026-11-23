@@ -53,11 +53,12 @@ const logPath = path.join(work, 'smoke-output.log');
 const logFd = fs.openSync(logPath, 'a');
 // Exercise the same launcher and entry as npm run app, not the bundled main.
 const args = sourceLaunch ? [path.join(__dirname, '../node_modules/electron/cli.js'), path.join(__dirname, '../app/start.js')] : [];
-const child = cp.spawn(executable, args, { env, stdio: ['ignore', logFd, logFd] }); // NOSONAR: fixed source paths with the current Node executable, or a containment-checked payload built by this run; array spawn without a shell.
+const child = cp.spawn(executable, args, { env, detached: sourceLaunch && process.platform !== 'win32', stdio: ['ignore', logFd, logFd] }); // NOSONAR: fixed source paths with the current Node executable, or a containment-checked payload built by this run; array spawn without a shell.
 child.on('close', () => fs.closeSync(logFd));
 const output = () => (fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : '').slice(-2000);
 const kill = setTimeout(() => {
-    child.kill('SIGKILL');
+    if (sourceLaunch) require('./app-smoke-cleanup').killSmokeTree(child);
+    else child.kill('SIGKILL');
 }, 120000);
 
 child.on('error', error => {

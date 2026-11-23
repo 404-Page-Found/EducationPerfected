@@ -32,3 +32,7 @@ console.log('App launch smoke policy: the workflow builds and launches the real 
 assert.equal(require('../package.json').scripts.app, 'electron app/start.js', 'npm app uses the explicit source entry');
 assert.match(fs.readFileSync(path.join(__dirname, '../app/start.js'), 'utf8'), /require\('\.\/main'\)\.startElectronApp\(\)/, 'the source entry starts the app explicitly');
 for (const required of ["process.argv[2] === '--source'", '../node_modules/electron/cli.js', '../app/start.js']) assert.ok(smoke.includes(required), 'source smoke: ' + required);
+
+assert.ok(smoke.includes("detached: sourceLaunch && process.platform !== 'win32'"), 'source timeout owns a POSIX process group');
+assert.ok(smoke.includes("require('./app-smoke-cleanup').killSmokeTree(child)"), 'source timeout kills the launcher tree');
+require('./app-smoke-cleanup-test');
