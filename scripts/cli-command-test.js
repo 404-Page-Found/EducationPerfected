@@ -1,5 +1,7 @@
 // Fixed bootstrap with inert dependencies. Never downloads, launches or reads stores.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+// Inert config provider: status tests must never touch a personal store.
+require('../lib/app-config').readConfig = () => ({version:2});
 const {parseCommand,helpText,accuracyStatusText}=require('../lib/cli-command');
 for(const command of ['setup','check-credentials','forget-credentials','update','uninstall','version','help'])assert.equal(parseCommand([command]).command,command);
 for(const flag of ['-h','--help'])assert.equal(parseCommand([flag]).command,'help');
@@ -24,9 +26,10 @@ assert.match(accuracyStatusText({EP_ACCURACY:'on'}),/band 70-90%/);
 assert.throws(()=>accuracyStatusText({EP_ACCURACY:'82'}),/Invalid EP_ACCURACY/);
 assert.match(helpText(),/educationperfected accuracy <on\|off\|status>/);
 // The real source-checkout dispatch prints the report without launching.
-const statusOut=require('node:child_process').execFileSync(process.execPath,[path.join(__dirname,'../bin/cli.js'),'accuracy','status'],{encoding:'utf8',env:{PATH:process.env.PATH}});
+const statusOut=require('node:child_process').execFileSync(process.execPath,[path.join(__dirname,'../bin/cli.js'),'accuracy','status'],{encoding:'utf8',env:{PATH:process.env.PATH,EP_TEST_BOOT:'1'}});
 assert.match(statusOut,/Accuracy: perfect \(100%\)/);
 assert.match(helpText(),/no answers until start/);
+assert.ok(helpText().includes('EP_ACCURACY=on|off'));
 // `run` must never dispatch a maintenance subcommand: any bare token after it
 // is rejected, and unknown flags fail as options (#331's strict parsing stays).
 for(const command of ['setup','check-credentials','forget-credentials','update','uninstall','version','help'])assert.match(parseCommand(['run',command]).error,/one subcommand/);
@@ -53,12 +56,12 @@ async function probe(args,downloadFails=false,updateFails=false){
   if(id==='./uninstall')return {uninstallCommand:async options=>{assert.equal(options.ownDirectory,'/inert-runtime');assert.equal(options.store.inert,true);events.push('uninstall');await options.cleanupOwn();return {incomplete:false};}};
   if(id==='./download-browser')return {ensureBrowser:async(options)=>{events.push(options&&options.consent?(await options.consent())===true?'acquire-implied':'acquire-refused':'acquire');if(downloadFails)throw Error('inert cancellation');},downloadNotice:()=>'inert notice'};
   if(id==='../bin/cli')return {credentialCommand:async command=>{events.push(command);},runCli:async()=>{throw Error('Must not launch browser');}};
-  if(id==='./maintenance-exit')return {exitAfterMaintenanceHandoff:async()=>false};
+  if(id==='./maintenance-exit')return {shouldExitAfterWindowsUninstall:()=>false,exitAfterMaintenanceHandoff:async()=>false};
   if(id==='../lib/diagnostics')return {diagnostic:()=> 'inert'};
   return require(id);
  };
  vm.runInNewContext(source,{require:load,process:processFixture,Buffer,console:{log:text=>out.push(text),error:text=>out.push(text)}}); // NOSONAR - fixed repository bootstrap only with inert dependencies.
- for(let i=0;i<20;i++)await new Promise(resolve=>setImmediate(resolve));
+ for(let i=0;i<5;i++)await new Promise(resolve=>setImmediate(resolve));
  return {events,out,exitCode:processFixture.exitCode};
 }
 (async()=>{
@@ -68,7 +71,10 @@ async function probe(args,downloadFails=false,updateFails=false){
  }
  assert.deepEqual((await probe(['update'])).events,['update']);
  const failedUpdate=await probe(['update'],false,true);assert.deepEqual(failedUpdate.events,['update']);assert.equal(failedUpdate.exitCode,1);assert.deepEqual(failedUpdate.out,['inert']);
- assert.deepEqual((await probe(['uninstall'])).events,['runtime','uninstall','cleanup','cleanup']);
+ const uninstall=await probe(['uninstall']);
+ assert.deepEqual(uninstall.events,['runtime','uninstall','cleanup','cleanup']);
+ assert.ok(!uninstall.exitCode, 'uninstall probe succeeds without swallowed bootstrap errors');
+ assert.deepEqual(uninstall.out,[], 'successful uninstall emits no startup error');
  assert.deepEqual((await probe(['setup'])).events,['runtime','acquire','--setup','cleanup']);
  assert.deepEqual((await probe(['setup'],true)).events,['runtime','acquire','cleanup']);
  // Install-time variant: implied consent, the notice, and no login prompt.
