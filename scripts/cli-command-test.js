@@ -21,6 +21,9 @@ assert.ok(!helpText().includes('accuracy'),'help no longer documents accuracy');
 assert.deepEqual(parseCommand(['run']),{command:'run'});
 assert.deepEqual(parseCommand([]),{command:'run'});
 assert.match(parseCommand(['run','--bogus']).error,/Unknown option/);
+// `run` must never dispatch a maintenance subcommand: any token after it is rejected.
+for(const command of ['setup','check-credentials','forget-credentials','update','uninstall','version','help'])assert.match(parseCommand(['run',command]).error,/one subcommand/);
+assert.match(parseCommand(['run','setup','--browser-only']).error,/one subcommand/);
 assert.match(helpText(),/no answers until start/);
 assert.ok(helpText().startsWith('EducationPerfected ' + require('../package.json').version + '\n'),'help header derives the version from package.json');
 const source=fs.readFileSync(path.join(__dirname,'../packaging/bootstrap.js'),'utf8');
@@ -68,6 +71,10 @@ async function probe(args,downloadFails=false,updateFails=false){
  // the retired accuracy subcommand is an ordinary error in the packaged bootstrap too.
  {
   const result=await probe(['accuracy']);assert.deepEqual(result.events,[]);assert.equal(result.exitCode,1);assert.ok(result.out[0].includes('Unknown command'));
+ }
+ // `run uninstall` (and any maintenance token after `run`) must be rejected, never dispatched.
+ for(const command of ['uninstall','forget-credentials','update','setup']){
+  const result=await probe(['run',command]);assert.deepEqual(result.events,[]);assert.equal(result.exitCode,1);assert.ok(result.out[0].includes('one subcommand'));
  }
  console.log('Subcommand/flag dispatch, side-effect-free help/version/legacy refusals, consent-before-optional-store setup passed (inert).');
 })().catch(error=>{console.error(error);process.exitCode=1;});

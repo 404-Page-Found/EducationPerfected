@@ -120,7 +120,7 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 The browser also has a collapsible **EducationPerfected** menu in the bottom-right
 corner. A one-line status bar at the top keeps state, mode and pacing in
 sync with the terminal and hotkeys; action results appear directly below it as
-plain sentences ("Running.", "Pacing: waiting 2-6s before each answer."), with the
+plain sentences ("Running.", "Pacing: a short human-like pause before each answer (varies by question type)."), with the
 raw JSON under **Technical details**.
 Below that are the controls: start/stop, change mode, refresh words, and set/read
 pacing. Read-only inspections (`inspect-self-mark`, `inspect-dash`,
