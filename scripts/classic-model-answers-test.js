@@ -46,25 +46,27 @@ const { cleanupTestProcess } = require('./test-process-cleanup');
             assert.deepEqual(first.answers, [WORDS[0][1]], 'captured shape ships the round answer');
             console.log('  ok  classic round detected with the model answer');
 
-            const mutate = (fn, arg) => page.evaluate((source, value) => {
-                const q = window.__classicAnswersSelf.model._currentQuestion;
-                new Function('q', 'value', source)(q, value);
-            }, fn, arg);
+            const mutate = (field, value) => page.evaluate((name, v) => {
+                window.__classicAnswersSelf.model._currentQuestion[name] = v;
+            }, field, value);
 
-            await mutate('q.validAnswers = [];');
+            await mutate('validAnswers', []);
             assert.equal((await detectQuestion(page)).answers, undefined, 'empty validAnswers stays answerless');
             console.log('  ok  empty validAnswers stays answerless');
 
-            await mutate('q.validAnswers = [{ outputString: value }];', WORDS[0][1]);
+            await mutate('validAnswers', [{ outputString: WORDS[0][1] }]);
             assert.deepEqual((await detectQuestion(page)).answers, [WORDS[0][1]], 'restored shape answers again');
 
-            await mutate('q.questionType = 1;');
+            await mutate('questionType', 1);
             assert.equal((await detectQuestion(page)).answers, undefined, 'other questionType stays answerless');
-            await mutate('q.questionType = 0; q.translationMode = 2;');
+            await mutate('questionType', 0);
+            await mutate('translationMode', 2);
             assert.equal((await detectQuestion(page)).answers, undefined, 'other translationMode stays answerless');
-            await mutate('q.translationMode = 0; q.contentID = "88001";');
+            await mutate('translationMode', 0);
+            await mutate('contentID', '88001');
             assert.equal((await detectQuestion(page)).answers, undefined, 'non-integer contentID stays answerless');
-            await mutate('q.contentID = 88001; q.questionIndex = -1;');
+            await mutate('contentID', 88001);
+            await mutate('questionIndex', -1);
             assert.equal((await detectQuestion(page)).answers, undefined, 'negative questionIndex stays answerless');
             console.log('  ok  deviations from the captured shape stay answerless');
 
