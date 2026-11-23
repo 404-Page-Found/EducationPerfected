@@ -75,6 +75,15 @@ const eachSequential = (values, run) => values.reduce((previous, value) => previ
         assert.equal(result.status, 'stopped', JSON.stringify(result));
         assert.match(result.message, /question changed/);
         assert.deepEqual(await page.evaluate(() => infoSlideFixture.clicks), []);
+        // Post-Continue unsupported is not proof of advance: refuse with the
+        // detection reason, never retry the click.
+        await setup();
+        await page.evaluate(() => { infoSlideFixture.unsupportedAfterClick = true; });
+        result = await playInfoSlideRound(page, await detectQuestion(page), { enter: true, timeout: 3000 });
+        assert.equal(result.status, 'stopped', JSON.stringify(result));
+        assert.match(result.message, /advance not proven/);
+        assert.match(result.message, /unsupported question type/);
+        assert.deepEqual(await page.evaluate(() => [infoSlideFixture.clicks.length, infoSlideFixture.submits]), [1, 0]);
         // Detection-level refusals: every deviation is unsupported, never an info-slide.
         const mutate = (name) => page.evaluate((m) => {
             const f = window.infoSlideFixture;

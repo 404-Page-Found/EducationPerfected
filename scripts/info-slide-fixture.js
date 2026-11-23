@@ -58,6 +58,8 @@ function installInfoSlideFixture(config = {}) {
             return;
         }
         if (f.keepSame) return;
+        // A slide that turns unsupported after the click: not proof of advance.
+        if (f.unsupportedAfterClick) { q.questionType = 8; return; }
         // Advance: the next slide mounts with a new question identity.
         q.questionIndex++;
         paragraph.textContent = 'Synthetic information slide: continued.';
