@@ -72,7 +72,11 @@ const REQUIRED_KNOWN = ['LONG_ANSWER_COMPONENT', 'MULTICHOICE_COMPONENT', 'TEXT_
   };
   const libDir = path.join(__dirname, '..', 'lib');
   const mirrorFiles = ['choice-state.js', 'multi-choice-state.js', 'highlight-state.js',
-    'working-formula-state.js', 'textbox-state.js', 'gaps-state.js'];
+    'working-formula-state.js', 'textbox-state.js', 'gaps-state.js', 'info-slide-state.js'];
+  // The info-slide reader refuses every component, so it mirrors only the
+  // known-codes list (to name refusals); no presentation or answer-bearing
+  // admission applies to it.
+  const knownOnly = new Set(['info-slide-state.js']);
   // Canonical answer-bearing minus the choice readers' own component type:
   // choice/multi exclude MULTICHOICE_COMPONENT (their own surface, handled via
   // the choices list) and rely on scratchPadAnswerBearing for the conditional
@@ -82,20 +86,22 @@ const REQUIRED_KNOWN = ['LONG_ANSWER_COMPONENT', 'MULTICHOICE_COMPONENT', 'TEXT_
     const text = fs.readFileSync(path.join(libDir, file), 'utf8');
     assert.ok(text.includes('lib/companion-components.js'), `${file} missing canonical reference`);
     assert.deepEqual(extractKnownCodes(text), canonicalKnownSorted, `${file} knownCodes mirror out of sync`);
-    const pres = extractPresentation(text);
-    if (pres) {
-      assert.deepEqual(pres, canonicalPresSorted, `${file} presentation mirror out of sync`);
-    } else {
-      // Choice/multi-choice admit presentation companions via the
-      // answer-bearing deny-list (no explicit presentation Set): the
-      // presentation pair must be known but not answer-bearing.
+    if (!knownOnly.has(file)) {
+      const pres = extractPresentation(text);
+      if (pres) {
+        assert.deepEqual(pres, canonicalPresSorted, `${file} presentation mirror out of sync`);
+      } else {
+        // Choice/multi-choice admit presentation companions via the
+        // answer-bearing deny-list (no explicit presentation Set): the
+        // presentation pair must be known but not answer-bearing.
+        const bearing = extractAnswerBearing(text);
+        assert.ok(bearing, `${file} has neither presentation nor answer-bearing list`);
+        for (const code of canonicalPresSorted) assert.ok(!bearing.includes(code), `${file} marks presentation ${code} answer-bearing`);
+      }
       const bearing = extractAnswerBearing(text);
-      assert.ok(bearing, `${file} has neither presentation nor answer-bearing list`);
-      for (const code of canonicalPresSorted) assert.ok(!bearing.includes(code), `${file} marks presentation ${code} answer-bearing`);
-    }
-    const bearing = extractAnswerBearing(text);
-    if (bearing) {
-      assert.deepEqual([...new Set(bearing)].sort((a, b) => a.localeCompare(b)), canonicalBearingMinusOwn, `${file} answerBearingCodes mirror out of sync (expected canonical minus MULTICHOICE_COMPONENT)`);
+      if (bearing) {
+        assert.deepEqual([...new Set(bearing)].sort((a, b) => a.localeCompare(b)), canonicalBearingMinusOwn, `${file} answerBearingCodes mirror out of sync (expected canonical minus MULTICHOICE_COMPONENT)`);
+      }
     }
   }
   // Shared capture segment derives from the canonical module (no copied list).

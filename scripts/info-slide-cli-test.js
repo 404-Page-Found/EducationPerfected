@@ -46,13 +46,17 @@ const { installInfoSlideFixture } = require('./info-slide-fixture');
             const i = document.createElement('input');
             document.querySelector('#ep-question-container').append(i);
             window.infoControlEvents = 0;
+            window.infoControlEl = i;
             i.addEventListener('input', () => window.infoControlEvents++);
             i.addEventListener('keydown', () => window.infoControlEvents++);
+            i.addEventListener('focus', () => window.infoControlEvents++);
+            i.addEventListener('click', () => window.infoControlEvents++);
+            i.addEventListener('change', () => window.infoControlEvents++);
         });
         child.stdin.write('start\n');
         await wait(() => session.output.includes('Answer loop stopping: non-text round requested a stop'));
         assert.ok(session.output.includes('answer controls'));
-        assert.deepEqual(await page.evaluate(() => [window.infoControlEvents, infoSlideFixture.clicks, infoSlideFixture.submits]), [0, [], 0]);
+        assert.deepEqual(await page.evaluate(() => [window.infoControlEvents, infoSlideFixture.clicks, infoSlideFixture.submits, window.infoControlEl.value]), [0, [], 0, '']);
         child.stdin.write('quit\n'); await wait(() => child.exitCode !== null); assert.equal(child.exitCode, 0);
     } finally { await session?.cleanup(); }
     console.log('Info slide CLI PASS: auto advances with trusted Continue only and completes, semi leaves the click to the user, answer controls still stop the run. Synthetic only.');

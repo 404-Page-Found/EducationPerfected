@@ -64,13 +64,16 @@ const eachSequential = (values, run) => values.reduce((previous, value) => previ
         assert.equal(result.status, 'stopped', JSON.stringify(result));
         assert.match(result.message, /ambiguous/);
         assert.deepEqual(await page.evaluate(() => infoSlideFixture.clicks), []);
-        // Slide replaced mid-wait: the round stops instead of clicking the new slide's control.
-        await setup({ neverReady: true });
+        // Slide replaced mid-wait with an enabled Continue on the
+        // replacement: the identity guard stops the round instead of
+        // clicking the new slide's control.
+        await setup({ countdownMs: 400 });
         const playing = playInfoSlideRound(page, await detectQuestion(page), { enter: true, timeout: 2000 });
         await new Promise(r => setTimeout(r, 250));
         await page.evaluate(() => { infoSlideFixture.q.questionIndex = 41; });
         result = await playing;
         assert.equal(result.status, 'stopped', JSON.stringify(result));
+        assert.match(result.message, /question changed/);
         assert.deepEqual(await page.evaluate(() => infoSlideFixture.clicks), []);
         // Detection-level refusals: every deviation is unsupported, never an info-slide.
         const mutate = (name) => page.evaluate((m) => {
