@@ -1,9 +1,10 @@
 // Unit coverage for lib/human-delay.js (issue #221): per-type default
-// ranges, uniform sampling within bounds, enable/disable, the seconds
-// override and its parser, and the env defaults (on normally, off under
-// EP_HUMAN_DELAY=off or the EP_TEST_BOOT harness). No browser involved.
+// ranges, uniform sampling within bounds, enable/disable, and the env
+// defaults (on normally, off under EP_HUMAN_DELAY=off or the EP_TEST_BOOT
+// harness). No browser involved. Pacing has no custom range: on and off are
+// the only settings.
 const assert = require('node:assert');
-const { createHumanDelay, parseDelayOverride, summarizeRanges, DEFAULT_RANGES } = require('../lib/human-delay');
+const { createHumanDelay, summarizeRanges, DEFAULT_RANGES } = require('../lib/human-delay');
 
 (async () => {
 
@@ -39,18 +40,13 @@ assert.ok(DEFAULT_RANGES.text[1] <= DEFAULT_RANGES.typed[1], 'word rounds stay s
     assert.equal(delay.isEnabled(), true);
 }
 
-// Override replaces every kind's range; reset restores the defaults.
+// describe reports only on/off plus the per-type ranges: no custom range.
 {
-    const delay = createHumanDelay({ random: () => 0.5, sleep, env: {} });
-    delay.setOverride(1200, 1800);
-    for (const kind of ['text', 'audio', 'workingformula']) {
-        const sampled = delay.sample(kind);
-        assert.ok(sampled >= 1200 && sampled <= 1800, `override missed ${kind}: ${sampled}`);
-    }
-    assert.deepEqual(delay.describe().override, [1200, 1800]);
-    delay.clearOverride();
-    assert.equal(delay.describe().override, null);
-    assert.equal(delay.sample('text') >= DEFAULT_RANGES.text[0], true);
+    const delay = createHumanDelay({ env: {} });
+    const described = delay.describe();
+    assert.equal(described.enabled, true);
+    assert.deepEqual(described.ranges, DEFAULT_RANGES);
+    assert.ok(!('override' in described), 'no custom range is reported');
 }
 
 // Env defaults: on without overrides, off under EP_HUMAN_DELAY=off or the
@@ -63,14 +59,5 @@ assert.equal(createHumanDelay({ env: { EP_TEST_BOOT: '1' } }).isEnabled(), false
 // documented kind covered (drift here means docs would lie about a range).
 assert.equal(summarizeRanges(), 'text 2-6s, choice/dropdown/highlight 3-8s, typed/gaps/boxes 4-10s, slide-surfaces 5-12s, working-formula 6-15s, audio 8-15s');
 
-// The interactive override parser: seconds with optional decimal, bounded,
-// ordered; anything else is rejected so a typo never disables pacing.
-assert.deepEqual(parseDelayOverride('2-6'), [2000, 6000]);
-assert.deepEqual(parseDelayOverride('1.5-4'), [1500, 4000]);
-assert.deepEqual(parseDelayOverride('0.5-0.5'), [500, 500]);
-for (const bad of ['', 'abc', '5-2', '-1-3', '2', '2-', '2-6-8', '0-121', 'NaN-5', '1.5.2-3']) {
-    assert.equal(parseDelayOverride(bad), null, `accepted ${JSON.stringify(bad)}`);
-}
-
-console.log('Human delay: per-type ranges sampled in bounds, enable/disable, override and reset, env defaults, override parser PASS');
+console.log('Human delay: per-type ranges sampled in bounds, enable/disable, env defaults PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });
