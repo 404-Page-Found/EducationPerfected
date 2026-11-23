@@ -8,7 +8,6 @@ const {
   DASH_SCORE_CSS,
   DASH_RESULTS_CSS,
   DASH_PACING_NOTE,
-  DASH_ACCURACY_NOTE,
   DASH_EMPTY_WORDLIST_NOTE,
   detectDashInPage,
   isDashPage,
@@ -23,7 +22,6 @@ const { cleanupTestProcess } = require('./test-process-cleanup');
   assert.equal(DASH_SCORE_CSS, '.dash-score');
   assert.equal(DASH_RESULTS_CSS, '.dash-results');
   assert.ok(DASH_PACING_NOTE.includes('text 2-6s') && DASH_PACING_NOTE.includes('delay off'));
-  assert.ok(DASH_ACCURACY_NOTE.includes('perfect') && DASH_ACCURACY_NOTE.toLowerCase().includes('dash'));
   assert.ok(DASH_EMPTY_WORDLIST_NOTE.toLowerCase().includes('timed') && DASH_EMPTY_WORDLIST_NOTE.includes('word lists'));
   assert.equal(typeof detectDashInPage, 'function');
   // The in-page predicate must stay self-contained (runs inside evaluate).
@@ -89,7 +87,6 @@ const { cleanupTestProcess } = require('./test-process-cleanup');
       await command('start', '"state":"running"');
       await wait(() => output().includes('Dash sprint detected'));
       assert.ok(output().includes('text 2-6s'), 'Dash pacing note must name the shared text range');
-      assert.ok(output().includes('perfect for this Dash sprint'), 'default perfect Dash accuracy note expected');
       // `status completed` alone only proves the shared exit control was
       // visible: taskCompletionProven() accepts exit without results. Require
       // the provisional results interstitial before the exit click navigates

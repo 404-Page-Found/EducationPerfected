@@ -8,7 +8,7 @@
 //    the window's own embedded browser view over the app's loopback debugging
 //    endpoint (connectBrowser), never a separate downloaded browser
 //  - the allowlisted control action set, mirroring the in-browser panel
-//    (start/stop/status/mode/refresh/accuracy/delay; no developer commands, #283)
+//    (start/stop/status/mode/refresh/delay; no developer commands, #283)
 //  - the Reflection fill text approval as a window dialog flow
 //  - in-app update for the installed app: the update downloads and verifies
 //    the release's OS installer and hands off to it (the app and CLI upgrade
@@ -17,7 +17,7 @@
 //    uninstall`.
 'use strict';
 
-const ACTIONS = new Set(['status', 'start', 'stop', 'mode', 'refresh', 'accuracy', 'delay']);
+const ACTIONS = new Set(['status', 'start', 'stop', 'mode', 'refresh', 'delay']);
 const MODES = new Set(['auto', 'semi']);
 
 function createAppSession({
@@ -40,7 +40,6 @@ function createAppSession({
     pid = process.pid,
     tmpDir = require('node:os').tmpdir(),
     fetchImpl = globalThis.fetch,
-    accuracy = {},
     onEvent = () => {},
     // The loopback WebSocket endpoint of the app's own browser shell, supplied
     // by main.js from Chromium's DevToolsActivePort file.
@@ -322,7 +321,6 @@ function createAppSession({
                     onBrowserClosed: () => { resetSession('closed'); },
                     onBrowserDisconnected: () => { resetSession('closed'); },
                     reflectionTextProvider,
-                    accuracy,
                 }));
                 const launched = await launching;
                 launching = null;
@@ -364,7 +362,6 @@ function createAppSession({
                     if (!MODES.has(value)) throw new Error('Mode must be auto or semi.');
                     result = await controls.mode(value); break;
                 case 'refresh': result = await controls.refresh(); break;
-                case 'accuracy': result = await controls.setAccuracy(String(value ?? '')); break;
                 case 'delay':
                     result = controls.delay(value === undefined || value === null || value === '' ? undefined : String(value));
                     if (result && result.error) throw new Error(result.error);

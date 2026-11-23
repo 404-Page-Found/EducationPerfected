@@ -20,7 +20,7 @@ const { playMultiChoiceSelection } = require('./lib/multi-choice-handler');
 const { playHighlightRound } = require('./lib/highlight-handler');
 const { playInfoSlideRound } = require('./lib/info-slide-handler');
 const { playWorkingFormulaRound } = require('./lib/working-formula-handler');
-const { createHumanDelay, parseDelayOverride, summarizeRanges } = require('./lib/human-delay');
+const { createHumanDelay, summarizeRanges } = require('./lib/human-delay');
 const { createSelectChoiceOnce } = require('./lib/choice-select-once');
 const { readChoiceInPage } = require('./lib/choice-state');
 const { diagnostic } = require('./lib/diagnostics');
@@ -37,7 +37,7 @@ const {
     recordRejectionIn: recordDictRejection,
 } = require('./lib/classic-dict');
 const {captureSelectionBaseline,inspectSelectionModal,advanceSelectionSection}=require('./lib/selection-modal');
-const { DASH_TIMER_CSS, DASH_SCORE_CSS, DASH_RESULTS_CSS, DASH_PACING_NOTE, DASH_ACCURACY_NOTE, DASH_EMPTY_WORDLIST_NOTE, detectDashInPage } = require('./lib/dash');
+const { DASH_TIMER_CSS, DASH_SCORE_CSS, DASH_RESULTS_CSS, DASH_PACING_NOTE, DASH_EMPTY_WORDLIST_NOTE, detectDashInPage } = require('./lib/dash');
 
 // ===== Credentials ===== //
 // Credentials are never stored in this (or any other tracked) file. They are read at
@@ -394,7 +394,7 @@ async function resolveCredentials(watchForSession) {
 
 // ===== Program ===== //
 
-async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected = () => {}, onStartupPhase = () => {}, legacySignals = false, gapsFillOnly = false, choiceSelectOnly = false, gapsSubmitOnce = false, textboxFillOnly = false, dropdownSubmitOnce = false, multiSelectOnly = false, reflectionTextProvider, accuracy = {}, connectBrowser = null, selectPage = null } = {}) {
+async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected = () => {}, onStartupPhase = () => {}, legacySignals = false, gapsFillOnly = false, choiceSelectOnly = false, gapsSubmitOnce = false, textboxFillOnly = false, dropdownSubmitOnce = false, multiSelectOnly = false, reflectionTextProvider, connectBrowser = null, selectPage = null } = {}) {
     // F4 popup is the only normal-run dropdown input path. The older
     // Home/ArrowDown mechanism remains only in explicit synthetic regression
     // fixtures and the local EP-free diagnostic; there is no env rollback.
@@ -405,25 +405,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
     // real run they are ignored, so a stray environment can never point the
     // program at a lookalike host or disable the host protection below.
     const TEST_BOOT = process.env.EP_TEST_BOOT === '1';
-    // Issue #222 random accuracy: OFF by default (perfect answers); enable it
-    // with `accuracy on`, a target/band, CLI flags or env. Also perfect under
-    // TEST_BOOT unless explicitly enabled.
-    // Validation one-shot sessions stay perfect: precise fill-only proofs
-    // must never inject mistakes.
     const validationFlags = Boolean(gapsFillOnly || choiceSelectOnly || gapsSubmitOnce || textboxFillOnly || dropdownSubmitOnce || multiSelectOnly);
     const { readConfig, writeConfig } = require('./lib/app-config');
     // Fixtures and one-shot validators never read or change personal settings.
     const savedConfig = TEST_BOOT || validationFlags ? { version: 1 } : readConfig();
-    let accuracyConfig;
-    try {
-        accuracyConfig = require('./lib/accuracy').resolveAccuracyConfig({ cli: accuracy || {}, env: process.env, config: savedConfig.accuracy });
-    } catch (e) {
-        console.error(String(e.message || e));
-        throw e;
-    }
-    if (validationFlags && accuracyConfig.enabled) {
-        accuracyConfig = { ...accuracyConfig, enabled: false, fixedTarget: 100, target: 100, source: 'validation-perfect' };
-    }
     const DIR = {
         // Credentials are resolved at runtime (see resolveCredentials) and never kept
         // anywhere a commit could pick them up. Email/password are added below.
@@ -489,7 +474,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
         // Dash typed rounds share this pair (captured 2026-11-20, #272); Dash
         // choice/number-box rounds use no classic markup. The Dash timer/scores
         // below are the only Dash-specific selectors. See lib/dash.js for the
-        // pacing/accuracy decision.
+        // pacing decision.
         question_css: '#question-text',
         answer_box_css: 'input#answer-text',
         // Dash (timed sprint, issue #230 closed 2026-11-21): the classic task
@@ -885,27 +870,6 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             let CLEANUP = null;  // promise of the most recent run's post-run modal cleanup
             let ENTER = true;
             let runReason = 'stopped';
-            // Issue #222: per-run accuracy controller (target randomized per run).
-            // Null when disabled (perfect). Created fresh in answerLoop so every
-            // start() picks a new target in the band.
-            let accuracyRun = null;
-            // Classic first-try tracking: suppresses mistake injection on modal-driven
-            // retries for the same question text (P1: --accuracy 0 must not typo forever).
-            let accuracyClassicSeen = new Set();
-            const accuracyStatus = () => {
-                if (!accuracyConfig.enabled) return { enabled: false, target: 100 };
-                if (!accuracyRun) return { enabled: true, min: accuracyConfig.min, max: accuracyConfig.max, fixedTarget: accuracyConfig.fixedTarget ?? null, target: null, attempts: 0, mistakes: 0, accuracy: null, source: accuracyConfig.source };
-                return { enabled: true, min: accuracyConfig.min, max: accuracyConfig.max, fixedTarget: accuracyConfig.fixedTarget ?? null, target: accuracyRun.target, attempts: accuracyRun.stats.attempts, mistakes: accuracyRun.stats.mistakes, accuracy: accuracyRun.accuracy(), source: accuracyConfig.source };
-            };
-            const startAccuracyRun = () => {
-                accuracyClassicSeen = new Set();
-                if (!accuracyConfig.enabled) { accuracyRun = null; return null; }
-                try {
-                    accuracyRun = require('./lib/accuracy').createAccuracyRun(accuracyConfig);
-                } catch { accuracyRun = null; return null; }
-                console.log(`Accuracy target ${accuracyRun.target}% for this run (band ${accuracyConfig.min}-${accuracyConfig.max}%, ${accuracyConfig.source}).`);
-                return accuracyRun;
-            };
             // Human pacing (issue #221): one randomized wait per answered
             // question before its guarded submission, on by default.
             const humanDelay = createHumanDelay({ config: savedConfig.delay });
@@ -1780,37 +1744,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     await alert(message);
                     return false;
                 }
-                // Issue #222: occasional human-like typo on the FIRST submission only
-                // (auto mode). The retry for the same key always uses the correct
-                // answer, so an intentional mistake costs one modal then completes.
-                // On Dash a mistake is expected (unproved live) to burn sprint
-                // time/points; perfect stays the provisional recommendation.
-                // Policy/context checks below keep using `correct`; only the typed
-                // and submitted value may be the typo. The first-try stat is recorded
-                // only after a confirmed submission so vanished boxes or changed
-                // questions never inflate the displayed rate.
-                let submitAnswer = correct;
-                let intentionalMistake = false;
-                let accuracyPending = null;
-                if (accuracyRun && ENTER && submissions === 0) {
-                    try {
-                        if (accuracyRun.shouldMistake()) {
-                            const { makeTypoFor } = require('./lib/accuracy');
-                            const typo = makeTypoFor(correct, answers);
-                            if (typo && typo !== correct) {
-                                console.log(`Accuracy mistake for ${key}: submitting "${typo}" instead of "${correct}" (target ${accuracyRun.target}%).`);
-                                submitAnswer = typo;
-                                intentionalMistake = true;
-                            }
-                            accuracyPending = intentionalMistake;
-                        } else {
-                            accuracyPending = false;
-                        }
-                    } catch {
-                        submitAnswer = correct;
-                        accuracyPending = null;
-                    }
-                }
+                // Every submission uses the shipped correct answer; the retry
+                // policy below keeps using `correct` for its checks.
+                const submitAnswer = correct;
 
                 const contextUnchanged = async (current = undefined) => {
                     if (current === undefined) current = await detectQuestion(page);
@@ -1854,10 +1790,6 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 if (ENTER) {
                     typedSubmissionsByKey.set(key, submissions + 1);
                     await page.keyboard.press('Enter');
-                    if (accuracyPending !== null && accuracyRun) {
-                        try { accuracyRun.recordFirstTry(accuracyPending); } catch { /* never break answering on stats */ }
-                    }
-                    accuracyPending = null;
                 }
                 lastSubmitted = { question: key, answer: submitAnswer };
 
@@ -1881,8 +1813,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         console.log('Answer box vanished before the retry; re-detecting the question.');
                         return true;
                     }
-                    // Retry always uses the correct answer: a first-try typo must not be
-                    // resubmitted, otherwise --accuracy 0 would loop typos on timeouts.
+                    // Retry always uses the correct answer.
                     // A box holding EP's IME-normalized punctuation still verifies.
                     if (!boxMatchesAnswer(correct, inBox)) {
                         console.log(inBox === ''
@@ -1911,10 +1842,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     }
                     typedSubmissionsByKey.set(key, retryCount + 1);
                     await page.keyboard.press('Enter');
-                    // The retry dispatched the correct answer: a modal from here on
-                    // rejects THAT value, so the rejection bookkeeping below must
-                    // blame it rather than the first-try typo.
-                    submitAnswer = correct;
+                    // The retry dispatched the correct answer.
                     outcome = await waitForAdvanceKey(key, ADVANCE_TIMEOUT, correct, contextUnchanged);
                     if (outcome === 'timeout') {
                         console.error(`Question ${key} did not advance after submitting its answer. Stopping.`);
@@ -2110,26 +2038,6 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         return true;
                     }
                     const play = descriptor.kind === 'dropdown' ? playDropdownRound : descriptor.kind === 'dropdown-numberbox' ? playDropdownNumberBoxRound : descriptor.kind === 'slide-surfaces' ? playSlideSurfacesRound : descriptor.kind === 'workingformula' ? playWorkingFormulaRound : descriptor.kind === 'reflection' ? playReflectionRound : descriptor.kind === 'numberbox' ? playNumberBoxRound : descriptor.kind === 'textbox' ? playTextboxRound : descriptor.kind === 'gaps' ? playGapsRound : descriptor.kind === 'highlight' ? playHighlightRound : playChoiceRound;
-                    // Issue #222: single-choice mistakes only (neighboring distractor).
-                    // Other surfaces stay perfect to preserve their fail-closed proofs;
-                    // a wrong single-choice still advances via the normal Next flow.
-                    // The stat is recorded only after a confirmed submission, using the
-                    // handler's actual distractor outcome (a lone option falls back to
-                    // the correct answer and must not count as wrong).
-                    let choiceMistakeIntent = false;
-                    let choiceMistakeResult = null;
-                    let choiceAccuracyPending = null;
-                    if (again.kind === 'choice' && again.multi !== true && ENTER && accuracyRun && TOGGLE) {
-                        try {
-                            if (accuracyRun.shouldMistake()) {
-                                choiceMistakeIntent = true;
-                                choiceMistakeResult = { mistake: false };
-                                choiceAccuracyPending = true;
-                            } else {
-                                choiceAccuracyPending = false;
-                            }
-                        } catch { choiceMistakeIntent = false; choiceAccuracyPending = null; }
-                    }
                     // Preserve even if Stop/errors arrive after Submit but before
                     // the handler's next modal poll. No selection cleanup deletes dialogs.
                     preserveSelectionModal=true;
@@ -2141,20 +2049,12 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         shouldStop: () => !TOGGLE,
                         log: msg => console.log(msg),
                         beforeSubmit: () => humanDelay.beforeSubmit(again.kind),
-                        ...((again.kind === 'choice' && again.multi !== true && choiceMistakeIntent && choiceMistakeResult) ? { intentionalMistake: true, mistakeResult: choiceMistakeResult } : {}),
                         ...((again.kind === 'dropdown' || again.kind === 'dropdown-numberbox') ? {
                             inputMode: dropdownInputMode,
                         } : again.kind === 'reflection' ? {
                             requestText: async request => typeof reflectionTextProvider === 'function' ? await reflectionTextProvider(request, onReflectionRequestCancel) : false,
                         } : {}),
                     });
-                    if (choiceAccuracyPending !== null && accuracyRun && (result.status === 'advanced' || result.status === 'complete' || result.status === 'modal')) {
-                        try {
-                            const mistook = choiceMistakeIntent ? Boolean(choiceMistakeResult && choiceMistakeResult.mistake) : false;
-                            if (mistook) console.log(`Accuracy mistake for ${again.key}: selected a neighboring distractor (target ${accuracyRun.target}%).`);
-                            accuracyRun.recordFirstTry(mistook);
-                        } catch { /* never break answering on stats */ }
-                    }
                     if (result.status === 'reflection-filled') {
                         console.log('Reflection filled with your approved text. Run stopped. Review, submit and self-mark in the browser.');
                         return false;
@@ -2199,10 +2099,8 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
             // Dash sprint notice (issue #230): captured Dash rounds (choice 2026-11-19,
             // typed 2026-11-20) call it out once per run. Reports the timer
-            // presence, the shared per-type pacing decision (provisional delay
-            // off recommendation, live scoring unproved) and the expected
-            // accuracy cost (a Dash mistake is expected to burn sprint
-            // time/points).
+            // presence and the shared per-type pacing decision (provisional delay
+            // off recommendation, live scoring unproved).
             // Runs inside the answer loop; never throws and never stops the run.
             let dashNoted = false;
             async function noteDashOnce() {
@@ -2231,11 +2129,6 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 if (!isDash) return;
                 dashNoted = true;
                 console.log(`Dash sprint detected (timer visible: ${timerVisible ? 'yes' : 'no'}). ${DASH_PACING_NOTE}`);
-                if (accuracyRun && accuracyRun.enabled !== false && accuracyConfig && accuracyConfig.enabled) {
-                    console.log(`Accuracy ${accuracyRun.target}% is on for this Dash sprint. ${DASH_ACCURACY_NOTE}`);
-                } else {
-                    console.log(`Accuracy is perfect for this Dash sprint (recommended). ${DASH_ACCURACY_NOTE}`);
-                }
             }
 
             /**
@@ -2252,7 +2145,6 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 typedSubmissionsByKey.clear();
                 futileStop = false;  // a manual restart after a futility stop gets a fresh bounded run
                 dashNoted = false;  // per-run Dash guidance: a second start must log the sprint notice again
-                startAccuracyRun();
                 console.log("answerLoop entered.");
 
                 // Issue #230 (classic-path only): note whether this run shows a dash
@@ -2314,10 +2206,6 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         else console.error('answerLoop cleanup failed:', e);
                     });
                     await CLEANUP;
-                    if (accuracyRun) {
-                        const acc = accuracyRun.accuracy();
-                        console.log(`Accuracy this run: target ${accuracyRun.target}%, first-try ${accuracyRun.stats.attempts - accuracyRun.stats.mistakes}/${accuracyRun.stats.attempts}${acc === null ? '' : ` (${acc.toFixed(1)}%)`}.`);
-                    }
                     console.log(`answerLoop Exited. (reason=${runReason}, futileStop=${futileStop})`);
                 }
                 return { reason: runReason };
@@ -2555,51 +2443,6 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         console.log(`Answer loop stopping: refusing to type an empty answer for "${question}".`);
                         break;
                     }
-                    // Issue #222: occasional human-like first-try mistake (small typo).
-                    // Only when the correct answer is known, in auto mode, and this run
-                    // has accuracy enabled. Unknown questions already submit a random
-                    // probe (findAnswer returns a random string when no candidates exist)
-                    // and are excluded from accuracy stats; semi-auto fills the correct
-                    // answer and leaves submission to the user. The typo flows through
-                    // the normal wrong-answer-modal -> Continue path, so the run still
-                    // completes with lower accuracy. Only the first submission per question
-                    // may mistake; modal-driven retries always use the correct answer and
-                    // the stat is recorded only after a confirmed submission.
-                    let accuracyClassicPending = null;
-                    let accuracyClassicCorrect = answer;
-                    if (accuracyRun && ENTER && !isRandomProbe && !accuracyClassicSeen.has(question)) {
-                        try {
-                            // Unknown probe: no candidates for any key variant, so
-                            // findAnswer returned a random string. Never mistake those
-                            // and never count them toward first-try accuracy.
-                            // unknownProbe is computed from the shared dict helper
-                            // above (single source with findAnswer).
-                            if (unknownProbe) {
-                                // Unknown question: random probe, not an accuracy decision.
-                            } else if (accuracyRun.shouldMistake()) {
-                                const { makeTypoFor } = require('./lib/accuracy');
-                                const avoid = [];
-                                for (const probe of questionVariants(question)) {
-                                    const key = String(probe).trim();
-                                    const list = candidatesDict[key];
-                                    if (Array.isArray(list)) avoid.push(...list);
-                                }
-                                const typo = makeTypoFor(answer, avoid);
-                                if (typo && typo !== answer) {
-                                    console.log(`Accuracy mistake for "${question}": submitting "${typo}" instead of "${answer}" (target ${accuracyRun.target}%).`);
-                                    answer = typo;
-                                    accuracyClassicPending = true;
-                                } else {
-                                    accuracyClassicPending = false;
-                                }
-                            } else {
-                                accuracyClassicPending = false;
-                            }
-                        } catch {
-                            // Never break answering on an accuracy helper failure.
-                            accuracyClassicPending = null;
-                        }
-                    }
 
                     // The screen can look identical after a round: dictionary tasks draw
                     // words at random, so the next question can repeat the same text. The
@@ -2725,15 +2568,6 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         break;
                     }
                     lastSubmitted = { question, answer, isRandomProbe, randomRound };
-                    // Record the first-try result only after a confirmed submission so
-                    // changed questions, vanished boxes, or refused selections never
-                    // inflate the displayed stats. Mark the question seen so a modal-driven
-                    // retry submits the correct answer without a second mistake.
-                    if (accuracyClassicPending !== null && accuracyRun && ENTER) {
-                        try { accuracyRun.recordFirstTry(accuracyClassicPending); } catch { /* never break answering on stats */ }
-                        accuracyClassicSeen.add(question);
-                    }
-                    accuracyClassicPending = null;
                     // a real submission happened: any box-interference streak is over
                     boxTamperedRounds = 0;
 
@@ -2753,12 +2587,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
                     if (outcome === 'advanced') {
                         // the round was graded and moved on: acceptance. Whatever futility
-                        // streak this question had is over. The question leaves the
-                        // first-try set so a later new round with the same text is again
-                        // eligible; modal retries stay suppressed until then.
+                        // streak this question had is over.
                         futileDict[futileKey(question)] = 0;
                         futileStop = false;
-                        accuracyClassicSeen.delete(question);
                     }
 
                     if (outcome === 'modal') {
@@ -2808,25 +2639,24 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                             console.log('Answer loop stopping: stopped after focus click before retry.');
                             break;
                         }
-                        // Retry always uses the correct answer so a first-try typo is not resubmitted.
-                        // A swallowed first Enter leaves the typo in the box, and enterClassic's
-                        // guard refuses to press Enter over a mismatched box, so restore the
-                        // correct answer first (enterAnswer clears, retypes and verifies).
+                        // Retry always submits the same answer; enterClassic's
+                        // guard refuses to press Enter over a mismatched box, so restore it
+                        // first when the box drifted (enterAnswer clears, retypes and verifies).
                         // A normalized-punctuation box (issue #232) still verifies.
-                        if (!boxMatchesAnswer(accuracyClassicCorrect, await answerBoxValue())) {
-                            console.log('Restoring the correct answer in the box before the retry.');
-                            if (!await enterAnswer(accuracyClassicCorrect)) {
+                        if (!boxMatchesAnswer(answer, await answerBoxValue())) {
+                            console.log('Restoring the answer in the box before the retry.');
+                            if (!await enterAnswer(answer)) {
                                 console.log('Answer loop stopping: answer box vanished while restoring for retry.');
                                 break;
                             }
                         }
-                        if (!await enterClassic(question, accuracyClassicCorrect, true)) {
+                        if (!await enterClassic(question, answer, true)) {
                             console.log(`Answer loop stopping: pre-submit guard refused retry for "${question}".`);
                             break;
                         }
-                        const retry = await waitForAdvance(question, ADVANCE_TIMEOUT, accuracyClassicCorrect, isRandomProbe);
+                        const retry = await waitForAdvance(question, ADVANCE_TIMEOUT, answer, isRandomProbe);
                         if (retry === 'timeout') {
-                            console.error(`Question "${question}" did not advance after submitting "${accuracyClassicCorrect}". Stopping.`);
+                            console.error(`Question "${question}" did not advance after submitting "${answer}". Stopping.`);
                             await alert(`Answer loop stopped: "${question}" did not advance.`);
                             console.log(`Answer loop stopping: Enter-retry timeout for "${question}".`);
                             break;
@@ -2838,10 +2668,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         if (retry === 'advanced') {
                             futileDict[futileKey(question)] = 0;
                             futileStop = false;
-                            accuracyClassicSeen.delete(question);
                         }
                         if (retry === 'modal') {
-                            if (!await handleModalAndContinue(question, accuracyClassicCorrect, randomRound)) {
+                            if (!await handleModalAndContinue(question, answer, randomRound)) {
                                 console.log('Answer loop stopping: completion modal resolved the task (retry).');
                                 break;
                             }
@@ -3023,82 +2852,21 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 inspectComponents: () => require('./lib/components-diagnostics').collectComponentsDiagnostics(page),
                 close: () => legacySignals && startupSignal ? closeSignalBrowser() : (ownsBrowser ? browser.close() : Promise.resolve().then(() => browser.disconnect())),
             });
-            // Issue #222: expose accuracy in status and allow tuning when stopped.
-            // Validation sessions stay perfect and reject accuracy changes.
             const baseStatus = controls.status.bind(controls);
-            controls.status = () => ({ ...baseStatus(), accuracy: accuracyStatus(), pacing: humanDelay.describe(), wordList: lastWordListRefresh });
-            controls.setAccuracy = async raw => {
-                if (validationOnly) throw new Error('Validation session is fixed to one-shot only.');
-                const text = String(raw ?? '').trim().toLowerCase();
-                // A bare `accuracy` is a read-only query and stays allowed during a run;
-                // only changes require the stopped state (checked below).
-                if (text === '' || text === 'show' || text === 'status') return controls.status();
-                const state = baseStatus().state;
-                if (!['stopped', 'completed', 'error'].includes(state)) throw new Error('Stop the run before changing accuracy.');
-                if (['off', 'perfect', 'no-mistakes', 'no-mistake', '100'].includes(text)) {
-                    accuracyConfig = { ...accuracyConfig, enabled: false, fixedTarget: 100, source: 'interactive:off' };
-                    accuracyRun = null;
-                    console.log('Accuracy disabled (100% - perfect).');
-                    return controls.status();
-                }
-                if (['on', 'default', 'auto'].includes(text)) {
-                    const { DEFAULT_MIN, DEFAULT_MAX } = require('./lib/accuracy');
-                    accuracyConfig = { enabled: true, min: DEFAULT_MIN, max: DEFAULT_MAX, fixedTarget: null, source: 'interactive:on' };
-                    accuracyRun = null;
-                    console.log(`Accuracy enabled with default band ${DEFAULT_MIN}-${DEFAULT_MAX}%.`);
-                    return controls.status();
-                }
-                const rangeMatch = text.replace(/%/g, '').match(/^(\d{1,3})\s*[-:–—]\s*(\d{1,3})$/);
-                if (rangeMatch) {
-                    const lo = Number(rangeMatch[1]), hi = Number(rangeMatch[2]);
-                    if (lo < 0 || lo > 100 || hi < 0 || hi > 100 || lo > hi) throw new Error('Accuracy range must be MIN-MAX within 0-100 (e.g. 70-90).');
-                    accuracyConfig = { enabled: true, min: lo, max: hi, fixedTarget: null, source: 'interactive:range' };
-                    accuracyRun = null;
-                    console.log(`Accuracy band set to ${lo}-${hi}% (randomized per run).`);
-                    return controls.status();
-                }
-                const single = text.replace(/%$/, '').trim();
-                if (/^\d{1,3}$/.test(single)) {
-                    const value = Number(single);
-                    if (value < 0 || value > 100) throw new Error('Accuracy must be 0-100.');
-                    if (value === 100) {
-                        accuracyConfig = { ...accuracyConfig, enabled: false, fixedTarget: 100, source: 'interactive:100' };
-                        accuracyRun = null;
-                        console.log('Accuracy disabled (100% - perfect).');
-                    } else {
-                        accuracyConfig = { ...accuracyConfig, enabled: true, fixedTarget: value, source: 'interactive:fixed' };
-                        accuracyRun = null;
-                        console.log(`Accuracy target set to ${value}% (fixed).`);
-                    }
-                    return controls.status();
-                }
-                throw new Error('Usage: accuracy [n|min-max|off|on] (e.g. accuracy 82, accuracy 70-90, accuracy off).');
-            };
-            const updateAccuracy = controls.setAccuracy;
-            controls.setAccuracy = async raw => {
-                const result = await updateAccuracy(raw);
-                const text = String(raw ?? '').trim().toLowerCase();
-                if (text && !['show', 'status'].includes(text)) persistSetting('accuracy', accuracyConfig);
-                return result;
-            };
+            controls.status = () => ({ ...baseStatus(), pacing: humanDelay.describe(), wordList: lastWordListRefresh });
             if (dropdownSubmitOnce) controls.inspectDropdowns = () => require('./lib/dropdown-diagnostics').collectDropdownDiagnostics(page,{definitionsOnly:true});
             // Human pacing control (issue #221): no action reports state, on/off
-            // toggle the wait, MIN-MAX (seconds) overrides every per-type range,
-            // reset restores the per-type ranges. Dash (issue #230) shares the
+            // toggle the wait. The per-question-type ranges are the one tuned
+            // behavior; there is no custom range. Dash (issue #230) shares the
             // per-type ranges in the reconstructions; delay off is the provisional
             // Dash recommendation (live scoring unproved).
             controls.delay = action => {
                 if (action === 'on') humanDelay.setEnabled(true);
                 else if (action === 'off') humanDelay.setEnabled(false);
-                else if (action === 'reset') humanDelay.clearOverride();
-                else if (action) {
-                    const range = parseDelayOverride(action);
-                    if (!range) return { error: 'Use delay, delay on, delay off, delay MIN-MAX or delay reset (seconds).' };
-                    humanDelay.setOverride(range[0], range[1]);
-                }
+                else if (action) return { error: 'Use delay, delay on or delay off.' };
                 const state = humanDelay.describe();
                 if (action) persistSetting('delay', state);
-                const base = state.enabled ? (state.override ? `${state.override[0] / 1000}-${state.override[1] / 1000}s (custom)` : 'per-question-type ranges: ' + summarizeRanges()) : 'off (super speed)';
+                const base = state.enabled ? 'per-question-type ranges: ' + summarizeRanges() : 'off (super speed)';
                 return { delay: `${base}. ${DASH_PACING_NOTE}` };
             };
             browser.on('disconnected', () => { controls.browserClosed(); onBrowserDisconnected(); });

@@ -52,23 +52,9 @@ function describeStatus(status) {
     if (status.mode) lines.push(status.mode === 'auto'
         ? 'Auto mode: answers are submitted for you.'
         : 'Semi-auto mode: answers are filled in, you submit them.');
-    const a = status.accuracy || {};
-    if (status.accuracy) {
-        if (!a.enabled) lines.push('Accuracy: every answer goes in correct (accuracy control off).');
-        else {
-            const target = a.target ?? a.fixedTarget;
-            lines.push(target != null
-                ? `Accuracy: aiming for about ${target}% correct.`
-                : `Accuracy: aiming for about ${a.min}-${a.max}% correct; the exact target is picked each run.`);
-            if (a.attempts > 0 && a.accuracy != null) {
-                lines.push(`So far this run: ${Math.round(a.accuracy)}% correct over ${a.attempts} answers (${a.mistakes} intentional mistake${a.mistakes === 1 ? '' : 's'}).`);
-            }
-        }
-    }
     const p = status.pacing;
     if (p) {
         if (!p.enabled) lines.push('Pacing: off, answers are submitted at full speed.');
-        else if (p.override) lines.push(`Pacing: waiting ${p.override[0] / 1000}-${p.override[1] / 1000}s before each answer.`);
         else lines.push('Pacing: a short human-like pause before each answer (varies by question type).');
     }
     return lines;
@@ -145,7 +131,6 @@ function renderMain(state) {
     $('stop').disabled = busy;
     $('refresh-words').disabled = busy;
     $('apply-mode').disabled = busy;
-    $('apply-accuracy').disabled = busy;
     $('apply-delay').disabled = busy;
     // Don't clobber an unapplied mode choice with the one-second poll.
     if (status && status.mode && document.activeElement !== $('mode')) $('mode').value = status.mode;
@@ -238,7 +223,6 @@ $('start').addEventListener('click', () => run('start'));
 $('stop').addEventListener('click', () => run('stop'));
 $('refresh-words').addEventListener('click', () => run('refresh'));
 $('apply-mode').addEventListener('click', () => run('mode', $('mode').value));
-$('apply-accuracy').addEventListener('click', () => run('accuracy', $('accuracy').value));
 $('apply-delay').addEventListener('click', () => run('delay', $('delay').value));
 
 $('save-login').addEventListener('click', async () => {
