@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const puppeteer = require('puppeteer');
 const { createServer } = require('./mock-ep');
 const { installInfoSlideFixture } = require('./info-slide-fixture');
+const { installControlMenu } = require('../lib/browser-controls');
 const { detectQuestion } = require('../lib/detect-question');
 const { playInfoSlideRound } = require('../lib/info-slide-handler');
 // All cases share a browser page, so preserve sequential setup/input/assertion order.
@@ -31,6 +32,46 @@ const eachSequential = (values, run) => values.reduce((previous, value) => previ
         await setup({ countdownMs: 600 });
         result = await playInfoSlideRound(page, await detectQuestion(page), { enter: true, timeout: 3000 });
         assert.equal(result.status, 'advanced', JSON.stringify(result));
+        // The real injected menu can cover EP's bottom-right Continue.
+        // Reproduce with the actual shadow menu, both collapsed and expanded.
+        await eachSequential([false, true], async expanded => {
+            await setup();
+            await page.evaluate(installControlMenu);
+            await page.evaluate(expanded => {
+                const button = document.querySelector('#sa-navigation-controls button');
+                button.style.cssText = 'position:fixed;bottom:20px;right:30px;width:160px;height:32px';
+                const menu = document.getElementById('educationperfected-controls');
+                menu.shadowRoot.querySelector('details').open = expanded;
+                window.savedMenuStyle = ['left', 'top', 'right', 'bottom'].map(name => menu.style.getPropertyValue(name));
+            }, expanded);
+            await page.waitForFunction(() => !document.querySelector('#sa-navigation-controls button').disabled);
+            assert.equal(await page.evaluate(() => {
+                const rect = document.querySelector('#sa-navigation-controls button').getBoundingClientRect();
+                return document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)?.id;
+            }), 'educationperfected-controls');
+            result = await playInfoSlideRound(page, await detectQuestion(page), { enter: true, timeout: 3000 });
+            assert.equal(result.status, 'advanced', JSON.stringify(result));
+            assert.deepEqual(await page.evaluate(() => [infoSlideFixture.clicks, infoSlideFixture.submits]), [[{ trusted: true }], 0]);
+            assert.equal(await page.evaluate(() => JSON.stringify(['left', 'top', 'right', 'bottom'].map(name => document.getElementById('educationperfected-controls').style.getPropertyValue(name))) === JSON.stringify(savedMenuStyle)), true);
+        });
+        // A foreign overlay still refuses, including one under our menu.
+        await eachSequential([false, true], async withMenu => {
+            await setup();
+            if (withMenu) await page.evaluate(installControlMenu);
+            await page.evaluate(withMenu => {
+                const button = document.querySelector('#sa-navigation-controls button');
+                button.style.cssText = 'position:fixed;bottom:20px;right:30px;width:160px;height:32px';
+                const overlay = document.createElement('div');
+                overlay.style.cssText = 'position:fixed;bottom:0;right:0;width:240px;height:70px;z-index:2147483645';
+                document.body.append(overlay);
+                if (withMenu) window.savedMenuStyle = ['left', 'top', 'right', 'bottom'].map(name => document.getElementById('educationperfected-controls').style.getPropertyValue(name));
+            }, withMenu);
+            result = await playInfoSlideRound(page, await detectQuestion(page), { enter: true, timeout: 3000 });
+            assert.equal(result.status, 'stopped', JSON.stringify(result));
+            assert.match(result.message, /covered by overlapping content/);
+            assert.deepEqual(await page.evaluate(() => [infoSlideFixture.clicks, infoSlideFixture.submits]), [[], 0]);
+            if (withMenu) assert.equal(await page.evaluate(() => JSON.stringify(['left', 'top', 'right', 'bottom'].map(name => document.getElementById('educationperfected-controls').style.getPropertyValue(name))) === JSON.stringify(savedMenuStyle)), true);
+        });
         // Semi-auto: guidance only, no click, no submit.
         await setup();
         result = await playInfoSlideRound(page, await detectQuestion(page), { enter: false, timeout: 3000 });
