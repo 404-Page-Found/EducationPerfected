@@ -4,6 +4,23 @@ const {detectQuestion}=require('../lib/detect-question');
 const {readChoiceInPage:detectQuestionInPage}=require('../lib/choice-state');
 const {createSelectChoiceOnce}=require('../lib/choice-select-once');
 const {installOnceFixture}=require('./choice-select-once-fixture');
+// Bounded-equivalence guard for the in-page bracket stripping in lib/choice-state.js
+// (SonarCloud S8786): each helper runs in a child process against adversarial input so a
+// super-linear regression cannot hang the test runner, mirroring choice-multi-test.js.
+const bracketProbe=(name)=>`;const strip=${name};
+const ref=s=>s.replace(/\\[[^\\]]*\\]/g,'');
+const cases=['','plain text','[multichoice id="7"]','a[b]c','a[b[c]d','a[b','[[x]]','x]y','[a][b]','keep [1] and [2]'];
+for(const c of cases){if(strip(c)!==ref(c)){console.error('mismatch',JSON.stringify(c),JSON.stringify(strip(c)),JSON.stringify(ref(c)));process.exit(1)}}
+const opens='['.repeat(120000)+' unmatched';if(strip(opens)!==opens)process.exit(1);
+if(strip('['.repeat(60000)+']'+'['.repeat(60000))!=='['.repeat(60000))process.exit(1);`;
+const choiceStateSource=require('node:fs').readFileSync(require.resolve('../lib/choice-state'),'utf8');
+const boundedBracketCheck=(label,body)=>{
+ const run=require('node:child_process').spawnSync(process.execPath,['-e',body+bracketProbe(label)],{timeout:2000});
+ assert.equal(run.error,undefined,label+' bracket stripping exceeded its bounded runtime');
+ assert.equal(run.status,0,label+' '+String(run.stderr));
+};
+boundedBracketCheck('stripBrackets',choiceStateSource.slice(choiceStateSource.indexOf('    const stripBrackets'),choiceStateSource.indexOf('    const stripMarkup')));
+boundedBracketCheck('stripBracketed',choiceStateSource.slice(choiceStateSource.indexOf('    const stripBracketed'),choiceStateSource.indexOf('    const text =',choiceStateSource.indexOf('    const stripBracketed'))));
 (async()=>{const server=createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
 try{browser=await puppeteer.launch({headless:true,executablePath:process.env.HANDLER_EXECUTABLE_PATH||undefined});const page=await browser.newPage(),origin='http://127.0.0.1:'+server.address().port;
 const reset=async(effect='select')=>{await setup(page,origin);await page.evaluate(installOnceFixture,effect);};
