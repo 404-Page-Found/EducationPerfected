@@ -3,7 +3,7 @@ const readline = require('node:readline');
 const { launchProgram, promptCredentials } = require('../index');
 const { diagnostic } = require('../lib/diagnostics');
 
-async function runCli({ input = process.stdin, output = process.stdout, launch = launchProgram, onBrowserClosed = () => {} } = {}) {
+async function runCli({ input = process.stdin, output = process.stdout, launch = launchProgram, onBrowserClosed = () => {}, accuracy = {} } = {}) {
     output.write('Opening EducationPerfected. Finish sign-in in the browser.\n');
     let terminal = null, controls = null, pendingApproval = null, quitPromise = null;
     const quit = () => {
@@ -36,9 +36,9 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
         }) : null;
         output.write(`Reflection text required for ${approval.key}. Read the visible question and enter your own single-line response (1-2000 characters). Nothing is typed until you confirm. stop or quit cancels.\n`);
     });
-    controls = await launch({ onBrowserClosed, onBrowserDisconnected: browserGone, reflectionTextProvider: requestReflectionText });
+    controls = await launch({ onBrowserClosed, onBrowserDisconnected: browserGone, reflectionTextProvider: requestReflectionText, accuracy });
     terminal = readline.createInterface({ input, output, terminal: Boolean(input.isTTY && output.isTTY) });
-    output.write('Commands: start, stop, status, mode auto, mode semi, delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components, quit\n');
+    output.write('Commands: start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components, quit\n');
     const print = () => output.write(JSON.stringify(controls.status()) + '\n');
     const onSignal = () => { quit().catch(error => output.write(diagnostic(error, 'Shutdown') + '\n')); };
     terminal.on('SIGINT', onSignal);
@@ -75,6 +75,16 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
                 else if (command === 'stop') await controls.stop();
                 else if (command === 'status' || command === '') { /* print below */ }
                 else if (command === 'mode auto' || command === 'mode semi') await controls.mode(command.slice(5));
+                else if (command === 'accuracy' || command.startsWith('accuracy ')) {
+                    const arg = command === 'accuracy' ? '' : command.slice('accuracy '.length);
+                    if (typeof controls.setAccuracy === 'function') {
+                        // Show setAccuracy's own validation message (e.g. "Accuracy must be
+                        // 0-100.") rather than the generic command-failure fallback.
+                        try { await controls.setAccuracy(arg); }
+                        catch (e) { output.write(String(e && e.message ? e.message : e) + '\n'); continue; }
+                    }
+                    else output.write('Accuracy control unavailable in this session.\n');
+                }
                 else if (command === 'delay' || command.startsWith('delay ')) {
                     const pacing = controls.delay(command === 'delay' ? undefined : command.slice(6).trim());
                     output.write((pacing.error ? pacing.error : 'Answer pacing: ' + pacing.delay) + '\n');
@@ -84,7 +94,7 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
                 else if (command === 'inspect-components') output.write('EP_COMPONENTS_INSPECT ' + JSON.stringify(await controls.inspectComponents()) + '\n');
                 else if (command === 'refresh') await controls.refresh();
                 else if (command === 'quit' || command === 'exit') { await quit(); print(); break; }
-                else { output.write('Unknown command. Use start, stop, status, mode auto, mode semi, delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components or quit.\n'); continue; }
+                else { output.write('Unknown command. Use start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components or quit.\n'); continue; }
                 print();
             } catch {
                 output.write(command === 'inspect-self-mark' || command === 'inspect-dash' || command === 'inspect-components'
@@ -135,6 +145,10 @@ if (require.main === module) {
     if(parsed.error){console.error(parsed.error);process.exitCode=1;}
     else if(parsed.command==='help')console.log(helpText());
     else if(parsed.command==='version')console.log(require('../package.json').version);
+    else if(parsed.command==='accuracy-status'){
+        try { console.log(require('../lib/cli-command').accuracyStatusText(process.env)); }
+        catch (error) { console.error(String(error && error.message ? error.message : error)); process.exitCode=1; }
+    }
     else if(['setup','check-credentials','forget-credentials'].includes(parsed.command)){
         (async()=>{
             if(parsed.command==='setup'){
@@ -151,6 +165,6 @@ if (require.main === module) {
             }
             await credentialCommand('--'+parsed.command);
         })().catch(()=>{console.error('Setup/credential command failed; no plaintext fallback.');process.exitCode=1;});
-    }else if(parsed.command==='run')runCli().catch(error=>{console.error(diagnostic(error,'EducationPerfected CLI'));process.exitCode=1;});
+    }else if(parsed.command==='run')runCli({accuracy: parsed.accuracy || {}}).catch(error=>{console.error(diagnostic(error,'EducationPerfected CLI'));process.exitCode=1;});
     else {console.error('This command is available in the packaged app only.');process.exitCode=1;}
 }

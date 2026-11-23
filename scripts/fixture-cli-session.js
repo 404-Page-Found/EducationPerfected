@@ -57,7 +57,7 @@ async function installSubmitExitTeardown(session, fixtureGlobal) {
     }, fixtureGlobal);
 }
 
-// The CLI prints a one-line status JSON (state, mode, pacing ranges) after
+// The CLI prints a one-line status JSON (state, accuracy, pacing ranges) after
 // every command since #221/#227. That line is control-plane output, not
 // diagnostic output, and its millisecond ranges can contain digit runs that
 // collide with short answer tokens, so content-free output checks filter it.

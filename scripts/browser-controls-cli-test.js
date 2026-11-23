@@ -31,7 +31,7 @@ const { installControlMenu } = require('../lib/browser-controls');
             root.querySelector('details').open = true;
             window.panelLeakedKeys = 0;
             document.addEventListener('keyup', () => { window.panelLeakedKeys += 1; });
-            root.getElementById('delay').dispatchEvent(new KeyboardEvent('keyup', { key: 's', altKey: true, bubbles: true, composed: true }));
+            root.getElementById('accuracy').dispatchEvent(new KeyboardEvent('keyup', { key: 's', altKey: true, bubbles: true, composed: true }));
         });
         assert.equal(await page.evaluate(() => window.panelLeakedKeys), 0);
         // A first real header click expands the panel without re-anchoring it off screen.
@@ -50,6 +50,8 @@ const { installControlMenu } = require('../lib/browser-controls');
         assert.equal(placed.bottomAnchor, '12px', 'first expand keeps the bottom/right anchoring');
         assert.ok(placed.top >= 0 && placed.left >= 0 && placed.bottom <= placed.vh && placed.right <= placed.vw, 'first expand keeps the panel fully on screen');
         await press('mode', 'semi'); assert.equal((await page.evaluate(() => window.epControl('status'))).mode, 'semi');
+        await press('accuracy', 'on'); assert.equal((await page.evaluate(() => window.epControl('status'))).accuracy.enabled, true);
+        await press('accuracy', 'bad'); assert.match(await message(), /^Couldn't apply accuracy: /, 'errors read as a sentence'); assert.match(await message(), /Usage/);
         await press('delay', 'on');
         await press('delay', '1.5-4'); assert.match(await message(), /^Couldn't apply pacing: /, 'errors read as a sentence'); assert.match(await message(), /Use delay, delay on or delay off/);
         await press('delay', 'off');
@@ -58,7 +60,7 @@ const { installControlMenu } = require('../lib/browser-controls');
         assert.match(await result(), /Pacing: /, 'status result explains pacing in words');
         assert.ok(!(await result()).includes('"state"'), 'readable result hides raw JSON');
         assert.match(await raw(), /"state": "stopped"/, 'raw JSON stays under Technical details');
-        assert.match(await live(), /^stopped \| semi \| pacing off$/, 'live bar is one compact line');
+        assert.match(await live(), /^stopped \| semi \| accuracy on \(70-90%\) \| pacing off$/, 'live bar is one compact line');
         const topDown = await page.evaluate(() => {
             const root = document.getElementById('educationperfected-controls').shadowRoot;
             const after = (a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
@@ -68,7 +70,7 @@ const { installControlMenu } = require('../lib/browser-controls');
         });
         assert.ok(topDown, 'result block sits at the top between the status bar and the controls');
         assert.equal(await page.evaluate(() => [...document.getElementById('educationperfected-controls').shadowRoot.querySelectorAll('button')].filter(button => (button.dataset.action || '').startsWith('inspect')).length), 0, 'no inspect-* developer commands in the panel');
-        assert.deepEqual(await page.evaluate(() => [...new Set([...document.getElementById('educationperfected-controls').shadowRoot.querySelectorAll('button[data-action]')].map(button => button.dataset.action))].sort((a, b) => a.localeCompare(b))), ['delay', 'mode', 'refresh', 'start', 'status', 'stop'], 'the panel exposes only ordinary user controls, no developer commands');
+        assert.deepEqual(await page.evaluate(() => [...new Set([...document.getElementById('educationperfected-controls').shadowRoot.querySelectorAll('button[data-action]')].map(button => button.dataset.action))].sort((a, b) => a.localeCompare(b))), ['accuracy', 'delay', 'mode', 'refresh', 'start', 'status', 'stop'], 'the panel exposes only ordinary user controls, no developer commands');
         // #285: intro guide plus per-button helpers, discoverable without leaving the browser.
         await page.evaluate(() => { document.getElementById('educationperfected-controls').shadowRoot.querySelector('details').open = true; });
         const guideText = await page.evaluate(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('guide')?.textContent || '');
@@ -80,7 +82,7 @@ const { installControlMenu } = require('../lib/browser-controls');
             const root = document.getElementById('educationperfected-controls').shadowRoot;
             return {
                 buttons: [...root.querySelectorAll('button[data-action]')].map(button => ({ action: button.dataset.action, read: Boolean(button.dataset.read), title: button.getAttribute('title') || '', aria: button.getAttribute('aria-label') || '', text: button.textContent })),
-                fields: ['mode', 'delay'].map(id => ({ id, title: root.getElementById(id)?.getAttribute('title') || '', aria: root.getElementById(id)?.getAttribute('aria-label') || '' })),
+                fields: ['mode', 'accuracy', 'delay'].map(id => ({ id, title: root.getElementById(id)?.getAttribute('title') || '', aria: root.getElementById(id)?.getAttribute('aria-label') || '' })),
                 help: root.getElementById('help')?.textContent || '',
                 helpButtons: root.getElementById('help')?.querySelectorAll('button[data-action]').length ?? -1,
                 guideButtons: root.getElementById('guide')?.querySelectorAll('button[data-action]').length ?? -1,
@@ -94,7 +96,7 @@ const { installControlMenu } = require('../lib/browser-controls');
             assert.ok(field.title.trim().length > 0, `${field.id} field has a tooltip`);
             assert.ok(field.aria.trim().length > 0, `${field.id} field keeps a screen-reader label`);
         }
-        for (const name of ['Start', 'Stop', 'Refresh words', 'Status', 'Mode', 'Pacing']) {
+        for (const name of ['Start', 'Stop', 'Refresh words', 'Status', 'Mode', 'Accuracy', 'Pacing']) {
             assert.ok(helpers.help.includes(name), `help maps ${name} to one sentence`);
         }
         assert.equal(helpers.helpButtons, 0, 'help adds no extra panel commands');
@@ -124,13 +126,13 @@ const { installControlMenu } = require('../lib/browser-controls');
             await assert.rejects(page.evaluate(action => window.epControl(action), dev), /Unknown browser control/, `${dev} is not a panel command`);
         }
         await command('inspect-dash', 'EP_DASH_INSPECT ', 'terminal keeps the read-only capture command');
-        await command('delay on', 'per-question-type ranges');
-        await page.waitForFunction(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('live').textContent.includes('pacing per type'));
-        await command('delay off', 'off (super speed)');
+        await command('accuracy off', '"enabled":false');
+        await page.waitForFunction(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('live').textContent.includes('accuracy off'));
         if (process.env.EP_PANEL_SCREENSHOT) {
             await page.setViewport({ width: 1100, height: 1000 });
             await page.evaluate(() => {
                 const root = document.getElementById('educationperfected-controls').shadowRoot;
+                root.getElementById('accuracy').value = '';
                 root.getElementById('delay').value = '';
             });
             await page.screenshot({ path: process.env.EP_PANEL_SCREENSHOT });
@@ -177,6 +179,7 @@ const { installControlMenu } = require('../lib/browser-controls');
         assert.equal((await page.evaluate(() => window.epControl('status'))).state, 'running');
         await press('mode', 'auto'); assert.match(await message(), /Stop/);
         await press('refresh'); assert.match(await message(), /Stop/);
+        await press('accuracy', 'on'); assert.match(await message(), /Stop/);
         await press('stop'); console.log('Panel stop completed'); assert.equal((await page.evaluate(() => window.epControl('status'))).state, 'stopped');
         for (const route of ['/lesson', '/app', '/lesson']) {
             await page.goto(origin + route); await ready(); console.log('Panel navigation', route);

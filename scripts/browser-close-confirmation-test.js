@@ -15,6 +15,6 @@ const {closeAndConfirm}=require('../lib/browser-close-confirmation');
  const index=fs.readFileSync(path.join(__dirname,'../index.js'),'utf8');
  assert.ok(index.includes("closeAndConfirm(signalClose, onBrowserClosed)"));
  const bootstrap=fs.readFileSync(path.join(__dirname,'../packaging/bootstrap.js'),'utf8');
- assert.ok(bootstrap.includes('runCli({onBrowserClosed:()=>{browserCleanupConfirmed=true;}})'));
+ assert.ok(bootstrap.includes('runCli({onBrowserClosed:()=>{browserCleanupConfirmed=true;},accuracy:parsed.accuracy||{}})'));
  console.log('Only awaited successful browser closure confirms runtime removal; failed close retains uncertainty (inert).');
 })().catch(error=>{console.error(error);process.exitCode=1;});

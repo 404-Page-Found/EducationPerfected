@@ -9,6 +9,7 @@ const { createBrowserControl } = require('../lib/browser-controls');
         refresh: () => { refreshes += 1; }, inspect: () => ({ self: true }),
         inspectDash: () => ({ dash: true }), close: () => {},
     });
+    controls.setAccuracy = value => ({ accuracy: value });
     controls.delay = value => value === 'bad' ? { error: 'bad range' } : { delay: value || 'off' };
     let restart = false;
     const restartAfterDrain = controls.restartAfterDrain;
@@ -18,6 +19,7 @@ const { createBrowserControl } = require('../lib/browser-controls');
     assert.equal(notified, 0);
     await call('mode', 'semi'); assert.equal(mode, 'semi');
     await call('refresh'); assert.equal(refreshes, 1);
+    assert.deepEqual(await call('accuracy', '82'), { accuracy: '82' });
     await assert.rejects(call('inspect-self-mark'), /Unknown browser control/);
     await assert.rejects(call('inspect-dash'), /Unknown browser control/);
     await assert.rejects(call('inspect-components'), /Unknown browser control/);
@@ -34,10 +36,10 @@ const { createBrowserControl } = require('../lib/browser-controls');
     await call('stop');
     assert.equal(controls.status().state, 'stopped');
     const validation = createBrowserControl({ controls, validationOnly: true });
-    for (const [action, value] of [['start'], ['refresh'], ['mode', 'auto'], ['delay', 'off'], ['inspect-dash'], ['accuracy', '82']]) {
+    for (const [action, value] of [['start'], ['refresh'], ['mode', 'auto'], ['accuracy', '82'], ['delay', 'off'], ['inspect-dash']]) {
         await assert.rejects(validation(action, value), /Validation session/);
     }
-    await validation('status'); await validation('delay');
+    await validation('status'); await validation('accuracy'); await validation('delay');
     await validation('stop');
     console.log('Browser control dispatch: parity, lifecycle guards, restart-after-drain, read-only validation and method allowlist pass.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
