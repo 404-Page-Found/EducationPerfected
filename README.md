@@ -222,6 +222,7 @@ Upon starting, the program opens the browser and gets EP ready (including loggin
 | Text and number boxes | Narrow source contract; synthetic coverage | [contract](docs/question-types.md#ordinary-lesson-text-and-number-box-source-contract) |
 | Highlight (click the correct tokens) | Narrow source contract; synthetic coverage | [contract](docs/question-types.md#highlight-source-contract) |
 | Reflection / self-mark pages | Fills the user's own text only; submission and self-marking stay with the user | [contract](docs/question-types.md#reflection-and-self-mark-pages-114) |
+| Information slides (content-only, nothing to answer) | Advanced via the lesson's own Continue; never submitted; synthetic coverage only | [contract](docs/question-types.md#information-slides-327) |
 | Short-answer lesson questions | Answered the same way; not live-verified yet | [known limitations](docs/question-types.md#known-limitations-full-text) |
 | Dash (timed sprint) choice and typed rounds | Answered from the live-captured round shapes; fixture-tested only, not yet live-verified end to end | [Dash](docs/question-types.md#dash-timed-word-to-word-sprint) |
 | Matching, ordering, image-based and other manual or assessment questions | Detected and reported, not answered | [assessment boundary](docs/question-types.md#assessment-source-boundary) |
