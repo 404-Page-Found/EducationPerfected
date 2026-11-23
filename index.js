@@ -2484,6 +2484,22 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     }
                     unstableRounds = 0;
 
+                    // Accepted answers shipped on the classic round's own
+                    // model state (captured shape only - see the text branch
+                    // of detect-question.js): learn them under this
+                    // question's key variants before the dictionary lookup,
+                    // so a word EP already answers never costs a random
+                    // probe or a wrong-answer modal. The answers were read in
+                    // the same page snapshot as descriptor.text; when the
+                    // stabilization pass settled on different text the
+                    // pairing is unproven (round skew) and must not be
+                    // learned - the next pass re-detects fresh. Anything
+                    // unreadable leaves descriptor.answers absent and the
+                    // dictionary/modal learning below runs unchanged.
+                    if (Array.isArray(descriptor.answers) && descriptor.text === question) {
+                        for (const modelAnswer of descriptor.answers) learnEntry(question, modelAnswer);
+                    }
+
                     let answer = findAnswer(question);
                     // true when this pass had no usable candidate and only a random string
                     // is being submitted. correctAnswer must not count that round again if
