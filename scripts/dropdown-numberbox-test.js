@@ -148,10 +148,13 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
         // Semi mode (enter:false): fills, then watches while the user submits.
         await setup(); d = await detectQuestion(page);
         {
-            const round = playDropdownNumberBoxRound(page, d, { enter: false, timeout: 300 });
-            const filled = async () => await page.evaluate(() => dropdownNumberBoxFixture.changes.length === 8 && dropdownNumberBoxFixture.inputs.length === 17);
-            for (let i = 0; i < 100 && !await filled(); i++) await new Promise(r => setTimeout(r, 50));
-            assert.equal(await filled(), true);
+            // Submit only once the handler has bound its baselines and is
+            // watching: a click during the fill or baseline reads is a
+            // legitimate stop, not the case under test.
+            let watching; const isWatching = new Promise(r => { watching = r; });
+            const round = playDropdownNumberBoxRound(page, d, { enter: false, timeout: 300, onWatching: watching });
+            await Promise.race([isWatching, round.then(r => { throw new Error('round ended before watching: ' + JSON.stringify(r)); })]);
+            assert.equal(await page.evaluate(() => dropdownNumberBoxFixture.changes.length === 8 && dropdownNumberBoxFixture.inputs.length === 17), true);
             await page.evaluate(() => { [...document.querySelectorAll('#sa-navigation-controls button')].find(b => b.textContent.trim() === 'Submit').click(); });
             assert.equal((await round).status, 'advanced');
             assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [1, 0]);
