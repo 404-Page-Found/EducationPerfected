@@ -109,21 +109,22 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 
 - `start` - start auto-answering; `stop` - stop it
 - `mode auto` - answer and submit automatically (default); `mode semi` - fill answers but leave submitting to you
-- `delay` - show the human-paced wait before each submission; `delay off` - restore super speed; `delay on` - re-enable the wait
+- `accuracy` - show accuracy config, per-run target and first-try stats; `accuracy <n|min-max|off|on>` - set accuracy when stopped (e.g. `accuracy 82`, `accuracy 70-90`, `accuracy off`)
+- `delay` - show the human-paced wait before each submission (off by default); `delay on` - enable the per-question-type wait; `delay off` - restore super speed
 - `refresh` - learn the answers from a task starter page's word lists (once per new task)
-- `status` - show current status
+- `status` - show current status (including accuracy target)
 - `inspect-self-mark` - read-only capture of a self-mark (Reflection) page
 - `inspect-dash` - read-only capture of a Dash round's structure (used for shapes the Dash answerer refuses)
 - `inspect-components` - read-only capture of a slide's question components (used for slides the answerer refuses on an accompanying component)
 - `quit` - close the CLI
 
 The browser also has a collapsible **EducationPerfected** menu in the bottom-right
-corner. A one-line status bar at the top keeps state, mode and pacing in
+corner. A one-line status bar at the top keeps state, mode, accuracy and pacing in
 sync with the terminal and hotkeys; action results appear directly below it as
 plain sentences ("Running.", "Pacing: a short human-like pause before each answer (varies by question type)."), with the
 raw JSON under **Technical details**.
 Below that are the controls: start/stop, change mode, refresh words, and set/read
-pacing. Read-only inspections (`inspect-self-mark`, `inspect-dash`,
+accuracy and pacing. Read-only inspections (`inspect-self-mark`, `inspect-dash`,
 `inspect-components`) stay terminal-only developer commands and are not in the
 menu. Drag it by its
 header to move it anywhere on screen; the position is remembered across pages and
@@ -137,13 +138,33 @@ You can close the browser window or the popped-up terminal window whenever you a
 
 ### Saved settings
 
-Interactive `delay` changes are saved to
+Interactive `accuracy` and `delay` changes are saved to
 `~/.educationperfected/config.json` (Windows: `%USERPROFILE%\.educationperfected\config.json`).
-The next launch reuses them. `EP_HUMAN_DELAY=off` starts a run with pacing off
-without changing the saved setting. Invalid config files fall back to defaults.
-Credentials stay in the OS keyring, never in this file. Older installs that saved
-an `accuracy` preference or a custom `delay` range simply stop applying them; the
-saved on/off choice still migrates.
+The next launch reuses them. CLI accuracy options override environment variables,
+which override saved settings, which override built-in defaults. Flags and env
+changes are not saved. `accuracy off` restores perfect answers; `delay on` enables the per-type wait and `delay off` restores super speed. Invalid config files fall back to defaults.
+Credentials stay in the OS keyring, never in this file.
+
+### Random accuracy (off by default)
+
+Runs answer perfectly unless you opt in. When enabled, each `start` picks a first-try target in the configured band (70-90% via `accuracy on`) and, with probability `1 - target`, submits a plausible-but-wrong answer first: a small typo for text/audio, or a neighboring distractor for single-choice. The mistake flows through the normal wrong-answer-modal / retry / Next path, so the run still completes with lower first-try accuracy. Other lesson surfaces stay perfect to preserve their fail-closed completion proofs. The provisional Dash recommendation is perfect answers, because each Dash mistake is expected, unproved live, to burn sprint time and points.
+
+Startup flags and env enable and tune the simulation (installer command shown; for a source checkout pass the same option to `npm run cli`, e.g. `npm run cli -- --accuracy 82`):
+
+    educationperfected --accuracy 82      # or -a 82
+    educationperfected --accuracy-range 70-90   # or -r 70-90
+    educationperfected --perfect          # or -p
+
+The same settings exist as a top-level subcommand (applies to this invocation only;
+interactive commands inside the running app are saved):
+
+    educationperfected accuracy 82        # fixed target for this run
+    educationperfected accuracy 70-90     # band, randomized per run
+    educationperfected accuracy off       # perfect (100%) - the default
+    educationperfected accuracy on        # 70-90 band
+    educationperfected accuracy status    # show the resolved config without launching
+
+`--no-mistakes` is an alias for `--perfect` (100%). Env: `EP_ACCURACY=82`, `EP_ACCURACY_RANGE=70-90`, `EP_PERFECT=0` (enable the default band), `EP_PERFECT=1` (force perfect). `status` shows the active target and first-try stats; the run log reports `Accuracy target X%` at start and a summary at exit.
 
 ## How it behaves
 
@@ -170,7 +191,7 @@ The full expected-behaviour text and feature notes (speed trade-off, self-learni
 
 ## Features
 
-- **Start Answering:** automatically answers the question on the page from the pre-learned dictionary and submits it. To read as a student working rather than a bot, each answer lands after a short randomized wait from a per-question-type range (2-6s for word rounds, 3-8s for choice/dropdown/highlight, 4-10s for typed answers, gaps and input boxes, 5-12s for mixed slides, 6-15s for working formula, 8-15s for audio). `delay off` (or `EP_HUMAN_DELAY=off`) restores super speed. The waits are tuned for untimed tasks; Dash rounds use these per-type ranges by default, and `delay off` is the provisional sprint recommendation — see [Dash](docs/question-types.md#dash-timed-word-to-word-sprint).
+- **Start Answering:** automatically answers the question on the page from the pre-learned dictionary and submits it. With pacing on (`delay on`), each answer lands after a short randomized wait from a per-question-type range (2-6s for word rounds, 3-8s for choice/dropdown/highlight, 4-10s for typed answers, gaps and input boxes, 5-12s for mixed slides, 6-15s for working formula, 8-15s for audio) so the run reads as a student working rather than a bot; pacing is off by default (super speed), and `EP_HUMAN_DELAY=on` enables it for one launch. The waits are tuned for untimed tasks; when pacing is on, Dash rounds use these per-type ranges too — see [Dash](docs/question-types.md#dash-timed-word-to-word-sprint).
 - **Full speed trade-off:** answers are typed as real keystrokes, spaced out and verified against the answer box before submission, because EP's own input handling garbles faster-but-fragile approaches ("I speak" used to land as "I I sI speakeakat").
 - **Toggle Mode:** fully-auto blasts through the task once started; semi-auto types the answer but leaves pressing enter/submit to you. Semi-auto is useful if your teacher checks how long you spend on tasks.
 - **Refresh Words:** learns the answers from the word lists on the task starter page (where the words and translations are laid out). On word-to-word rounds the run also reads the accepted answers EP ships to the browser with the question, so listed words are answered first-try even without a refresh; trigger it for each new task anyway, since anything the round state does not ship is wrong until error-correction learns it. The learned dictionary lives only in the running program's memory, so after a restart press Refresh Words again.
@@ -210,7 +231,7 @@ Unsupported Smart Lesson question types are detected and reported, not guessed a
 
 ## Known limitations
 
-- **Dash support is fixture-tested only (#230).** Choice rounds (19 November 2026) and typed rounds (20 November 2026, #272) are answered from live structural captures on a dash route only (see [CHANGELOG](CHANGELOG.md#live-verification-log)); no end-to-end live Dash sprint has been run through the program yet. The number-box capture (20 November 2026, #282) ships no answer and other Dash layouts are refused by name; `delay off` is the provisional pacing recommendation since each paced wait is expected (unproved live) to trade score on the clock. Run `inspect-dash` at a refused round and send the `EP_DASH_INSPECT` line to help extend support.
+- **Dash support is fixture-tested only (#230).** Choice rounds (19 November 2026) and typed rounds (20 November 2026, #272) are answered from live structural captures on a dash route only (see [CHANGELOG](CHANGELOG.md#live-verification-log)); no end-to-end live Dash sprint has been run through the program yet. The number-box capture (20 November 2026, #282) ships no answer and other Dash layouts are refused by name; perfect is the provisional accuracy recommendation since each Dash mistake is expected (unproved live) to burn clock. Run `inspect-dash` at a refused round and send the `EP_DASH_INSPECT` line to help extend support.
 - **Audio answers depend on EP's data.** Audio is answered from the data EP ships to the browser before submission. If that state goes missing, those tasks fail loudly rather than fall back to guessing. Self-test work still earns points and stays visible to teachers.
 - **Smart Lesson support is limited.** Only explicitly auto-marked activities are answered. Full-lesson completion and automated rejection handling are not proved live. A slide that pairs a supported question with an unrecognized accompanying component stops in full instead of answering the supported part (fail-closed-with-report, issue #231): the refusal names the recognized code or `redacted type` with no content leak and never partially fills or submits; run `inspect-components` with the CLI stopped at that slide and send the `EP_COMPONENTS_INSPECT` line to help map the companion. The canonical inventory is `lib/companion-components.js` with sources in `research/component-companion-inventory.md`.
 - **Word-list parsing is best-effort.** Extreme formatting cases can still produce incorrect answers.

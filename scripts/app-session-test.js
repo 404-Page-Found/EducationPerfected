@@ -16,6 +16,7 @@ function makeControls(calls) {
         stop: async () => { calls.push('stop'); return { state: 'stopped' }; },
         mode: async value => { calls.push('mode:' + value); return { state: 'stopped', mode: value }; },
         refresh: async () => { calls.push('refresh'); return { state: 'stopped' }; },
+        setAccuracy: async value => { calls.push('accuracy:' + value); return { state: 'stopped' }; },
         delay: value => {
             if (value !== 'on' && value !== 'off') return { error: 'Use delay, delay on or delay off.' };
             calls.push('delay:' + value);
@@ -47,6 +48,7 @@ function makeDeps(overrides = {}) {
         validateReflection: text => typeof text === 'string' && text.length >= 1 && text.length <= 2000 && !text.includes('\n'),
         env: {},
         home,
+        accuracy: {},
         storageRoot: root => {
             const dir = path.join(root, '.educationperfected');
             fs.mkdirSync(dir, { recursive: true });
@@ -193,9 +195,9 @@ async function main() {
         await session.action('stop');
         await session.action('refresh');
         await session.action('mode', 'semi');
-        await expectReject(session.action('accuracy', '70-90'), /Unknown app control/);
+        await session.action('accuracy', '70-90');
         await session.action('delay', 'off');
-        assert.deepEqual(calls, ['start', 'stop', 'refresh', 'mode:semi', 'delay:off']);
+        assert.deepEqual(calls, ['start', 'stop', 'refresh', 'mode:semi', 'accuracy:70-90', 'delay:off']);
         await expectReject(session.action('mode', 'weird'), /Mode must be auto or semi/);
         await expectReject(session.action('delay', 'bad'), /Use delay, delay on or delay off/);
         console.log('ok control action mapping and validation');
