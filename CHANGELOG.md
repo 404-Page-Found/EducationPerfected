@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Information slide support (#327): Smart Lesson information slides (content-only, `questionType` EP_INFORMATION 7, no answer controls) no longer stop the run as unsupported. A new reader whitelists exactly the captured no-input shape and the handler waits out EP's countdown, then clicks the lesson's own Continue once - never Submit, never typed input. Any deviation (any question component, any visible answer control, a visible Submit, Assessment or Dash context) still stops unanswered. Synthetic fixture coverage only; no live information slide has been advanced by the program yet.
+
 - Landing page downloads, round two (#325): the Windows card drops the redundant "Single installer" note, every installer variant now gets its own container (one for Windows, two for macOS, four for Linux `.deb`/`.rpm`) with install and uninstall help moved to per-OS hyperlinks, and the hero button downloads the installer matching the visitor's OS and architecture ("Download for ...") when the browser can detect it, falling back to scrolling to the download section otherwise. Detection runs in a first-party script (the page CSP now allows `script-src 'self'`); the Linux links stay pinned to the current release tag.
 
 - The landing page favicon is cropped to the icon shape (SVG plus 48px PNG and a touch icon) so it fills the browser tab instead of rendering small inside the logo's transparent margin.

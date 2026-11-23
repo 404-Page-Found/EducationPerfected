@@ -18,6 +18,7 @@ const { createSubmitDropdownOnce } = require('./lib/dropdown-once');
 const { createSelectMultiOnce } = require('./lib/multi-select-once');
 const { playMultiChoiceSelection } = require('./lib/multi-choice-handler');
 const { playHighlightRound } = require('./lib/highlight-handler');
+const { playInfoSlideRound } = require('./lib/info-slide-handler');
 const { playWorkingFormulaRound } = require('./lib/working-formula-handler');
 const { createHumanDelay, parseDelayOverride, summarizeRanges } = require('./lib/human-delay');
 const { createSelectChoiceOnce } = require('./lib/choice-select-once');
@@ -1969,6 +1970,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 { type: 'reflection', play: playSelectionDescriptorRound },
                 { type: 'highlight', play: playSelectionDescriptorRound },
                 { type: 'workingformula', play: playSelectionDescriptorRound },
+                { type: 'info-slide', play: playInfoSlideDescriptorRound },
                 { type: 'audio', play: handleTypedRound },
                 { type: 'typed', play: handleTypedRound },
                 { type: 'dash-typed', play: handleDashTypedRound },
@@ -1997,6 +1999,82 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     return false;
                 }
                 return await handler.play(descriptor);
+            }
+
+            /**
+ * Information-slide round handler (issue #327): the slide has nothing to
+ * answer, so the round is one Continue click via playInfoSlideRound - never
+ * Submit, never typed input. Detection and modal/completion mapping mirror
+ * the selection rounds, including the section-complete modal path.
+ * @param {object} descriptor - info-slide descriptor from detectQuestion
+ * @returns {Promise<boolean>} False to stop the run, true to keep looping
+ */
+            async function playInfoSlideDescriptorRound(descriptor) {
+                // EP swaps slides asynchronously: require the detected slide to
+                // hold still across two reads before clicking anything.
+                const again = await detectQuestion(page);
+                if (again === null || again.kind !== 'info-slide' || again.key !== descriptor.key) {
+                    console.log('Information slide changed during detection; re-reading it in a fresh pass.');
+                    return true;
+                }
+                // Preserve even if Stop/errors arrive before the modal poll:
+                // no information-slide cleanup deletes dialogs.
+                preserveSelectionModal=true;
+                const modalBaseline=await captureSelectionBaseline(page,again);
+                try{
+                    const result = await playInfoSlideRound(page, again, {
+                        enter: ENTER,
+                        timeout: ADVANCE_TIMEOUT,
+                        shouldStop: () => !TOGGLE,
+                        log: msg => console.log(msg),
+                    });
+                    if (result.status === 'info-shown') {
+                        console.log('Information slide: nothing to answer. Run stopped. Click Continue in the browser to advance.');
+                        return false;
+                    }
+                    if (result.status === 'advanced') return TOGGLE;
+                    if (result.status === 'aborted') return false;
+                    if (result.status === 'complete') {
+                        if (await taskCompletionProven()) {
+                            runReason = 'completed';
+                            console.log('Lesson completed.');
+                        } else if (TOGGLE) {
+                            const message = 'A Continue screen appeared without proof of task completion; stopping the run.';
+                            console.error(message);
+                            await alert(message);
+                        }
+                        return false;
+                    }
+                    if (result.status === 'modal') {
+                        preserveSelectionModal=true;
+                        const modalDiagnostic=await inspectSelectionModal(page,again,modalBaseline);
+                        if(!TOGGLE)return false;
+                        console.error('Information slide modal diagnostic '+JSON.stringify(modalDiagnostic));
+                        if(modalDiagnostic.guard==='section-next-action-required'){
+                            const sectionResult=await advanceSelectionSection(page,again,modalBaseline,{shouldStop:()=>!TOGGLE,timeout:ADVANCE_TIMEOUT});
+                            console.log('Section transition diagnostic '+JSON.stringify(sectionResult));
+                            if(!TOGGLE)return false;
+                            if(sectionResult.guard==='next-section-verified'){
+                                // Detect the new question read-only before allowing the next
+                                // normal round to run its own complete fresh safety checks.
+                                const nextQuestion=await detectQuestion(page);
+                                if(nextQuestion&&nextQuestion.kind!=='unsupported'&&nextQuestion.key!==again.key){
+                                    console.log('Verified the next section and a new question.');
+                                    return TOGGLE;
+                                }
+                                console.error('The next section opened without a supported new question; stopping.');
+                                return false;
+                            }
+                        }
+                        console.error('A modal appeared during the information slide; stopping so it can be checked. The dialog is left open.');
+                        await alert('A modal interrupted the information slide; stopping the run.');
+                        return false;
+                    }
+                    // 'stopped'
+                    console.error(result.message);
+                    await alert(result.message);
+                    return false;
+                }finally{if(modalBaseline)await modalBaseline.dispose().catch(()=>{});}
             }
 
             /**
