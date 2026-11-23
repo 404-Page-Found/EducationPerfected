@@ -1,0 +1,13 @@
+'use strict';
+const assert = require('node:assert/strict');
+const { killSmokeTree } = require('./app-smoke-cleanup');
+const calls = [];
+const child = { pid: 1234, kill: signal => calls.push(['fallback', signal]) };
+killSmokeTree(child, { platform: 'linux', kill: (...args) => calls.push(args) });
+assert.deepEqual(calls.splice(0), [[-1234, 'SIGKILL']]);
+killSmokeTree(child, { platform: 'darwin', kill: () => { throw new Error('already gone'); } });
+assert.deepEqual(calls.splice(0), [['fallback', 'SIGKILL']]);
+killSmokeTree(child, { platform: 'win32', run: (...args) => calls.push(args) });
+assert.deepEqual(calls.splice(0), [['taskkill.exe', ['/PID', '1234', '/T', '/F'], { stdio: 'ignore', timeout: 10000, windowsHide: true }]]);
+killSmokeTree({ kill: () => assert.fail('no PID') }, { platform: 'linux', kill: () => assert.fail('no PID') });
+console.log('App smoke cleanup: POSIX process group, Windows task tree, raced exit and absent PID passed.');
