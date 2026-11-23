@@ -2002,10 +2002,69 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             }
 
             /**
+ * Shared outcome mapping for the selection and information-slide round
+ * handlers: advanced/aborted pass through, completion requires task proof,
+ * a modal goes through the verified section-transition machinery, and any
+ * other status stops the run with its message. Extracted so both handlers
+ * run the identical mapping (issue #327).
+ * @param {object} result - the round handler's outcome
+ * @param {object} again - the re-detected descriptor for this round
+ * @param {object} modalBaseline - captureSelectionBaseline handle for this round
+ * @param {string} modalLabel - word naming the round in the modal diagnostic line
+ * @param {string} roundLabel - label used in the modal stop messages
+ * @param {string} modalNote - extra sentence in the modal stop message ('' when none)
+ * @returns {Promise<boolean>} False to stop the run, true to keep looping
+ */
+            async function mapRoundOutcome(result, again, modalBaseline, modalLabel, roundLabel, modalNote) {
+                if (result.status === 'advanced') return TOGGLE;
+                if (result.status === 'aborted') return false;
+                if (result.status === 'complete') {
+                    if (await taskCompletionProven()) {
+                        runReason = 'completed';
+                        console.log('Lesson completed.');
+                    } else if (TOGGLE) {
+                        const message = 'A Continue screen appeared without proof of task completion; stopping the run.';
+                        console.error(message);
+                        await alert(message);
+                    }
+                    return false;
+                }
+                if (result.status === 'modal') {
+                    preserveSelectionModal=true;
+                    const modalDiagnostic=await inspectSelectionModal(page,again,modalBaseline);
+                    if(!TOGGLE)return false;
+                    console.error(modalLabel+' modal diagnostic '+JSON.stringify(modalDiagnostic));
+                    if(modalDiagnostic.guard==='section-next-action-required'){
+                        const sectionResult=await advanceSelectionSection(page,again,modalBaseline,{shouldStop:()=>!TOGGLE,timeout:ADVANCE_TIMEOUT});
+                        console.log('Section transition diagnostic '+JSON.stringify(sectionResult));
+                        if(!TOGGLE)return false;
+                        if(sectionResult.guard==='next-section-verified'){
+                            // Detect the new question read-only before allowing the next
+                            // normal round to run its own complete fresh safety checks.
+                            const nextQuestion=await detectQuestion(page);
+                            if(nextQuestion&&nextQuestion.kind!=='unsupported'&&nextQuestion.key!==again.key){
+                                console.log('Verified the next section and a new question.');
+                                return TOGGLE;
+                            }
+                            console.error('The next section opened without a supported new question; stopping.');
+                            return false;
+                        }
+                    }
+                    console.error(`A modal appeared during the ${roundLabel} round; stopping so it can be checked.${modalNote} The dialog is left open.`);
+                    await alert(`A modal interrupted the ${roundLabel} round; stopping the run.`);
+                    return false;
+                }
+                // 'stopped'
+                console.error(result.message);
+                await alert(result.message);
+                return false;
+            }
+
+            /**
  * Information-slide round handler (issue #327): the slide has nothing to
  * answer, so the round is one Continue click via playInfoSlideRound - never
- * Submit, never typed input. Detection and modal/completion mapping mirror
- * the selection rounds, including the section-complete modal path.
+ * Submit, never typed input. Detection mirrors the selection rounds; the
+ * modal/completion/stopped mapping is shared with them via mapRoundOutcome.
  * @param {object} descriptor - info-slide descriptor from detectQuestion
  * @returns {Promise<boolean>} False to stop the run, true to keep looping
  */
@@ -2032,48 +2091,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         console.log('Information slide: nothing to answer. Run stopped. Click Continue in the browser to advance.');
                         return false;
                     }
-                    if (result.status === 'advanced') return TOGGLE;
-                    if (result.status === 'aborted') return false;
-                    if (result.status === 'complete') {
-                        if (await taskCompletionProven()) {
-                            runReason = 'completed';
-                            console.log('Lesson completed.');
-                        } else if (TOGGLE) {
-                            const message = 'A Continue screen appeared without proof of task completion; stopping the run.';
-                            console.error(message);
-                            await alert(message);
-                        }
-                        return false;
-                    }
-                    if (result.status === 'modal') {
-                        preserveSelectionModal=true;
-                        const modalDiagnostic=await inspectSelectionModal(page,again,modalBaseline);
-                        if(!TOGGLE)return false;
-                        console.error('Information slide modal diagnostic '+JSON.stringify(modalDiagnostic));
-                        if(modalDiagnostic.guard==='section-next-action-required'){
-                            const sectionResult=await advanceSelectionSection(page,again,modalBaseline,{shouldStop:()=>!TOGGLE,timeout:ADVANCE_TIMEOUT});
-                            console.log('Section transition diagnostic '+JSON.stringify(sectionResult));
-                            if(!TOGGLE)return false;
-                            if(sectionResult.guard==='next-section-verified'){
-                                // Detect the new question read-only before allowing the next
-                                // normal round to run its own complete fresh safety checks.
-                                const nextQuestion=await detectQuestion(page);
-                                if(nextQuestion&&nextQuestion.kind!=='unsupported'&&nextQuestion.key!==again.key){
-                                    console.log('Verified the next section and a new question.');
-                                    return TOGGLE;
-                                }
-                                console.error('The next section opened without a supported new question; stopping.');
-                                return false;
-                            }
-                        }
-                        console.error('A modal appeared during the information slide; stopping so it can be checked. The dialog is left open.');
-                        await alert('A modal interrupted the information slide; stopping the run.');
-                        return false;
-                    }
-                    // 'stopped'
-                    console.error(result.message);
-                    await alert(result.message);
-                    return false;
+                    return await mapRoundOutcome(result, again, modalBaseline, 'Information slide', 'information slide', '');
                 }finally{if(modalBaseline)await modalBaseline.dispose().catch(()=>{});}
             }
 
@@ -2141,58 +2159,19 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         console.log('Reflection filled with your approved text. Run stopped. Review, submit and self-mark in the browser.');
                         return false;
                     }
-                    if (result.status === 'advanced') return TOGGLE;
-                    if (result.status === 'aborted') return false;
-                    if (result.status === 'complete') {
-                        if (await taskCompletionProven()) {
-                            runReason = 'completed';
-                            console.log('Lesson completed.');
-                        } else if (TOGGLE) {
-                            const message = 'A Continue screen appeared without proof of task completion; stopping the run.';
-                            console.error(message);
-                            await alert(message);
+                    if (result.status === 'stopped') {
+                        if (again.kind === 'slide-surfaces' && result.selectionDiagnostic) {
+                            const { phase, dropdownIndex, boxIndex, keyDispatchesReturned, guard, submitState } = result.selectionDiagnostic;
+                            console.error('Slide-surfaces refusal diagnostic ' + JSON.stringify({ phase, dropdownIndex, ...(boxIndex !== undefined && boxIndex !== null ? { boxIndex } : {}), keyDispatchesReturned, guard, dropdownCount: again.dropdownCount, boxCount: again.boxCount, textBoxCount: again.textBoxCount, multiOptionCount: again.multiOptionCount, ...(submitState ? {submitState} : {}) }));
                         }
-                        return false;
-                    }
-                    if (result.status === 'modal') {
-                        preserveSelectionModal=true;
-                        const modalDiagnostic=await inspectSelectionModal(page,again,modalBaseline);
-                        if(!TOGGLE)return false;
-                        console.error('Selection modal diagnostic '+JSON.stringify(modalDiagnostic));
-                        if(modalDiagnostic.guard==='section-next-action-required'){
-                            const sectionResult=await advanceSelectionSection(page,again,modalBaseline,{shouldStop:()=>!TOGGLE,timeout:ADVANCE_TIMEOUT});
-                            console.log('Section transition diagnostic '+JSON.stringify(sectionResult));
-                            if(!TOGGLE)return false;
-                            if(sectionResult.guard==='next-section-verified'){
-                                // Detect the new question read-only before allowing the next
-                                // normal round to run its own complete fresh safety checks.
-                                const nextQuestion=await detectQuestion(page);
-                                if(nextQuestion&&nextQuestion.kind!=='unsupported'&&nextQuestion.key!==again.key){
-                                    console.log('Verified the next section and a new question.');
-                                    return TOGGLE;
-                                }
-                                console.error('The next section opened without a supported new question; stopping.');
-                                return false;
-                            }
+                        if ((again.kind === 'dropdown' || again.kind === 'dropdown-numberbox') && result.selectionDiagnostic) {
+                            const { phase, dropdownIndex, boxIndex, keyDispatchesReturned, guard, submitState } = result.selectionDiagnostic;
+                            console.error('Dropdown refusal diagnostic ' + JSON.stringify({ phase, dropdownIndex, ...(boxIndex !== undefined && boxIndex !== null ? { boxIndex } : {}), keyDispatchesReturned, guard, dropdownCount: again.dropdowns.length, ...(again.kind === 'dropdown-numberbox' ? { boxCount: again.boxes.length } : {}), ...(submitState ? {submitState} : {}) }));
                         }
-                        const roundLabel = descriptor.kind === 'textbox' ? 'textbox' : descriptor.kind === 'numberbox' ? 'number-box' : descriptor.kind === 'dropdown-numberbox' ? 'dropdown+number-box' : descriptor.kind === 'reflection' ? 'reflection' : 'selection';
-                        console.error(`A modal appeared during the ${roundLabel} round; stopping so it can be checked. The submission may or may not have been accepted. The dialog is left open.`);
-                        await alert(`A modal interrupted the ${roundLabel} round; stopping the run.`);
-                        return false;
+                        if ((again.kind === 'textbox' || again.kind === 'numberbox' || again.kind === 'dropdown-numberbox' || again.kind === 'slide-surfaces' || again.kind === 'reflection' || again.kind === 'workingformula') && result.diagnostic) console.error('Unsupported question diagnostic ' + JSON.stringify(result.diagnostic));
                     }
-                    // 'stopped'
-                    if (again.kind === 'slide-surfaces' && result.selectionDiagnostic) {
-                        const { phase, dropdownIndex, boxIndex, keyDispatchesReturned, guard, submitState } = result.selectionDiagnostic;
-                        console.error('Slide-surfaces refusal diagnostic ' + JSON.stringify({ phase, dropdownIndex, ...(boxIndex !== undefined && boxIndex !== null ? { boxIndex } : {}), keyDispatchesReturned, guard, dropdownCount: again.dropdownCount, boxCount: again.boxCount, textBoxCount: again.textBoxCount, multiOptionCount: again.multiOptionCount, ...(submitState ? {submitState} : {}) }));
-                    }
-                    if ((again.kind === 'dropdown' || again.kind === 'dropdown-numberbox') && result.selectionDiagnostic) {
-                        const { phase, dropdownIndex, boxIndex, keyDispatchesReturned, guard, submitState } = result.selectionDiagnostic;
-                        console.error('Dropdown refusal diagnostic ' + JSON.stringify({ phase, dropdownIndex, ...(boxIndex !== undefined && boxIndex !== null ? { boxIndex } : {}), keyDispatchesReturned, guard, dropdownCount: again.dropdowns.length, ...(again.kind === 'dropdown-numberbox' ? { boxCount: again.boxes.length } : {}), ...(submitState ? {submitState} : {}) }));
-                    }
-                    if ((again.kind === 'textbox' || again.kind === 'numberbox' || again.kind === 'dropdown-numberbox' || again.kind === 'slide-surfaces' || again.kind === 'reflection' || again.kind === 'workingformula') && result.diagnostic) console.error('Unsupported question diagnostic ' + JSON.stringify(result.diagnostic));
-                    console.error(result.message);
-                    await alert(result.message);
-                    return false;
+                    const roundLabel = descriptor.kind === 'textbox' ? 'textbox' : descriptor.kind === 'numberbox' ? 'number-box' : descriptor.kind === 'dropdown-numberbox' ? 'dropdown+number-box' : descriptor.kind === 'reflection' ? 'reflection' : 'selection';
+                    return await mapRoundOutcome(result, again, modalBaseline, 'Selection', roundLabel, ' The submission may or may not have been accepted.');
                     }finally{if(modalBaseline)await modalBaseline.dispose().catch(()=>{});}
                 }
 
