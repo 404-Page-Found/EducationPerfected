@@ -83,7 +83,7 @@ When you run the script, it should:
 The hotkeys keep working across page loads (they are re-installed on every new page). At the task starter or task page, use the hotkeys to answer questions.
 
 When auto-answering is triggered, it should:
-- Grind through the task at several questions per second. Each answer is typed out as real keystrokes and only submitted once the answer box is verified to contain it.
+- Use the guarded input path for each supported question type. Text and audio answer fields use real keystrokes and verify the field before submission. Choices, dropdowns, gaps and other supported surfaces use their own checks; see [question contracts](question-types.md). Speed depends on the surface, pacing and page readiness.
 - Stop when it finishes the task, or when you press the same hotkey again.
 - Delete the popup modals should it get any questions wrong.
 - Retry the occasional slow round instead of aborting the whole task.
