@@ -134,7 +134,9 @@ const eachSequential = (values, run) => values.reduce((previous, value) => previ
         });
         result = await playInfoSlideRound(page, await detectQuestion(page), { enter: true, timeout: 3000 });
         assert.equal(result.status, 'advanced', JSON.stringify(result));
-        assert.equal((await detectQuestion(page)).kind, 'unsupported');
+        const unsupportedNext = await detectQuestion(page);
+        assert.equal(unsupportedNext.kind, 'unsupported');
+        assert.equal((await playInfoSlideRound(page, unsupportedNext, { enter: true, timeout: 300 })).status, 'stopped');
         assert.deepEqual(await page.evaluate(() => [infoSlideFixture.clicks.length, infoSlideFixture.submits]), [1, 0]);
         for (const mode of ['invalidIdentity', 'assessment', 'dash', 'unbound']) {
             await setup();
