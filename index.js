@@ -660,17 +660,21 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 }
                 console.log('Waiting for login page to load...');
                 try {
-                    // No retry loop on purpose: waitForSelector already keeps polling and
+                    // No retry loop on purpose: waitForFunction already keeps polling and
                     // follows the SPA's client-side redirects, so it covers the form appearing
                     // on a later host. A retry loop here would reload the page each time EP
                     // is merely slow, which is worse than one honest 60s wait.
                     // A profile that is already signed in (the desktop app keeps its
                     // session) never shows the form: the app shell is the other outcome,
                     // so either one ends the wait instead of idling for the full 60s.
-                    const outcome = await Promise.any([
-                        page.waitForSelector(DIR.username_css, { timeout: 60000 }).then(() => 'form'),
-                        page.waitForSelector(DIR.home_css, { timeout: 60000 }).then(() => 'session')
-                    ]);
+                    const ready = await page.waitForFunction((username, home) => {
+                        if (document.querySelector(username)) return 'form';
+                        if (document.querySelector(home)) return 'session';
+                        return false;
+                    }, { timeout: 60000 }, DIR.username_css, DIR.home_css);
+                    let outcome;
+                    try { outcome = await ready.jsonValue(); }
+                    finally { await ready.dispose(); }
                     if (outcome === 'session') {
                         alreadyLoggedIn = true;
                         console.log('Already logged in; skipping the login page.');
