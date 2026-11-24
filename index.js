@@ -647,6 +647,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
  * credential submission on lookalike pages. Returns the resolved login button.
  * @returns {Promise<{loginButton: ElementHandle|null}|null>} Login form info or null if form not found/wrong host
  */
+            let alreadyLoggedIn = false;
             const reachLoginForm = async () => {
                 console.log('Opening EP page...');
                 const navigationStartedAt = TEST_BOOT ? Date.now() : null;
@@ -663,9 +664,20 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     // follows the SPA's client-side redirects, so it covers the form appearing
                     // on a later host. A retry loop here would reload the page each time EP
                     // is merely slow, which is worse than one honest 60s wait.
-                    await page.waitForSelector(DIR.username_css, { timeout: 60000 });
+                    // A profile that is already signed in (the desktop app keeps its
+                    // session) never shows the form: the app shell is the other outcome,
+                    // so either one ends the wait instead of idling for the full 60s.
+                    const outcome = await Promise.any([
+                        page.waitForSelector(DIR.username_css, { timeout: 60000 }).then(() => 'form'),
+                        page.waitForSelector(DIR.home_css, { timeout: 60000 }).then(() => 'session')
+                    ]);
+                    if (outcome === 'session') {
+                        alreadyLoggedIn = true;
+                        console.log('Already logged in; skipping the login page.');
+                        return null;
+                    }
                 } catch (e) {
-                    console.error(`Login form (${DIR.username_css}) did not appear within 60s on ${new URL(page.url()).hostname || page.url()}: ${e.message}`);
+                    console.error(`Login form (${DIR.username_css}) did not appear within 60s on ${new URL(page.url()).hostname || page.url()}: ${e.errors?.[0]?.message ?? e.message}`);
                     console.error('EP may have changed its login flow. The browser window stays open: log in manually there.');
                     return null;
                 }
@@ -795,7 +807,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // being put to use (the pre-type guard covers that). It steers the messages
             // below - an already-open session is reported ready, not as "no credentials" -
             // and joins the auto-login guard.
-            let sessionDetected = false;
+            let sessionDetected = alreadyLoggedIn;
 
             // The login watcher the credential prompt is raced against: resolves true the
             // moment the app shell mounts - DIR.home_css, the same signal the
@@ -854,7 +866,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
             if (DIR.email && DIR.password && loginForm !== null) {
                 await attemptAutoLogin(loginForm);
-            } else if (DIR.email && DIR.password) {
+            } else if (DIR.email && DIR.password && !sessionDetected) {
                 // a lookalike host (see reachLoginForm): never auto-filled, and no keychain
                 // read or prompt was ever done for it
                 console.log('Auto-login skipped; finish signing in manually in the browser window.');
