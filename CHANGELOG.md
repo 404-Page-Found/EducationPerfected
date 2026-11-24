@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Restrict floating browser-panel dragging, resize and saved positions to the page client area before the scrollbars, keeping the whole panel within the available height.
+
 - Keep the desktop version strip flush with the bottom of the left pane for both short and scrollable content.
 
 - Desktop accuracy and pacing now use labelled on/off switches instead of text boxes and Apply buttons. Switches reflect saved state, save immediately and lock while running or applying a change. Rejected setting actions restore the last reported state and show the error. Storage-write failures retain the existing session-only behavior with a terminal warning; the switches do not guarantee persistence if storage is unavailable.
