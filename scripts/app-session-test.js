@@ -18,6 +18,7 @@ function makeControls(calls) {
         refresh: async () => { calls.push('refresh'); return { state: 'stopped' }; },
         setAccuracy: async value => { calls.push('accuracy:' + value); return { state: 'stopped' }; },
         delay: value => {
+            if (value === undefined) return { delay: 'current' };
             if (value !== 'on' && value !== 'off') return { error: 'Use delay, delay on or delay off.' };
             calls.push('delay:' + value);
             return { delay: 'on' };
@@ -215,6 +216,12 @@ async function main() {
             await expectReject(session.action('delay', 'on'), /Stop the run/);
         }
         assert.deepEqual(calls, []);
+        await session.action('accuracy', '');
+        await session.action('accuracy', 'show');
+        await session.action('accuracy', 'status');
+        await session.action('delay');
+        assert.deepEqual(calls, ['accuracy:', 'accuracy:show', 'accuracy:status']);
+        calls.length = 0;
         state = 'stopped';
         await session.action('delay', 'on');
         assert.deepEqual(calls, ['delay:on']);
