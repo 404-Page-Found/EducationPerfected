@@ -69,7 +69,7 @@ Accuracy has only on/off settings, with no custom targets or ranges:
     educationperfected accuracy off       # no intentional mistakes (default)
     educationperfected accuracy status    # report without launching
 
-Interactive changes inside the running app are saved. Startup flags and environment changes are not saved. Env: `EP_ACCURACY=on|off`, `EP_PERFECT=0` (on) or `EP_PERFECT=1` (off). Numeric env values and `EP_ACCURACY_RANGE` are rejected. `status` shows the target and first-try stats; the log reports a target at start and a summary at exit.
+Interactive changes inside the running app are saved. Startup flags and environment changes are not saved. Env: `EP_ACCURACY=on|off`, `EP_PERFECT=0` (on) or `EP_PERFECT=1` (off). Numeric values for `EP_ACCURACY` and `EP_ACCURACY_RANGE` are rejected; `EP_PERFECT` accepts only `0` or `1`. `status` shows the target and first-try stats; the log reports a target at start and a summary at exit.
 
 ## Runtime behavior (CLI and legacy)
 
