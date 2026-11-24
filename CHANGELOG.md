@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Information-slide Continue can prove advance to an unsupported renderer from a changed valid identity in the same visible lesson model. The next round still refuses unsafe questions, and an unchanged identity still stops without retry. Synthetic regression coverage only.
+
 - Support explicitly self-marked Smart Lesson dropdowns as verified fill-only, stopping before submission or self-grading (#338). Synthetic coverage only; mixed or unknown marking remains refused.
 
 - Mixed formula/plain single-choice options now stay on the exact cached-renderer association path instead of requiring formula syntax in every option. Plain alternatives need the supported literal/block grammar and matching current rendered text; stale, ambiguous or unsupported choices still stop unanswered. Source-derived fixtures only, not live account verification.

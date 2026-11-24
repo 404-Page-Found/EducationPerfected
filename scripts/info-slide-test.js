@@ -125,6 +125,17 @@ const eachSequential = (values, run) => values.reduce((previous, value) => previ
         assert.match(result.message, /advance not proven/);
         assert.match(result.message, /unsupported question type/);
         assert.deepEqual(await page.evaluate(() => [infoSlideFixture.clicks.length, infoSlideFixture.submits]), [1, 0]);
+        // A new valid question identity proves advance even when the next
+        // renderer is unsupported. The next round must still refuse it.
+        await setup();
+        await page.evaluate(() => {
+            infoSlideFixture.unsupportedAfterClick = true;
+            document.querySelector('#sa-navigation-controls button').addEventListener('click', () => { infoSlideFixture.q.questionIndex++; });
+        });
+        result = await playInfoSlideRound(page, await detectQuestion(page), { enter: true, timeout: 3000 });
+        assert.equal(result.status, 'advanced', JSON.stringify(result));
+        assert.equal((await detectQuestion(page)).kind, 'unsupported');
+        assert.deepEqual(await page.evaluate(() => [infoSlideFixture.clicks.length, infoSlideFixture.submits]), [1, 0]);
         // Detection-level refusals: every deviation is unsupported, never an info-slide.
         const mutate = (name) => page.evaluate((m) => {
             const f = window.infoSlideFixture;

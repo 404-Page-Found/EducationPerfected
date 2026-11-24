@@ -261,3 +261,5 @@ Moved verbatim from the root README "Feature-Explanation" section.
   edge cases, and for those that still fail to match, the self-learning function will take care of that in *most* of the 
   remaining scenarios. There are still extreme cases of very bad formatting (such as commas with repeated words and 
   blatant disparities between displayed answer and expected answer) where a question may not get correctly answered.
+
+After an information-slide Continue, a changed valid content/question identity in the same visible lesson model proves advance even if the next renderer is unsupported. This does not permit answering that renderer: the next detection pass still applies all refusal guards. Unsupported state with unchanged or unverifiable identity stops without retry.
