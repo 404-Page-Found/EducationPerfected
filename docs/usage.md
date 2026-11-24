@@ -28,7 +28,7 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 - `inspect-dash` - read-only capture of a Dash round's structure (used for shapes the Dash answerer refuses)
 - `inspect-components` - read-only capture of a slide's question components (used for slides the answerer refuses on an accompanying component)
 - `inspect-assessment` - read-only capture of an Assessment page: short summary line plus a full JSON file in `assessment-captures/` (Assessment answering stays disabled)
-- `watch-assessment [on|off]` - passive read-only watch that writes a new capture file whenever the Assessment page changes
+- `watch-assessment [on|off|status]` - passive read-only watch that writes a new capture file whenever the Assessment page changes
 - `quit` - close the CLI
 
 CLI and legacy terminal sessions have a collapsible **EducationPerfected** menu in the top-right

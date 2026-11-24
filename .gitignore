@@ -12,4 +12,5 @@ build/
 
 # Exact-commit release attestations are reviewed out of band, never fixture claims.
 release/evidence.json
+# Local Assessment capture files: they contain page text and DOM, keep them out of commits.
 assessment-captures/

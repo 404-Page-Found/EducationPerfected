@@ -55,6 +55,7 @@ const SHELL = () => {
             Object.defineProperty(q, 'UserState', { configurable: true, get() { window.inspectionCounts.getters++; throw new Error('accessor-must-not-run'); } });
         });
         await page.evaluate(SHELL);
+        await page.evaluate(() => { const i = document.createElement('input'); i.type = 'password'; i.value = 'hunter2-secret'; document.body.append(i); });
         const result = await collectAssessmentDiagnostics(page);
         assert.equal(result.guard, 'captured');
         assert.equal(result.build, 'assessment-inspect-v1');
@@ -94,8 +95,10 @@ const SHELL = () => {
         assert.ok(saved.full.controls.some(c => c.shell === 'game-assessment-navigation-controls' && c.tag === 'button'));
         assert.ok(Array.isArray(saved.full.timers) && 'hasFocus' in saved.full.focus && saved.full.domNodeCount > 5);
         assert.equal(fileText.includes('accessor-must-not-run'), false);
+        assert.equal(fileText.includes('hunter2-secret'), false, 'password value never written');
         assert.equal(JSON.stringify(saved.full.question).includes('[accessor]'), true);
         if (process.platform !== 'win32') assert.equal(fs.statSync(cli.file).mode & 0o077, 0);
+        fs.rmSync(cli.file, { force: true });
         assert.deepEqual(await page.evaluate(() => window.inspectionCounts), { events: 0, calls: 0, getters: 0 });
 
         // Passive watch: writes a capture only when the page changes; never an event.
@@ -151,6 +154,21 @@ const SHELL = () => {
         child.stdin.write('quit\n');
         await wait(() => child.exitCode !== null);
         assert.equal(child.exitCode, 0);
+        // watchAssessment control: argument parsing, refusals and return shape.
+        const { createRunControls } = require('../lib/run-controls');
+        let on = false, started = true;
+        const stub = { start() { if (started) on = true; return started; }, stop() { on = false; }, running: () => on, captures: () => 3 };
+        const rc = createRunControls({ run: async () => new Promise(() => {}), requestStop() {}, setMode() {}, refresh() {}, close: async () => {}, assessmentWatcher: stub });
+        assert.deepEqual(rc.watchAssessment('on'), { watching: true, captures: 3 });
+        assert.deepEqual(rc.watchAssessment('status'), { watching: true, captures: 3 });
+        assert.deepEqual(rc.watchAssessment('off'), { watching: false, captures: 3 });
+        assert.throws(() => rc.watchAssessment('maybe'), /Usage/);
+        started = false;
+        assert.throws(() => rc.watchAssessment('on'), /limit reached/);
+        started = true;
+        rc.start();
+        assert.throws(() => rc.watchAssessment('on'), /Stop before/);
+        assert.throws(() => createRunControls({ run() {}, requestStop() {}, setMode() {}, refresh() {}, close() {} }).watchAssessment('on'), /unavailable/);
         console.log('Assessment diagnostics PASS: read-only structural capture, non-assessment refused, model-only Assessment stops by name with zero input. Synthetic only, no live Assessment.');
     } finally {
         await session.cleanup();
