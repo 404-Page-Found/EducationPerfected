@@ -40,6 +40,7 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
     terminal = readline.createInterface({ input, output, terminal: Boolean(input.isTTY && output.isTTY) });
     output.write('Commands: start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components, inspect-assessment, watch-assessment, quit\n');
     const print = () => output.write(JSON.stringify(controls.status()) + '\n');
+    require('../lib/assessment-diagnostics').armWatchFromEnv(controls, process.env, output);
     const onSignal = () => { quit().catch(error => output.write(diagnostic(error, 'Shutdown') + '\n')); };
     terminal.on('SIGINT', onSignal);
     process.on('SIGINT', onSignal);

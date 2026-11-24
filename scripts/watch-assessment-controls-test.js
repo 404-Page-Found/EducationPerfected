@@ -20,3 +20,14 @@ const { createRunControls } = require('../lib/run-controls');
     }
     console.log('Watch-assessment controls: on/off/status, usage, busy refusal, close stops watcher passed.');
 })().catch(e => { console.error(e); process.exitCode = 1; });
+(async () => {
+    const { armWatchFromEnv } = require('../lib/assessment-diagnostics');
+    const calls = [], out = { write: t => calls.push(t) };
+    const controls = { watchAssessment: arg => { calls.push('arg:' + arg); return { watching: true, captures: 0 }; } };
+    assert.equal(armWatchFromEnv(controls, {}, out), false);
+    assert.equal(armWatchFromEnv(controls, { EP_WATCH_ASSESSMENT: '0' }, out), false);
+    assert.equal(calls.length, 0);
+    assert.equal(armWatchFromEnv(controls, { EP_WATCH_ASSESSMENT: '1 ' }, out), true);
+    assert.equal(calls[0], 'arg:on');
+    console.log('Watch pre-arm from EP_WATCH_ASSESSMENT passed.');
+})().catch(e => { console.error(e); process.exitCode = 1; });
