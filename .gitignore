@@ -12,3 +12,4 @@ build/
 
 # Exact-commit release attestations are reviewed out of band, never fixture claims.
 release/evidence.json
+assessment-captures/

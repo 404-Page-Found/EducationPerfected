@@ -38,7 +38,7 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
     });
     controls = await launch({ onBrowserClosed, onBrowserDisconnected: browserGone, reflectionTextProvider: requestReflectionText, accuracy });
     terminal = readline.createInterface({ input, output, terminal: Boolean(input.isTTY && output.isTTY) });
-    output.write('Commands: start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components, inspect-assessment, quit\n');
+    output.write('Commands: start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components, inspect-assessment, watch-assessment, quit\n');
     const print = () => output.write(JSON.stringify(controls.status()) + '\n');
     const onSignal = () => { quit().catch(error => output.write(diagnostic(error, 'Shutdown') + '\n')); };
     terminal.on('SIGINT', onSignal);
@@ -93,9 +93,15 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
                 else if (command === 'inspect-dash') output.write('EP_DASH_INSPECT ' + JSON.stringify(await controls.inspectDash()) + '\n');
                 else if (command === 'inspect-components') output.write('EP_COMPONENTS_INSPECT ' + JSON.stringify(await controls.inspectComponents()) + '\n');
                 else if (command === 'inspect-assessment') output.write('EP_ASSESSMENT_INSPECT ' + JSON.stringify(await controls.inspectAssessment()) + '\n');
+                else if (command === 'watch-assessment' || command.startsWith('watch-assessment ')) {
+                    let watch;
+                    try { watch = controls.watchAssessment(command.slice(16).trim()); }
+                    catch (e) { output.write(String(e && e.message ? e.message : e) + '\n'); continue; }
+                    output.write('Assessment watch: ' + (watch.watching ? 'on' : 'off') + ', ' + watch.captures + ' capture(s) written. Passive read-only; a new file is written only when the page changes.\n');
+                }
                 else if (command === 'refresh') await controls.refresh();
                 else if (command === 'quit' || command === 'exit') { await quit(); print(); break; }
-                else { output.write('Unknown command. Use start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components, inspect-assessment or quit.\n'); continue; }
+                else { output.write('Unknown command. Use start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components, inspect-assessment, watch-assessment or quit.\n'); continue; }
                 print();
             } catch {
                 output.write(command === 'inspect-self-mark' || command === 'inspect-dash' || command === 'inspect-components' || command === 'inspect-assessment'

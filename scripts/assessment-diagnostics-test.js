@@ -9,7 +9,10 @@
 const assert = require('node:assert/strict');
 const { bootFixtureCli } = require('./fixture-cli-session');
 const { installGapsFixture } = require('./gaps-fixture');
-const { collectAssessmentDiagnostics } = require('../lib/assessment-diagnostics');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { collectAssessmentDiagnostics, captureAssessment, createAssessmentWatcher } = require('../lib/assessment-diagnostics');
 
 const REASON = 'Assessment mode is a graded whole-attempt flow that can autosave input and record focus; answering is disabled';
 const SHELL = () => {
@@ -79,7 +82,48 @@ const SHELL = () => {
         const cli = JSON.parse(line.slice('EP_ASSESSMENT_INSPECT '.length));
         assert.equal(cli.guard, 'captured');
         assert.equal(line.includes('private-stored-answer'), false);
+        // Full capture file: written, owner-only, with text, model, DOM, controls, timers, focus.
+        assert.ok(cli.file && cli.file.includes('assessment-captures'), 'file path reported');
+        assert.equal('full' in cli, false);
+        const fileText = fs.readFileSync(cli.file, 'utf8');
+        const saved = JSON.parse(fileText);
+        assert.equal(saved.summary.guard, 'captured');
+        assert.equal(saved.full.model.gameMode, 2);
+        assert.ok(fileText.includes('private-stored-answer'), 'full capture keeps stored-answer text for the owner');
+        assert.ok(fileText.includes('secret save label') && fileText.includes('secret submit label'), 'shell button labels captured');
+        assert.ok(saved.full.controls.some(c => c.shell === 'game-assessment-navigation-controls' && c.tag === 'button'));
+        assert.ok(Array.isArray(saved.full.timers) && 'hasFocus' in saved.full.focus && saved.full.domNodeCount > 5);
+        assert.equal(fileText.includes('accessor-must-not-run'), false);
+        assert.equal(JSON.stringify(saved.full.question).includes('[accessor]'), true);
+        if (process.platform !== 'win32') assert.equal(fs.statSync(cli.file).mode & 0o077, 0);
         assert.deepEqual(await page.evaluate(() => window.inspectionCounts), { events: 0, calls: 0, getters: 0 });
+
+        // Passive watch: writes a capture only when the page changes; never an event.
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ep-watch-'));
+        const lines = [];
+        const watcher = createAssessmentWatcher({ page, dir, log: l => lines.push(l), intervalMs: 50, minGapMs: 0 });
+        await watcher.tick(); await watcher.tick();
+        assert.equal(fs.readdirSync(dir).length, 1, 'unchanged page: one capture only');
+        await page.evaluate(() => { const el = document.querySelector('#question-text') || document.body; el.append(' next-question'); });
+        await watcher.tick();
+        assert.equal(fs.readdirSync(dir).length, 2, 'changed page: a new capture');
+        assert.ok(lines.every(l => l.startsWith('EP_ASSESSMENT_WATCH ')));
+        let busy = true;
+        const paused = createAssessmentWatcher({ page, dir, isBusy: () => busy });
+        await paused.tick();
+        assert.equal(fs.readdirSync(dir).length, 2, 'busy (answering run): no capture');
+        busy = false;
+        assert.equal(paused.start(), true); assert.equal(paused.start(), false); assert.equal(paused.stop(), true);
+        assert.deepEqual(await page.evaluate(() => window.inspectionCounts), { events: 0, calls: 0, getters: 0 });
+        fs.rmSync(dir, { recursive: true, force: true });
+        // Non-assessment page writes nothing.
+        await page.goto(origin + '/lesson');
+        const none = await captureAssessment(page, { dir: path.join(os.tmpdir(), 'ep-none-' + process.pid) });
+        assert.equal(none.guard, 'not-assessment');
+        assert.equal(fs.existsSync(path.join(os.tmpdir(), 'ep-none-' + process.pid)), false);
+        await page.goto(origin + '/lesson');
+        await page.evaluate(installGapsFixture);
+        await page.evaluate(() => { window.angular.element(document.body).scope().self.model.gameMode = 2; });
 
         // Page without a game model reports that honestly.
         await page.goto(origin + '/learning/dashboard');
