@@ -32,7 +32,7 @@
     "test:packaged:cli": "node scripts/packaged-cli-test.js",
     "test:windows-inert": "node scripts/windows-inert-tests-policy-test.js && node scripts/windows-inert-tests.js",
     "app": "electron app/start.js",
-    "test:app": "node scripts/app-session-test.js && node scripts/app-shell-test.js && node scripts/app-toggle-test.js && node scripts/app-bundle-test.js && node scripts/app-update-test.js && node scripts/app-maintenance-test.js"
+    "test:app": "node scripts/app-session-test.js && node scripts/app-shell-test.js && node scripts/app-toggle-test.js && node scripts/app-footer-test.js && node scripts/app-bundle-test.js && node scripts/app-update-test.js && node scripts/app-maintenance-test.js"
   },
   "engines": {
     "node": ">=22.12.0"

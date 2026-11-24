@@ -22,6 +22,8 @@ body {
 }
 #layout { display: flex; height: 100vh; }
 main {
+    display: flex;
+    flex-direction: column;
     padding: 16px;
     width: 420px;
     min-width: 380px;
@@ -51,12 +53,14 @@ main {
 header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 header h1 { font-size: 18px; margin: 0; flex: 1; }
 #version { color: var(--faint); font-size: 12px; }
+main > * { flex-shrink: 0; }
 #app-footer {
     position: sticky;
-    bottom: 0;
+    bottom: -16px;
+    margin: auto -16px -16px;
     text-align: right;
     background: var(--bg);
-    padding: 4px 0;
+    padding: 4px 16px;
 }
 /* Master-pane collapse: the header's toggle stays as the rail's only control. */
 #pane-toggle {
