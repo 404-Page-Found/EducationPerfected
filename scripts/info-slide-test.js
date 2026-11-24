@@ -41,6 +41,7 @@ const eachSequential = (values, run) => values.reduce((previous, value) => previ
                 const button = document.querySelector('#sa-navigation-controls button');
                 button.style.cssText = 'position:fixed;bottom:20px;right:30px;width:160px;height:32px';
                 const menu = document.getElementById('educationperfected-controls');
+                menu.style.top = 'auto'; menu.style.bottom = '12px';
                 menu.shadowRoot.querySelector('details').open = expanded;
                 window.savedMenuStyle = ['left', 'top', 'right', 'bottom'].map(name => menu.style.getPropertyValue(name));
             }, expanded);

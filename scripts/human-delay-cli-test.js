@@ -26,6 +26,11 @@ const { bootCli, fixtureLogin } = require('./cli-test-harness');
         await command('delay bogus', 'Use delay, delay on or delay off.');
         await command('delay off', 'Answer pacing: off (super speed)');
         await command('delay', 'Answer pacing: off (super speed)');
+        await login.page.goto(origin + '/lesson');
+        await command('mode semi', '"mode":"semi"');
+        await command('start', '"state":"running"');
+        await command('delay on', 'Stop the run before changing pacing.');
+        await command('stop', '"state":"stopped"');
         console.log('Human-delay CLI: report, on/off and refusal of custom ranges PASS. Synthetic only.');
     } finally {
         if (browser) await browser.close().catch(() => {});

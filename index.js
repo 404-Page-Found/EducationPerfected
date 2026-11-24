@@ -3085,6 +3085,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // per-type ranges in the reconstructions; delay off is the provisional
             // Dash recommendation (live scoring unproved).
             controls.delay = action => {
+                if (action && !['stopped', 'completed', 'error'].includes(controls.status().state)) return { error: 'Stop the run before changing pacing.' };
                 if (action === 'on') humanDelay.setEnabled(true);
                 else if (action === 'off') humanDelay.setEnabled(false);
                 else if (action) return { error: 'Use delay, delay on or delay off.' };
