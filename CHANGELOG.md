@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Browser accuracy and pacing now use on/off switches with immediate changes, confirmed-state sync and pending/running locks. Read buttons stay available. As with desktop settings, a storage-write failure keeps the session-only setting and terminal warning.
+- The browser control panel defaults to the top right while preserving a saved position. In the desktop app it appears only when the sidebar is collapsed; CLI sessions keep it visible.
+
 - Restrict floating browser-panel dragging, resize and saved positions to the page client area before the scrollbars, keeping the whole panel within the available height.
 
 - Keep the desktop version strip flush with the bottom of the left pane for both short and scrollable content.

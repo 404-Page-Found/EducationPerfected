@@ -124,6 +124,12 @@ async function main() {
         assert.equal(state.session, 'ready');
         assert.equal(typeof deps.launchOptions.connectBrowser, 'function');
         assert.equal(typeof deps.launchOptions.selectPage, 'function');
+        assert.equal(deps.launchOptions.controlPanelVisible(), false, 'desktop starts with sidebar expanded and panel hidden');
+        session.setSidebarCollapsed(true);
+        assert.equal(deps.launchOptions.controlPanelVisible(), true, 'collapsed sidebar shows panel');
+        session.setSidebarCollapsed(false);
+        assert.equal(deps.launchOptions.controlPanelVisible(), false, 'expanding sidebar hides panel');
+        assert.throws(() => session.setSidebarCollapsed('yes'), /boolean/);
         const guest = { marker: 'guest' };
         const browser = { waitForTarget: async (predicate, options) => {
             assert.equal(predicate({ type: () => 'page' }), false, 'never select the control window');

@@ -11,6 +11,11 @@ const { installControlMenu } = require('../lib/browser-controls');
             await page.evaluate(({ action, value, read }) => {
                 const root = document.getElementById('educationperfected-controls').shadowRoot;
                 const field = root.getElementById(action);
+                if (field?.type === 'checkbox' && !read) {
+                    field.checked = value === 'on';
+                    field.dispatchEvent(new Event('change', { bubbles: true }));
+                    return;
+                }
                 if (field && value !== undefined) field.value = value;
                 const buttons = [...root.querySelectorAll('button')];
                 buttons.find(button => button.dataset.action === action && Boolean(button.dataset.read) === read).click();
@@ -47,13 +52,14 @@ const { installControlMenu } = require('../lib/browser-controls');
             const rect = host.getBoundingClientRect();
             return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, vw: window.innerWidth, vh: window.innerHeight, bottomAnchor: host.style.bottom };
         });
-        assert.equal(placed.bottomAnchor, '12px', 'first expand keeps the bottom/right anchoring');
+        assert.equal(placed.bottomAnchor, 'initial', 'default top/right anchoring does not set bottom');
+        assert.equal(placed.top, 12, 'default panel starts at top right');
         assert.ok(placed.top >= 0 && placed.left >= 0 && placed.bottom <= placed.vh && placed.right <= placed.vw, 'first expand keeps the panel fully on screen');
         await press('mode', 'semi'); assert.equal((await page.evaluate(() => window.epControl('status'))).mode, 'semi');
         await press('accuracy', 'on'); assert.equal((await page.evaluate(() => window.epControl('status'))).accuracy.enabled, true);
-        await press('accuracy', 'bad'); assert.match(await message(), /^Couldn't apply accuracy: /, 'errors read as a sentence'); assert.match(await message(), /Usage/);
+        await assert.rejects(page.evaluate(() => window.epControl('accuracy', 'bad')), /Usage/);
         await press('delay', 'on');
-        await press('delay', '1.5-4'); assert.match(await message(), /^Couldn't apply pacing: /, 'errors read as a sentence'); assert.match(await message(), /Use delay, delay on or delay off/);
+        await assert.rejects(page.evaluate(() => window.epControl('delay', '1.5-4')), /Use delay, delay on or delay off/);
         await press('delay', 'off');
         await press('status');
         assert.match(await result(), /^Stopped\./m, 'status result leads with a readable state');
@@ -158,7 +164,7 @@ const { installControlMenu } = require('../lib/browser-controls');
             window.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: start.x - 300, clientY: start.y - 300, pointerId: 1 }));
         });
         const afterDrag = await panelPos();
-        assert.ok(Math.abs(afterDrag.left - (beforeDrag.left - 150)) < 2 && Math.abs(afterDrag.top - (beforeDrag.top - 120)) < 2, 'drag moves the panel with the pointer and stops at release');
+        assert.ok(Math.abs(afterDrag.left - (beforeDrag.left - 150)) < 2 && Math.abs(afterDrag.top - (Math.max(0, beforeDrag.top - 120))) < 2, 'drag moves the panel with the pointer and stops at release');
         assert.equal(await page.evaluate(() => document.getElementById('educationperfected-controls').shadowRoot.querySelector('details').open), true, 'the click ending a drag does not toggle the panel');
         await page.evaluate(() => {
             const root = document.getElementById('educationperfected-controls').shadowRoot;
@@ -179,7 +185,8 @@ const { installControlMenu } = require('../lib/browser-controls');
         assert.equal((await page.evaluate(() => window.epControl('status'))).state, 'running');
         await press('mode', 'auto'); assert.match(await message(), /Stop/);
         await press('refresh'); assert.match(await message(), /Stop/);
-        await press('accuracy', 'on'); assert.match(await message(), /Stop/);
+        assert.equal(await page.evaluate(() => document.getElementById('educationperfected-controls').shadowRoot.getElementById('accuracy').disabled), true);
+        await assert.rejects(page.evaluate(() => window.epControl('accuracy', 'on')), /Stop/);
         await press('stop'); console.log('Panel stop completed'); assert.equal((await page.evaluate(() => window.epControl('status'))).state, 'stopped');
         for (const route of ['/lesson', '/app', '/lesson']) {
             await page.goto(origin + route); await ready(); console.log('Panel navigation', route);

@@ -7,6 +7,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 const CHANNELS = {
     getState: 'ep:get-state',
+    sidebarCollapsed: 'ep:sidebar-collapsed',
     refreshSetup: 'ep:refresh-setup',
     saveLogin: 'ep:save-login',
     forgetLogin: 'ep:forget-login',
@@ -29,6 +30,7 @@ const listen = channel => fn => ipcRenderer.on(channel, (event, payload) => fn(p
 
 contextBridge.exposeInMainWorld('educationPerfected', {
     getState: () => invoke(CHANNELS.getState),
+    setSidebarCollapsed: collapsed => invoke(CHANNELS.sidebarCollapsed, collapsed),
     refreshSetup: () => invoke(CHANNELS.refreshSetup),
     saveLogin: (email, password) => invoke(CHANNELS.saveLogin, email, password),
     forgetLogin: () => invoke(CHANNELS.forgetLogin),

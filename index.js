@@ -394,7 +394,7 @@ async function resolveCredentials(watchForSession) {
 
 // ===== Program ===== //
 
-async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected = () => {}, onStartupPhase = () => {}, legacySignals = false, gapsFillOnly = false, choiceSelectOnly = false, gapsSubmitOnce = false, textboxFillOnly = false, dropdownSubmitOnce = false, multiSelectOnly = false, reflectionTextProvider, accuracy = {}, connectBrowser = null, selectPage = null } = {}) {
+async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected = () => {}, onStartupPhase = () => {}, legacySignals = false, gapsFillOnly = false, choiceSelectOnly = false, gapsSubmitOnce = false, textboxFillOnly = false, dropdownSubmitOnce = false, multiSelectOnly = false, reflectionTextProvider, accuracy = {}, connectBrowser = null, selectPage = null, controlPanelVisible = () => true } = {}) {
     // F4 popup is the only normal-run dropdown input path. The older
     // Home/ArrowDown mechanism remains only in explicit synthetic regression
     // fixtures and the local EP-free diagnostic; there is no env rollback.
@@ -3096,14 +3096,19 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             browser.on('disconnected', () => { controls.browserClosed(); onBrowserDisconnected(); });
 
             const { createBrowserControl, installControlMenu } = require('./lib/browser-controls');
-            await page.exposeFunction('epControl', createBrowserControl({
+            const browserControl = createBrowserControl({
                 controls,
                 validationOnly,
                 restartNeeded: () => controls.status().state === 'running' && !TOGGLE,
                 notify: notifyControl,
-            }));
-            await page.evaluateOnNewDocument(installControlMenu);
-            await page.evaluate(installControlMenu);
+            });
+            await page.exposeFunction('epControl', async (action, value) => {
+                const result = await browserControl(action, value);
+                return action === 'status' ? { ...result, controlPanelVisible: controlPanelVisible() } : result;
+            });
+            const panelOptions = { visible: controlPanelVisible() };
+            await page.evaluateOnNewDocument(installControlMenu, panelOptions);
+            await page.evaluate(installControlMenu, panelOptions);
 
             // Expose API functions to the page (for hotkey event listeners to call).
             // These bindings live on the browser context, not on the document, so they

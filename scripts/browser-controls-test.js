@@ -28,6 +28,7 @@ const { createBrowserControl } = require('../lib/browser-controls');
     await assert.rejects(call('__proto__'), /Unknown browser control/);
     await call('start');
     await assert.rejects(call('mode', 'auto'), /Stop/);
+    await assert.rejects(call('delay', 'on'), /Stop/);
     await assert.rejects(call('refresh'), /Stop/);
     await assert.rejects(call('inspect-dash'), /Unknown browser control/);
     restart = true;
