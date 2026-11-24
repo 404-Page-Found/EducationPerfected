@@ -94,10 +94,7 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
                 else if (command === 'inspect-components') output.write('EP_COMPONENTS_INSPECT ' + JSON.stringify(await controls.inspectComponents()) + '\n');
                 else if (command === 'inspect-assessment') output.write('EP_ASSESSMENT_INSPECT ' + JSON.stringify(await controls.inspectAssessment()) + '\n');
                 else if (command === 'watch-assessment' || command.startsWith('watch-assessment ')) {
-                    let watch;
-                    try { watch = controls.watchAssessment(command.slice(16).trim()); }
-                    catch (e) { output.write(String(e && e.message ? e.message : e) + '\n'); continue; }
-                    output.write('Assessment watch: ' + (watch.watching ? 'on' : 'off') + ', ' + watch.captures + ' capture(s) written. Passive read-only; a new file is written only when the page changes.\n');
+                    if (!require('../lib/assessment-diagnostics').runWatchCommand(controls, command.slice(16), output)) continue;
                 }
                 else if (command === 'refresh') await controls.refresh();
                 else if (command === 'quit' || command === 'exit') { await quit(); print(); break; }

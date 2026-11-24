@@ -3042,8 +3042,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 inspect: () => collectSelfMarkDiagnostics(page),
                 inspectDash: () => require('./lib/dash-diagnostics').collectDashDiagnostics(page),
                 inspectComponents: () => require('./lib/components-diagnostics').collectComponentsDiagnostics(page),
-                inspectAssessment: () => require('./lib/assessment-diagnostics').captureAssessment(page),
-                assessmentWatcher: require('./lib/assessment-diagnostics').createAssessmentWatcher({ page, isBusy: () => ['running', 'stopping', 'updating'].includes(controls.status().state), log: line => console.log(line) }),
+                ...require('./lib/assessment-diagnostics').assessmentControls({ page, status: () => controls.status() }),
                 close: () => legacySignals && startupSignal ? closeSignalBrowser() : (ownsBrowser ? browser.close() : Promise.resolve().then(() => browser.disconnect())),
             });
             // Issue #222: expose accuracy in status and allow tuning when stopped.
