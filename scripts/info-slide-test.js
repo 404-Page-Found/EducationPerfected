@@ -136,6 +136,23 @@ const eachSequential = (values, run) => values.reduce((previous, value) => previ
         assert.equal(result.status, 'advanced', JSON.stringify(result));
         assert.equal((await detectQuestion(page)).kind, 'unsupported');
         assert.deepEqual(await page.evaluate(() => [infoSlideFixture.clicks.length, infoSlideFixture.submits]), [1, 0]);
+        for (const mode of ['invalidIdentity', 'assessment', 'dash', 'unbound']) {
+            await setup();
+            await page.evaluate(mode => {
+                const f = infoSlideFixture;
+                f.unsupportedAfterClick = true;
+                document.querySelector('#sa-navigation-controls button').addEventListener('click', () => {
+                    f.q.questionIndex++;
+                    if (mode === 'invalidIdentity') f.q.contentID = 0;
+                    if (mode === 'assessment') f.self.model.gameMode = 2;
+                    if (mode === 'dash') f.self.model.isDash = true;
+                    if (mode === 'unbound') window.angular = { element: () => ({ scope: () => ({}) }) };
+                });
+            }, mode);
+            result = await playInfoSlideRound(page, await detectQuestion(page), { enter: true, timeout: 300 });
+            assert.equal(result.status, 'stopped', mode + JSON.stringify(result));
+            assert.deepEqual(await page.evaluate(() => [infoSlideFixture.clicks.length, infoSlideFixture.submits]), [1, 0], mode);
+        }
         // Detection-level refusals: every deviation is unsupported, never an info-slide.
         const mutate = (name) => page.evaluate((m) => {
             const f = window.infoSlideFixture;
