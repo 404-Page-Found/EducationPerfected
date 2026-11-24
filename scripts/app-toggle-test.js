@@ -44,7 +44,7 @@ const puppeteer = require('puppeteer');
         await page.click('#accuracy');
         assert.equal(await page.evaluate(() => calls.length), 3);
         await page.evaluate(() => { state.status.state = 'stopped'; document.getElementById('action-message').hidden = true; pushState(state); });
-        if (process.env.EP_TOGGLE_SCREENSHOT) await page.screenshot({ path: process.env.EP_TOGGLE_SCREENSHOT });
+        if (process.env.EP_TOGGLE_SCREENSHOT) await page.screenshot({ path: process.env.EP_TOGGLE_SCREENSHOT, clip: { x: 0, y: 0, width: 420, height: 810 } });
         console.log('Desktop toggle renderer: saved-state sync, mouse/keyboard changes, rejected-action rollback and running locks pass.');
     } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });
