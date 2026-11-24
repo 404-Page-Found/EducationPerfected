@@ -144,3 +144,15 @@ pre.log {
     overflow: auto;
     white-space: pre-wrap;
 }
+
+.setting-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--button-hover); }
+.setting-row > div { flex: 1; }
+.setting-row label { font-weight: 600; }
+.setting-row .fine { margin: 3px 0 0; }
+.setting-row .setting-toggle { appearance: none; flex: none; width: 42px; height: 24px; min-height: 24px; border: 0; border-radius: 16px; background: #475569; padding: 3px; margin: 0; cursor: pointer; }
+.setting-toggle::before { content: ''; display: block; width: 18px; height: 18px; border-radius: 50%; background: white; }
+.setting-row .setting-toggle:checked { background: #3b82f6; }
+.setting-toggle:checked::before { transform: translateX(18px); }
+.setting-toggle:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+.setting-toggle:disabled { opacity: .5; cursor: not-allowed; }
+.setting-row > span { min-width: 24px; }

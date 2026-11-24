@@ -17,6 +17,7 @@ let latest = null;
 let startedOnce = false;
 let reflectionId = null;
 let updateCheckedOnce = false;
+const pendingSettings = new Set();
 
 // --- Wiring ---
 
@@ -144,8 +145,13 @@ function renderMain(state) {
     $('stop').disabled = busy;
     $('refresh-words').disabled = busy;
     $('apply-mode').disabled = busy;
-    $('apply-accuracy').disabled = busy;
-    $('apply-delay').disabled = busy;
+    const settingsBusy = busy || !['stopped', 'completed', 'error'].includes(status?.state);
+    for (const [id, enabled] of [['accuracy', status?.accuracy?.enabled], ['delay', status?.pacing?.enabled]]) {
+        const pending = pendingSettings.has(id);
+        $(id).disabled = settingsBusy || pending || typeof enabled !== 'boolean';
+        if (!pending) $(id).checked = enabled === true;
+        $(id + '-value').textContent = $(id).checked ? 'On' : 'Off';
+    }
     // Don't clobber an unapplied mode choice with the one-second poll.
     if (status && status.mode && document.activeElement !== $('mode')) $('mode').value = status.mode;
     $('login-status').textContent = state.setup.hasLogin
@@ -237,8 +243,32 @@ $('start').addEventListener('click', () => run('start'));
 $('stop').addEventListener('click', () => run('stop'));
 $('refresh-words').addEventListener('click', () => run('refresh'));
 $('apply-mode').addEventListener('click', () => run('mode', $('mode').value));
-$('apply-accuracy').addEventListener('click', () => run('accuracy', $('accuracy').value));
-$('apply-delay').addEventListener('click', () => run('delay', $('delay').value));
+async function toggleSetting(id) {
+    if (pendingSettings.has(id)) return;
+    const stateKey = id === 'accuracy' ? 'accuracy' : 'pacing';
+    const status = latest?.status;
+    if (!status || !['stopped', 'completed', 'error'].includes(status.state)) {
+        if (latest) renderMain(latest);
+        return;
+    }
+    pendingSettings.add(id);
+    const enabled = $(id).checked;
+    $(id).disabled = true;
+    $(id + '-value').textContent = enabled ? 'On' : 'Off';
+    showMessage('', false);
+    try {
+        await api.action(id === 'accuracy' ? 'accuracy' : 'delay', enabled ? 'on' : 'off');
+    } catch (error) {
+        $(id).checked = status[stateKey]?.enabled === true;
+        showMessage(String(error?.message || error), true);
+    } finally {
+        pendingSettings.delete(id);
+        try { render(await api.getState()); }
+        catch { if (latest) renderMain(latest); }
+    }
+}
+$('accuracy').addEventListener('change', () => toggleSetting('accuracy'));
+$('delay').addEventListener('change', () => toggleSetting('delay'));
 
 $('save-login').addEventListener('click', async () => {
     $('login-error').hidden = true;
