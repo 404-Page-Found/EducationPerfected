@@ -1,6 +1,6 @@
 # Developer guide
 
-Build prerequisites, development builds, one-question validation helpers, and test notes. For user-facing install and usage, see the [README](../README.md).
+Build prerequisites, development builds, one-question validation helpers, and test notes. For user-facing setup and controls, start at the [documentation index](README.md).
 
 ## Standalone development builder prerequisite
 
@@ -154,7 +154,7 @@ A saved login is read as one versioned record. Existing environment-variable and
 This is source-build work, not a packaged release. Native disposable tests now cover Linux x64/ARM64 private-store CRUD, Windows x64 source-worker CRUD and SEA visible-input setup, cancellation, raw byte3 interruption, health-read and deletion, plus Mac ARM64/Intel source CRUD and packaged setup/health-read/delete. Mac exact packaged values and normal saved-login use remain unproved; see `release/native-validation.md`. Browser bundling, native module extraction, signing/distribution and five-target release checks must pass before claiming standalone support. Run `npm run test:store` for isolated adapter/setup contract tests; those tests never access a real credential store.
 
 
-## Desktop app (stage 2, in progress)
+## Desktop app architecture and maintenance
 
 `npm run app` starts the Electron window from source (devDependency `electron`; needs a display). The app shares the CLI's engine (`index.js`), run controls, app config and OS credential store, and drives an embedded browser view inside its own window (Electron's Chromium, attached over the loopback debugging port; the pinned-browser download path serves the terminal CLI, while the app embeds its browser); `app/session.js` is the electron-free, fully injected orchestrator and `app/main.js` only wires the window and the allowlisted IPC. `npm run test:app` covers the session contract, the shell wiring and the installer payload layout without the Electron binary, and runs inside `test:phase3`. A real launch is covered separately: the App launch smoke workflow builds the actual payload on all five native runners and launches it headless-safe (xvfb on Linux), requiring a loaded window, a sandboxed-preload IPC roundtrip, selection and offline navigation of the real embedded webview, visible maintenance controls across startup states, and a clean self-quit on the exact layout the installers ship - no release, browser download, login or live EP traffic.
 
@@ -165,3 +165,5 @@ The app's Settings carries the update command the terminal CLI owns, so an insta
 The desktop app attaches to Electron's `webview` CDP target, not `browser.pages()` (which omits webviews). The selector waits for guest creation and the core awaits that selection before using the page. App update lives outside session-specific screens, so it remains reachable after startup failure. Windows has one EducationPerfected Start-menu launcher for the desktop window; the terminal CLI stays available as the `educationperfected` command. Upgrades are designed to remove the former EducationPerfected App shortcut. Windows launcher and upgrade cleanup have source/policy-test evidence; native installer interaction is still unverified.
 
 Windows setup CLI updates also use the full installer (`packaging/installed-update.js`), selected from the recorded or inferred setup-exe install method before the raw-binary updater runs. This upgrades Electron and rewrites legacy CLI Start-menu shortcuts along with the CLI. Missing desktop payloads permit same-version repair, never downgrade; a leftover raw-update backup does not block repair. Raw executable, PowerShell and npm routes retain CLI-only behavior. The original v2026.11.16 updater cannot gain this logic retroactively: affected installations must run the current setup installer once.
+
+The desktop passes `browserControls: false` to the shared engine. It installs no browser panel, page control binding or panel navigation hook. CLI/legacy sessions keep the panel enabled by default. Sidebar collapse is local desktop layout only. `scripts/desktop-no-browser-panel-test.js` verifies this with an offline lesson on initial load and after navigation.
