@@ -355,6 +355,9 @@ function createAppSession({
         async action(name, value) {
             if (!ACTIONS.has(name)) throw new Error('Unknown app control.');
             if (!controls) throw new Error('The browser session is not running.');
+            if (['accuracy', 'delay'].includes(name) && !['stopped', 'completed', 'error'].includes(controls.status()?.state)) {
+                throw new Error('Stop the run before changing settings.');
+            }
             let result;
             switch (name) {
                 case 'status': return controls.status();

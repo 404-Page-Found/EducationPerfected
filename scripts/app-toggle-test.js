@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const puppeteer = require('puppeteer');
 (async () => {
     const browser = await puppeteer.launch({ headless: 'shell', executablePath: process.env.HANDLER_EXECUTABLE_PATH });
@@ -22,8 +23,9 @@ const puppeteer = require('puppeteer');
                 }
             };
         });
-        page.on('pageerror', e => console.error('PAGE', e.message));
-        await page.goto('file://' + path.join(__dirname, '../app/renderer/index.html'));
+        const pageErrors = [];
+        page.on('pageerror', e => pageErrors.push(e.message));
+        await page.goto(pathToFileURL(path.join(__dirname, '../app/renderer/index.html')).href);
         await page.waitForFunction(() => !document.getElementById('main-screen').hidden, {timeout:2000});
         assert.equal(await page.$eval('#accuracy', el => el.type), 'checkbox');
         assert.equal(await page.$eval('#accuracy', el => el.checked), false);
@@ -54,6 +56,7 @@ const puppeteer = require('puppeteer');
         assert.equal(await page.evaluate(() => calls.length), 4);
         await page.evaluate(() => { state.status.state = 'stopped'; document.getElementById('action-message').hidden = true; pushState(state); });
         if (process.env.EP_TOGGLE_SCREENSHOT) await page.screenshot({ path: process.env.EP_TOGGLE_SCREENSHOT, clip: { x: 0, y: 0, width: 420, height: 810 } });
+        assert.deepEqual(pageErrors, [], 'uncaught renderer errors');
         console.log('Desktop toggle renderer: saved-state sync, mouse/keyboard changes, rejected-action rollback and running locks pass.');
     } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

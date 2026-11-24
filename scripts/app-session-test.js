@@ -31,6 +31,7 @@ function makeDeps(overrides = {}) {
     const calls = [];
     const events = [];
     const controls = makeControls(calls);
+    if (overrides.controlsStatus) controls.status = overrides.controlsStatus;
     const deps = {
         launchProgram: async options => { deps.launchOptions = options; return controls; },
         ensureBrowser: async () => '/fake/chrome',
@@ -201,6 +202,22 @@ async function main() {
         await expectReject(session.action('mode', 'weird'), /Mode must be auto or semi/);
         await expectReject(session.action('delay', 'bad'), /Use delay, delay on or delay off/);
         console.log('ok control action mapping and validation');
+    }
+
+    // A stale renderer cannot change config after a browser hotkey starts a run.
+    {
+        let state = 'stopped';
+        const { deps, calls } = makeDeps({ controlsStatus: () => ({ state }) });
+        const session = createAppSession(deps);
+        await session.refreshSetup(); session.completeWizard(); await session.startSession();
+        for (state of ['running', 'stopping', 'closing', 'updating']) {
+            await expectReject(session.action('accuracy', 'on'), /Stop the run/);
+            await expectReject(session.action('delay', 'on'), /Stop the run/);
+        }
+        assert.deepEqual(calls, []);
+        state = 'stopped';
+        await session.action('delay', 'on');
+        assert.deepEqual(calls, ['delay:on']);
     }
 
     // Reflection approval: request event, validated fill, cancel, and core-side cancel.

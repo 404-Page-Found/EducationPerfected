@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Desktop accuracy and pacing now use labelled on/off switches instead of text boxes and Apply buttons. Switches reflect saved state, save immediately and lock while running or applying a change. Failed changes restore the saved state and show the error.
+- Desktop accuracy and pacing now use labelled on/off switches instead of text boxes and Apply buttons. Switches reflect saved state, save immediately and lock while running or applying a change. Rejected setting actions restore the last reported state and show the error. Storage-write failures retain the existing session-only behavior with a terminal warning; the switches do not guarantee persistence if storage is unavailable.
 
 - Information-slide Continue can prove advance to an unsupported renderer from a changed valid identity in the same visible lesson model. The next round still refuses unsafe questions, and an unchanged identity still stops without retry. Synthetic regression coverage only.
 
