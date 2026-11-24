@@ -62,13 +62,6 @@ const { installControlMenu } = require('../lib/browser-controls');
         if (process.env.EP_TOGGLE_SCREENSHOT) await page.screenshot({ path: process.env.EP_TOGGLE_SCREENSHOT });
         await page.evaluate(() => { const h = document.getElementById('educationperfected-controls'); h.style.left = '400px'; h.style.top = '90px'; h.style.right = 'auto'; h.style.bottom = 'auto'; });
         await page.evaluate(() => { const summary = document.getElementById('educationperfected-controls').shadowRoot.querySelector('summary'); const r = summary.getBoundingClientRect(); for (const [type,x,y] of [['pointerdown',r.left+10,r.top+10],['pointermove',r.left+30,r.top+30],['pointerup',r.left+30,r.top+30]]) summary.dispatchEvent(new PointerEvent(type,{bubbles:true,clientX:x,clientY:y,pointerId:1,button:0})); });
-        const beforeHide = await page.evaluate(() => { const h=document.getElementById('educationperfected-controls'); return {left:h.style.left,top:h.style.top}; });
-        await page.evaluate(() => { state.controlPanelVisible = false; });
-        await page.waitForFunction(() => getComputedStyle(document.getElementById('educationperfected-controls')).display === 'none', { timeout: 1800 });
-        await page.setViewport({width:910,height:810});
-        await page.evaluate(() => { state.controlPanelVisible = true; });
-        await page.waitForFunction(() => getComputedStyle(document.getElementById('educationperfected-controls')).display !== 'none');
-        assert.deepEqual(await page.evaluate(() => {const h=document.getElementById('educationperfected-controls');return {left:h.style.left,top:h.style.top};}), beforeHide, 'hidden panel keeps retained coordinates');
         assert.deepEqual(errors, []);
         console.log('Browser toggles: confirmed status, mouse/keyboard, pending locks, rejection rollback and running locks pass.');
     } finally { await browser.close(); }

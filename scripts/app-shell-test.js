@@ -18,7 +18,6 @@ function fakeSession() {
     return {
         calls,
         getState: record('getState'),
-        setSidebarCollapsed: record('setSidebarCollapsed'),
         refreshSetup: record('refreshSetup'),
         saveLogin: record('saveLogin'),
         forgetLogin: record('forgetLogin'),
@@ -72,7 +71,6 @@ async function main() {
     // Every IPC channel maps onto the matching session method, nothing else.
     const expected = [
         [IPC.getState, 'getState', []],
-        [IPC.sidebarCollapsed, 'setSidebarCollapsed', [true]],
         [IPC.refreshSetup, 'refreshSetup', []],
         [IPC.saveLogin, 'saveLogin', ['a@b.c', 'pw']],
         [IPC.forgetLogin, 'forgetLogin', []],
@@ -155,7 +153,7 @@ async function main() {
     assert.deepEqual(Object.keys(api).sort(byName), [
         'action', 'applyUpdate', 'checkUpdate', 'completeWizard', 'forgetLogin', 'getState',
         'onMaintenanceProgress', 'onReflectionRequest', 'onReflectionSettled', 'onState',
-        'refreshSetup', 'respondReflection', 'saveLogin', 'setSidebarCollapsed', 'startSession',
+        'refreshSetup', 'respondReflection', 'saveLogin', 'startSession',
     ].sort(byName));
     await api.action('start', undefined);
     await api.saveLogin('a@b.c', 'pw');

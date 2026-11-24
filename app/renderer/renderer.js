@@ -26,10 +26,6 @@ const pendingSettings = new Set();
 $('pane-toggle').addEventListener('click', () => {
     const pane = $('app');
     const collapsed = pane.classList.toggle('collapsed');
-    void window.educationPerfected.setSidebarCollapsed(collapsed).catch(error => {
-        $('action-message').textContent = `Couldn't update browser controls: ${error.message || error}`;
-        $('action-message').hidden = false;
-    });
     const toggle = $('pane-toggle');
     toggle.setAttribute('aria-expanded', String(!collapsed));
     toggle.title = collapsed ? 'Show the pane' : 'Hide this pane';

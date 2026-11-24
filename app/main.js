@@ -10,7 +10,6 @@ const RENDERER_CSP = ["default-src 'self'", "script-src 'self'", "style-src 'sel
 
 const IPC = {
     getState: 'ep:get-state',
-    sidebarCollapsed: 'ep:sidebar-collapsed',
     refreshSetup: 'ep:refresh-setup',
     saveLogin: 'ep:save-login',
     forgetLogin: 'ep:forget-login',
@@ -147,7 +146,6 @@ function createElectronApp({ electron, session }) {
     }
 
     function registerIpc() {
-        ipcMain.handle(IPC.sidebarCollapsed, (event, collapsed) => session.setSidebarCollapsed(collapsed));
         ipcMain.handle(IPC.getState, () => session.getState());
         ipcMain.handle(IPC.refreshSetup, () => session.refreshSetup());
         // Login fields travel as two arguments so the preload never builds objects.

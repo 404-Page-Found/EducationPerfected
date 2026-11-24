@@ -65,7 +65,6 @@ function createAppSession({
         return embeddedConnection;
     };
     const pickAutomationPage = selectPage || ((_pages, browser) => require('./embedded-browser').selectEmbeddedPage(browser));
-    let controlPanelVisible = false;
     let setup = { browserReady: null, hasLogin: null, wizardDone: false };
     let sessionState = 'idle'; // idle | starting | ready | failed | closed
     let sessionError = null;
@@ -304,11 +303,6 @@ function createAppSession({
             return getState();
         },
 
-        setSidebarCollapsed(collapsed) {
-            if (typeof collapsed !== 'boolean') throw new Error('Sidebar state must be a boolean.');
-            controlPanelVisible = collapsed;
-        },
-
         async startSession() {
             if (sessionState === 'starting' || sessionState === 'ready') return getState();
             if (!setup.wizardDone) throw new Error('Finish first-run setup before starting.');
@@ -324,7 +318,7 @@ function createAppSession({
                 launching = Promise.resolve().then(() => launchProgram({
                     connectBrowser: connectEmbeddedBrowser,
                     selectPage: pickAutomationPage,
-                    controlPanelVisible: () => controlPanelVisible,
+                    browserControls: false,
                     onStartupPhase: phase => { startupPhase = phase; emitState(); },
                     onBrowserClosed: () => { resetSession('closed'); },
                     onBrowserDisconnected: () => { resetSession('closed'); },

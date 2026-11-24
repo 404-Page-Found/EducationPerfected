@@ -13,7 +13,6 @@ const puppeteer = require('puppeteer');
             window.educationPerfected = {
                 onMaintenanceProgress: () => {}, onReflectionRequest: () => {}, onReflectionSettled: () => {},
                 onState: fn => { window.pushState = fn; }, getState: async () => state,
-                setSidebarCollapsed: async value => { window.sidebarState = value; },
                 action: async (name, value) => {
                     calls.push([name, value]);
                     if (window.deferAction) await new Promise(resolve => { window.releaseAction = resolve; });
@@ -58,9 +57,9 @@ const puppeteer = require('puppeteer');
         await page.evaluate(() => { state.status.state = 'stopped'; document.getElementById('action-message').hidden = true; pushState(state); });
         if (process.env.EP_TOGGLE_SCREENSHOT) await page.screenshot({ path: process.env.EP_TOGGLE_SCREENSHOT, clip: { x: 0, y: 0, width: 420, height: 810 } });
         await page.click('#pane-toggle');
-        await page.waitForFunction(() => window.sidebarState === true && document.getElementById('app').classList.contains('collapsed'));
+        await page.waitForFunction(() => document.getElementById('app').classList.contains('collapsed'));
         await page.click('#pane-toggle');
-        await page.waitForFunction(() => window.sidebarState === false && !document.getElementById('app').classList.contains('collapsed'));
+        await page.waitForFunction(() => !document.getElementById('app').classList.contains('collapsed'));
         assert.deepEqual(pageErrors, [], 'uncaught renderer errors');
         console.log('Desktop toggle renderer: saved-state sync, mouse/keyboard changes, rejected-action rollback and running locks pass.');
     } finally { await browser.close(); }
