@@ -61,6 +61,6 @@ const puppeteer = require('puppeteer');
         await page.click('#pane-toggle');
         await page.waitForFunction(() => !document.getElementById('app').classList.contains('collapsed'));
         assert.deepEqual(pageErrors, [], 'uncaught renderer errors');
-        console.log('Desktop toggle renderer: saved-state sync, mouse/keyboard changes, rejected-action rollback and running locks pass.');
+        console.log('Desktop toggle renderer: control-state sync, mouse/keyboard changes, rejection rollback, running locks and local pane collapse pass.');
     } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });
