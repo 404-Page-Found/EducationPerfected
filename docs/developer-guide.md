@@ -87,7 +87,7 @@ On an Assessment page, with the CLI stopped:
 3. Type `inspect-assessment` once. Paste the line beginning `EP_ASSESSMENT_INSPECT`.
 4. Type `quit`.
 
-It reads structure only (counts, shapes, fixed component codes), no question, answer or button text, and clicks nothing. Assessment answering remains disabled.
+It reads structure only (counts, shapes, fixed component codes). It records no question, answer or button text, and it clicks nothing. On a page that is not an Assessment it reports `not-assessment` (or `model-unreadable` when no game model can be read). EP's own autosave keeps running during the capture, so type no answers. Assessment answering remains disabled.
 
 ### Read-only slide component inspection (#231)
 

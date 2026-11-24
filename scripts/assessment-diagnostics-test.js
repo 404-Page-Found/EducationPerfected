@@ -92,7 +92,7 @@ const SHELL = () => {
         await page.evaluate(() => {
             window.angular.element(document.body).scope().self.model.gameMode = 2;
             window.inspectionCounts = { events: 0 };
-            for (const name of ['click', 'keydown', 'input', 'submit']) document.addEventListener(name, () => window.inspectionCounts.events++, true);
+            for (const name of ['click', 'keydown', 'input', 'change', 'focus', 'submit']) document.addEventListener(name, () => window.inspectionCounts.events++, true);
         });
         child.stdin.write('mode auto\n');
         await wait(() => session.output.includes('"mode":"auto"'));
@@ -100,8 +100,9 @@ const SHELL = () => {
         child.stdin.write('start\n');
         await wait(() => session.output.slice(offset).includes('answerLoop Exited.'));
         const run = session.output.slice(offset);
+        const runLines = new Set(run.split('\n'));
         assert.ok(run.includes(REASON), 'run names Assessment mode');
-        for (const bad of ['missing current lesson identity', 'no usable text']) assert.equal(run.includes(bad), false, bad);
+        for (const bad of ['missing current lesson identity', 'no usable text']) assert.equal(run.includes(bad) || runLines.has(bad), false, bad);
         assert.deepEqual(await page.evaluate(() => window.inspectionCounts), { events: 0 });
         child.stdin.write('quit\n');
         await wait(() => child.exitCode !== null);
