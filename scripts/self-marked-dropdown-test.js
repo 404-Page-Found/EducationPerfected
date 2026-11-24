@@ -45,6 +45,14 @@ const { readDropdownsInPage } = require('../lib/dropdown-state');
             assert.deepEqual(await page.evaluate(() => [dropdownFixture.submits, dropdownFixture.nexts]), [0, 0], mode);
             if (mode !== 'changed') assert.equal(await page.evaluate(() => dropdownFixture.keys.length), 0, mode);
         }
+        for (const flag of ['true', 1, null]) {
+            await setup();
+            await page.evaluate(flag => Object.assign(dropdownFixture.self.sectionData.activityGroup, { isAutoMarked: true, isSelfMarked: flag }), flag);
+            const d = await detectQuestion(page);
+            assert.equal(d.kind, 'unsupported');
+            assert.equal((await playDropdownRound(page, d, { enter: true })).status, 'stopped');
+            assert.deepEqual(await page.evaluate(() => [dropdownFixture.keys.length, dropdownFixture.submits]), [0, 0]);
+        }
         console.log('Explicit self-marked dropdowns: fill-only in both modes; no submission/self-grade/Next; unsafe and changed states refused.');
     } finally {
         if (browser) await browser.close();
