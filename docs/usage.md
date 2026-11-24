@@ -27,6 +27,7 @@ The CLI opens a browser window, loads EP's login page and waits. Sign in in the 
 - `inspect-self-mark` - read-only capture of a self-mark (Reflection) page
 - `inspect-dash` - read-only capture of a Dash round's structure (used for shapes the Dash answerer refuses)
 - `inspect-components` - read-only capture of a slide's question components (used for slides the answerer refuses on an accompanying component)
+- `inspect-assessment` - read-only structural capture of an Assessment page (Assessment answering stays disabled)
 - `quit` - close the CLI
 
 CLI and legacy terminal sessions have a collapsible **EducationPerfected** menu in the top-right
@@ -36,7 +37,7 @@ plain sentences ("Running.", "Pacing: a short human-like pause before each answe
 raw JSON under **Technical details**.
 Below that are the controls: start/stop, change mode, refresh words, and set/read
 accuracy and pacing with on/off toggles and separate Read buttons. Changes are disabled while a run or setting change is active. Read-only inspections (`inspect-self-mark`, `inspect-dash`,
-`inspect-components`) stay terminal-only developer commands and are not in the
+`inspect-components`, `inspect-assessment`) stay terminal-only developer commands and are not in the
 menu. Drag it by its
 header to move it anywhere on screen; the position is remembered across pages and
 it cannot be lost off-screen. Collapse it when it covers task content; its inputs

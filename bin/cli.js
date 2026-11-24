@@ -38,7 +38,7 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
     });
     controls = await launch({ onBrowserClosed, onBrowserDisconnected: browserGone, reflectionTextProvider: requestReflectionText, accuracy });
     terminal = readline.createInterface({ input, output, terminal: Boolean(input.isTTY && output.isTTY) });
-    output.write('Commands: start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components, quit\n');
+    output.write('Commands: start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components, inspect-assessment, quit\n');
     const print = () => output.write(JSON.stringify(controls.status()) + '\n');
     const onSignal = () => { quit().catch(error => output.write(diagnostic(error, 'Shutdown') + '\n')); };
     terminal.on('SIGINT', onSignal);
@@ -92,12 +92,13 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
                 else if (command === 'inspect-self-mark') output.write('EP_SELF_MARK_INSPECT ' + JSON.stringify(await controls.inspect()) + '\n');
                 else if (command === 'inspect-dash') output.write('EP_DASH_INSPECT ' + JSON.stringify(await controls.inspectDash()) + '\n');
                 else if (command === 'inspect-components') output.write('EP_COMPONENTS_INSPECT ' + JSON.stringify(await controls.inspectComponents()) + '\n');
+                else if (command === 'inspect-assessment') output.write('EP_ASSESSMENT_INSPECT ' + JSON.stringify(await controls.inspectAssessment()) + '\n');
                 else if (command === 'refresh') await controls.refresh();
                 else if (command === 'quit' || command === 'exit') { await quit(); print(); break; }
-                else { output.write('Unknown command. Use start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components or quit.\n'); continue; }
+                else { output.write('Unknown command. Use start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components, inspect-assessment or quit.\n'); continue; }
                 print();
             } catch {
-                output.write(command === 'inspect-self-mark' || command === 'inspect-dash' || command === 'inspect-components'
+                output.write(command === 'inspect-self-mark' || command === 'inspect-dash' || command === 'inspect-components' || command === 'inspect-assessment'
                     ? 'Inspection unavailable. Stop answering and wait for pending controls before read-only inspection.\n'
                     : 'Command failed. Stop the run before mode or word-list changes; inspect the browser if a control failed.\n');
             }

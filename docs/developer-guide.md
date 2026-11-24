@@ -78,6 +78,17 @@ refresh are locked out. Waiting is bounded to two seconds; a remote read already
 in flight may finish later, but it has no write path. Existing answering guards
 are unchanged. A capture is not permission for live answering.
 
+### Read-only Assessment capture (#33)
+
+On an Assessment page, with the CLI stopped:
+
+1. Run `node bin/cli.js`, finish sign-in, and open the Assessment question.
+2. Do not type `start` or use the answering hotkey.
+3. Type `inspect-assessment` once. Paste the line beginning `EP_ASSESSMENT_INSPECT`.
+4. Type `quit`.
+
+It reads structure only (counts, shapes, fixed component codes), no question, answer or button text, and clicks nothing. Assessment answering remains disabled.
+
 ### Read-only slide component inspection (#231)
 
 When a Smart Lesson slide stops on an accompanying component the answerer does not
