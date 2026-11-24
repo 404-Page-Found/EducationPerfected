@@ -255,6 +255,8 @@ The dedicated desktop app ships with the OS installers; its remaining goals are 
 - **Packaged maintenance:** see [runtime storage and uninstall](release/runtime-storage.md). `uninstall` requires typed confirmation and keeps each item unless you choose otherwise. `update` uses published stable GitHub Releases with verified checksums. The desktop app keeps update reachable in App settings before startup and after a startup failure (disabled in a source or development copy, which keeps the terminal commands); uninstall the app from your OS or package manager (see [Uninstall](#uninstall)).
 - **Disclaimer:** read the [detailed disclaimer](docs/disclaimer.md) before use: automating schoolwork can breach school or service rules, and may be detected, marked wrong, or acted on. The software is provided as-is, at your own risk.
 
+Explicit self-marked Smart Lesson dropdowns are supported fill-only: both modes select the verified options and stop for manual review, submission and self-marking. Unknown marking and mixed self-marked surfaces remain refused. See [question contracts](docs/question-types.md#explicit-self-marked-dropdown-questions-338).
+
 ### Upgrading a Windows CLI-only installation
 
 If updating from v2026.11.16 reports v2026.11.22 but the Start-menu app still opens a terminal and a separate browser, the old updater replaced only the CLI. It did not install the desktop app or update the shortcut. The desktop app first shipped in v2026.11.22. Run the Windows setup installer from the published v2026.11.22 release (or a later stable release) once, over the existing installation. Do not uninstall first. Open EducationPerfected from the Start menu afterward, not the `educationperfected.exe` CLI in the install folder.

@@ -2172,6 +2172,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                             accuracyRun.recordFirstTry(mistook);
                         } catch { /* never break answering on stats */ }
                     }
+                    if (result.status === 'self-marked-filled') {
+                        console.log('Self-marked dropdowns filled. Run stopped. Review, submit and self-mark in the browser.');
+                        return false;
+                    }
                     if (result.status === 'reflection-filled') {
                         console.log('Reflection filled with your approved text. Run stopped. Review, submit and self-mark in the browser.');
                         return false;

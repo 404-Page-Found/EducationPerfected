@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Support explicitly self-marked Smart Lesson dropdowns as verified fill-only, stopping before submission or self-grading (#338). Synthetic coverage only; mixed or unknown marking remains refused.
+
 - Mixed formula/plain single-choice options now stay on the exact cached-renderer association path instead of requiring formula syntax in every option. Plain alternatives need the supported literal/block grammar and matching current rendered text; stale, ambiguous or unsupported choices still stop unanswered. Source-derived fixtures only, not live account verification.
 - Information-slide Continue no longer stops when the floating EducationPerfected menu covers it: move only that recognized menu to the opposite corner for the guarded click, then restore its position. Foreign overlays still stop the run without a click. Reproduced with the real shadow-menu implementation in local fixtures; the covering element in the reported live run was not captured.
 
