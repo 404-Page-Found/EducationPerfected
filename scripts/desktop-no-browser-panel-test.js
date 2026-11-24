@@ -8,9 +8,9 @@ const { createServer } = require('./mock-ep');
     const origin = `http://127.0.0.1:${server.address().port}`;
     Object.assign(process.env, { EP_TEST_BOOT: '1', EP_LOGIN_URL: origin + '/app/login', EP_LOGIN_HOST: '127.0.0.1' });
     delete process.env.EP_EMAIL; delete process.env.EP_PASSWORD;
-    const browser = await puppeteer.launch({ headless: 'shell', executablePath: process.env.HANDLER_EXECUTABLE_PATH });
-    let controls;
+    let browser, controls;
     try {
+        browser = await puppeteer.launch({ headless: 'shell', executablePath: process.env.HANDLER_EXECUTABLE_PATH });
         const page = await browser.newPage();
         const launch = require('../index').launchProgram({
             browserControls: false,
@@ -33,8 +33,9 @@ const { createServer } = require('./mock-ep');
         console.log('Desktop engine: no panel or panel binding before/after navigation; native controls remain.');
     } finally {
         try { if (controls) await controls.close(); } finally {
-            await browser.close();
-            server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
+            try { if (browser) await browser.close(); } finally {
+                server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
+            }
         }
     }
 })().catch(error => { console.error(error); process.exitCode = 1; });
