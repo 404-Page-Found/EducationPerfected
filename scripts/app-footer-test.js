@@ -6,6 +6,8 @@ const puppeteer = require('puppeteer');
  const browser = await puppeteer.launch({headless:'shell',executablePath:process.env.HANDLER_EXECUTABLE_PATH});
  try {
   const page = await browser.newPage();
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.evaluateOnNewDocument(()=>{window.educationPerfected={onMaintenanceProgress:()=>{},onReflectionRequest:()=>{},onReflectionSettled:()=>{},onState:()=>{},getState:async()=>({version:'2026.11.22',session:'idle',setup:{browserReady:null}})};});
   await page.setViewport({width:1100,height:760});
   await page.goto(pathToFileURL(path.join(__dirname,'../app/renderer/index.html')).href);
   await page.evaluate(() => { document.querySelector('#version').textContent='v2026.11.22'; });
@@ -20,6 +22,7 @@ const puppeteer = require('puppeteer');
    if(tall){await page.$eval('#app',el=>{el.scrollTop=el.scrollHeight;});assert.ok(Math.abs(await page.$eval('#app-footer',el=>el.getBoundingClientRect().bottom)-760)<=1);}
   }
   if(process.env.EP_FOOTER_SCREENSHOT)await page.screenshot({path:process.env.EP_FOOTER_SCREENSHOT,clip:{x:0,y:600,width:420,height:160}});
+  assert.deepEqual(errors,[],'uncaught renderer errors');
   console.log('Desktop footer stays flush to the viewport bottom for short and scrollable panes.');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
