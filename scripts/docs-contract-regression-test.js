@@ -1,17 +1,12 @@
 // Exercise the documentation checker against valid and deliberately broken input.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
-const source = fs.readFileSync(path.join(__dirname, 'docs-contract-test.js'), 'utf8');
+const { checkDocs } = require('./docs-contract-test');
 function check(transform) {
     const fakeFs = { ...fs, readFileSync(file, encoding) {
         return transform(String(file), fs.readFileSync(file, encoding));
     } };
-    vm.runInNewContext(source, {
-        require: name => name === 'node:fs' ? fakeFs : require(name),
-        __dirname, console: { log() {} }
-    });
+    checkDocs(fakeFs);
 }
 check((file, text) => text);
 check((file, text) => text.replace(/\r?\n/g, '\r\n'));
