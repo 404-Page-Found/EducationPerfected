@@ -84,7 +84,7 @@ const SHELL = () => {
         assert.equal(cli.guard, 'captured');
         assert.equal(line.includes('private-stored-answer'), false);
         // Full capture file: written, owner-only, with text, model, DOM, controls, timers, focus.
-        assert.ok(cli.file && cli.file.includes('assessment-captures'), 'file path reported');
+        assert.ok(cli.file?.includes('assessment-captures'), 'file path reported');
         assert.equal('full' in cli, false);
         const fileText = fs.readFileSync(cli.file, 'utf8');
         const saved = JSON.parse(fileText);
@@ -157,7 +157,10 @@ const SHELL = () => {
         // watchAssessment control: argument parsing, refusals and return shape.
         const { createRunControls } = require('../lib/run-controls');
         let on = false, started = true;
-        const stub = { start() { if (started) on = true; return started; }, stop() { on = false; }, running: () => on, captures: () => 3 };
+        const stub = { start() {
+            if (started) { on = true; }
+            return started;
+        }, stop() { on = false; }, running: () => on, captures: () => 3 };
         const rc = createRunControls({ run: async () => new Promise(() => {}), requestStop() {}, setMode() {}, refresh() {}, close: async () => {}, assessmentWatcher: stub });
         assert.deepEqual(rc.watchAssessment('on'), { watching: true, captures: 3 });
         assert.deepEqual(rc.watchAssessment('status'), { watching: true, captures: 3 });
