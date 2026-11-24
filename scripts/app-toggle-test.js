@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const puppeteer = require('puppeteer');
 (async () => {
-    const browser = await puppeteer.launch({ headless: true, executablePath: process.env.HANDLER_EXECUTABLE_PATH });
+    const browser = await puppeteer.launch({ headless: 'shell', executablePath: process.env.HANDLER_EXECUTABLE_PATH });
     try {
         const page = await browser.newPage();
         await page.setViewport({ width: 1100, height: 900 });
@@ -14,6 +14,7 @@ const puppeteer = require('puppeteer');
                 onState: fn => { window.pushState = fn; }, getState: async () => state,
                 action: async (name, value) => {
                     calls.push([name, value]);
+                    if (window.deferAction) await new Promise(resolve => { window.releaseAction = resolve; });
                     if (window.failAction) throw new Error('Setting rejected');
                     const key = name === 'accuracy' ? 'accuracy' : 'pacing';
                     state.status[key].enabled = value === 'on';
@@ -34,6 +35,14 @@ const puppeteer = require('puppeteer');
         await page.focus('#delay'); await page.keyboard.press('Space');
         await page.waitForFunction(() => !document.getElementById('delay').checked && !document.getElementById('delay').disabled);
         assert.deepEqual(await page.evaluate(() => calls), [['accuracy', 'on'], ['delay', 'off']]);
+        await page.evaluate(() => { deferAction = true; });
+        await page.click('#delay');
+        await page.waitForFunction(() => typeof releaseAction === 'function');
+        await page.evaluate(() => pushState(state));
+        assert.equal(await page.$eval('#delay', el => el.disabled), true);
+        assert.equal(await page.$eval('#delay', el => el.checked), true);
+        await page.evaluate(() => { deferAction = false; releaseAction(); });
+        await page.waitForFunction(() => !document.getElementById('delay').disabled);
         await page.evaluate(() => { failAction = true; });
         await page.click('#accuracy');
         await page.waitForFunction(() => document.getElementById('action-message').textContent.includes('Setting rejected'));
@@ -42,7 +51,7 @@ const puppeteer = require('puppeteer');
         assert.equal(await page.$eval('#accuracy', el => el.disabled), true);
         assert.equal(await page.$eval('#delay', el => el.disabled), true);
         await page.click('#accuracy');
-        assert.equal(await page.evaluate(() => calls.length), 3);
+        assert.equal(await page.evaluate(() => calls.length), 4);
         await page.evaluate(() => { state.status.state = 'stopped'; document.getElementById('action-message').hidden = true; pushState(state); });
         if (process.env.EP_TOGGLE_SCREENSHOT) await page.screenshot({ path: process.env.EP_TOGGLE_SCREENSHOT, clip: { x: 0, y: 0, width: 420, height: 810 } });
         console.log('Desktop toggle renderer: saved-state sync, mouse/keyboard changes, rejected-action rollback and running locks pass.');
