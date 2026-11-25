@@ -104,16 +104,16 @@ function armStopInterception(page, controls, selectionModalMode, interception) {
                 interception.intercepted=true;interception.stopPromise=controls.stop();
             }
         };
-        return evaluate;
+    } else {
+        page.evaluate = async (fn, ...args) => {
+            const result = await evaluate(fn, ...args);
+            if (!interception.intercepted && String(fn).includes('const button = document.querySelector(css)')) {
+                interception.intercepted = true;
+                interception.stopPromise = controls.stop();
+            }
+            return result;
+        };
     }
-    page.evaluate = async (fn, ...args) => {
-        const result = await evaluate(fn, ...args);
-        if (!interception.intercepted && String(fn).includes('const button = document.querySelector(css)')) {
-            interception.intercepted = true;
-            interception.stopPromise = controls.stop();
-        }
-        return result;
-    };
     return evaluate;
 }
 

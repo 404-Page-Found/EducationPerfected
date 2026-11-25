@@ -43,7 +43,7 @@ const puppeteer = require('puppeteer');
         await page.evaluate(() => pushState(state));
         assert.equal(await page.$eval('#delay', el => el.disabled), true);
         assert.equal(await page.$eval('#delay', el => el.checked), true);
-        await page.evaluate(() => { deferAction = false; releaseAction(); });
+        await page.evaluate(() => { window.deferAction = false; window.releaseAction(); });
         await page.waitForFunction(() => !document.getElementById('delay').disabled);
         await page.evaluate(() => { window.failAction = true; });
         await page.click('#accuracy');
