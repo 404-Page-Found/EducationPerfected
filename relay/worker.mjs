@@ -18,7 +18,7 @@ export const SCHEMA = 1;
 const FIELDS = ['app_version', 'reason', 'schema', 'task_type'];
 const VERSION_RE = /^20\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])$/;
 const MAX_BODY_BYTES = 512;
-const THRESHOLDS = [10, 100, 1000];
+const THRESHOLDS = new Set([10, 100, 1000]);
 const DEFAULT_DAILY_CAP = 30;
 const LABEL = 'task-support';
 
@@ -37,7 +37,7 @@ export function validate(text) {
     let data;
     try { data = JSON.parse(text); } catch { return null; }
     if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
-    if (Object.keys(data).sort().join(',') !== FIELDS.join(',')) return null;
+    if (Object.keys(data).sort((a, b) => a.localeCompare(b)).join(',') !== FIELDS.join(',')) return null;
     if (!TASK_TYPES.includes(data.task_type) || !REASONS.includes(data.reason)) return null;
     if (data.schema !== SCHEMA) return null;
     if (typeof data.app_version !== 'string' || !VERSION_RE.test(data.app_version)) return null;
@@ -99,7 +99,7 @@ async function record(env, report) {
             if (issue.state === 'closed' && await takeWrite(env)) {
                 await github(env, `/issues/${rec.issue}`, 'PATCH', { state: 'open', body: bodyFor(report, rec) });
             }
-        } else if (THRESHOLDS.includes(rec.count) && await takeWrite(env)) {
+        } else if (THRESHOLDS.has(rec.count) && await takeWrite(env)) {
             await github(env, `/issues/${rec.issue}`, 'PATCH', { body: bodyFor(report, rec) });
         }
     } catch { /* counted anyway; GitHub is retried on a later report */ }

@@ -3,11 +3,13 @@ const assert = require('node:assert/strict');
 const { TASK_TYPES: APP_TYPES, REASONS: APP_REASONS } = require('../lib/support-report');
 const { REPORTABLE_REASONS } = require('../lib/support-sender');
 
+const byName = (a, b) => a.localeCompare(b);
+
 (async () => {
     const { default: worker, TASK_TYPES, REASONS, validate } = await import('../relay/worker.mjs');
     // Relay allow-lists stay in step with the app.
-    assert.deepEqual([...TASK_TYPES].filter(t => t !== 'unknown').sort(), [...APP_TYPES].sort());
-    assert.deepEqual([...REASONS].sort(), [...REPORTABLE_REASONS].sort());
+    assert.deepEqual([...TASK_TYPES].filter(t => t !== 'unknown').sort(byName), [...APP_TYPES].sort(byName));
+    assert.deepEqual([...REASONS].sort(byName), [...REPORTABLE_REASONS].sort(byName));
     assert.ok([...APP_REASONS].includes('other'));
 
     function makeEnv(extra = {}) {
@@ -15,7 +17,11 @@ const { REPORTABLE_REASONS } = require('../lib/support-sender');
         return {
             store,
             REPORTS: {
-                async get(key, type) { const v = store.get(key); return v === undefined ? null : (type === 'json' ? JSON.parse(v) : v); },
+                async get(key, type) {
+                    if (!store.has(key)) return null;
+                    const v = store.get(key);
+                    return type === 'json' ? JSON.parse(v) : v;
+                },
                 async put(key, value) { store.set(key, value); },
             },
             REPO: 'owner/repo', GITHUB_TOKEN: 'tok', DAILY_WRITE_CAP: '30', ...extra,
@@ -38,11 +44,10 @@ const { REPORTABLE_REASONS } = require('../lib/support-sender');
 
     // Rejections: schema, extras, oversize, method, version format, enums, injection.
     const env = makeEnv();
-    for (const body of ['', 'nope', '[]', good({ extra: 1 }), good({ schema: 2 }), good({ app_version: 'v1.0' }), good({ app_version: '2026.13.1' }),
-        good({ task_type: 'audio\n- injected' }), good({ reason: '`; drop' }), good({ task_type: 'x'.repeat(600) }), JSON.stringify({ task_type: 'audio', reason: 'no-handler', app_version: '2026.11.26' })]) {
-        const res = await send(env, body);
-        assert.ok([400, 413].includes(res.status), `rejected ${body.slice(0, 30)}`);
-    }
+    const bad = ['', 'nope', '[]', good({ extra: 1 }), good({ schema: 2 }), good({ app_version: 'v1.0' }), good({ app_version: '2026.13.1' }),
+        good({ task_type: 'audio\n- injected' }), good({ reason: '`; drop' }), good({ task_type: 'x'.repeat(600) }), JSON.stringify({ task_type: 'audio', reason: 'no-handler', app_version: '2026.11.26' })];
+    const statuses = await Promise.all(bad.map(async body => (await send(env, body)).status));
+    statuses.forEach((status, i) => assert.ok([400, 413].includes(status), `rejected ${bad[i].slice(0, 30)}`));
     assert.equal((await worker.fetch(new Request('https://relay.test/', { method: 'GET' }), env)).status, 405);
     assert.equal(calls.length, 0);
     assert.equal(env.store.size, 0);
@@ -53,7 +58,7 @@ const { REPORTABLE_REASONS } = require('../lib/support-sender');
     const created = JSON.parse(calls[0].options.body);
     assert.equal(created.title, 'Task support: audio not handled (no-handler)');
     assert.deepEqual(created.labels, ['task-support']);
-    for (let i = 0; i < 8; i++) await send(env, good());
+    await Array.from({ length: 8 }).reduce(chain => chain.then(() => send(env, good())), Promise.resolve());
     assert.equal(calls.length, 1, 'counting does not write to GitHub');
     await send(env, good());
     assert.equal(calls.length, 2, 'threshold 10 refreshes the body');
@@ -62,7 +67,7 @@ const { REPORTABLE_REASONS } = require('../lib/support-sender');
     // No IP or header data in any outgoing call or KV value.
     const everything = JSON.stringify(calls.map(c => ({ u: c.url, b: c.options.body }))) + JSON.stringify([...env.store.entries()]);
     for (const leak of ['203.0.113.9', 'secret-agent']) assert.ok(!everything.includes(leak), `leaked ${leak}`);
-    assert.deepEqual(Object.keys(calls[0].options.headers).sort(), ['Accept', 'Authorization', 'Content-Type', 'User-Agent', 'X-GitHub-Api-Version']);
+    assert.deepEqual(Object.keys(calls[0].options.headers).sort(byName), ['Accept', 'Authorization', 'Content-Type', 'User-Agent', 'X-GitHub-Api-Version']);
 
     // Closed issue reopens on a newer app version only.
     issues.get(1).state = 'closed';
