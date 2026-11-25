@@ -36,7 +36,8 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
         }) : null;
         output.write(`Reflection text required for ${approval.key}. Read the visible question and enter your own single-line response (1-2000 characters). Nothing is typed until you confirm. stop or quit cancels.\n`);
     });
-    controls = await launch({ onBrowserClosed, onBrowserDisconnected: browserGone, reflectionTextProvider: requestReflectionText, accuracy });
+    const recorder = require('../lib/assessment-diagnostics').pageRecorder();
+    controls = recorder.attach(await launch({ onBrowserClosed, onBrowserDisconnected: browserGone, reflectionTextProvider: requestReflectionText, accuracy, selectPage: recorder.selectPage }));
     terminal = readline.createInterface({ input, output, terminal: Boolean(input.isTTY && output.isTTY) });
     output.write('Commands: start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components, inspect-assessment, watch-assessment, quit\n');
     const print = () => output.write(JSON.stringify(controls.status()) + '\n');

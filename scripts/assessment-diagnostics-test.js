@@ -154,24 +154,6 @@ const SHELL = () => {
         child.stdin.write('quit\n');
         await wait(() => child.exitCode !== null);
         assert.equal(child.exitCode, 0);
-        // watchAssessment control: argument parsing, refusals and return shape.
-        const { createRunControls } = require('../lib/run-controls');
-        let on = false, started = true;
-        const stub = { start() {
-            if (started) { on = true; }
-            return started;
-        }, stop() { on = false; }, running: () => on, captures: () => 3 };
-        const rc = createRunControls({ run: async () => new Promise(() => {}), requestStop() {}, setMode() {}, refresh() {}, close: async () => {}, assessmentWatcher: stub });
-        assert.deepEqual(rc.watchAssessment('on'), { watching: true, captures: 3 });
-        assert.deepEqual(rc.watchAssessment('status'), { watching: true, captures: 3 });
-        assert.deepEqual(rc.watchAssessment('off'), { watching: false, captures: 3 });
-        assert.throws(() => rc.watchAssessment('maybe'), /Usage/);
-        started = false;
-        assert.throws(() => rc.watchAssessment('on'), /limit reached/);
-        started = true;
-        rc.start();
-        assert.throws(() => rc.watchAssessment('on'), /Stop before/);
-        assert.throws(() => createRunControls({ run() {}, requestStop() {}, setMode() {}, refresh() {}, close() {} }).watchAssessment('on'), /unavailable/);
         console.log('Assessment diagnostics PASS: read-only structural capture, non-assessment refused, model-only Assessment stops by name with zero input. Synthetic only, no live Assessment.');
     } finally {
         await session.cleanup();

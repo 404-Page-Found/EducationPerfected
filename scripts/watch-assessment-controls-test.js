@@ -1,22 +1,28 @@
 const assert = require('node:assert/strict');
-const { createRunControls } = require('../lib/run-controls');
 (async () => {
     {
-        let on = false, startCalls = 0, stopCalls = 0;
-        const watcher = { start: () => { startCalls++; on = true; return true; }, stop: () => { stopCalls++; on = false; }, running: () => on, captures: () => 3 };
-        let release;
-        const watched = createRunControls({ run: () => new Promise(r => { release = r; }), requestStop: () => {}, setMode: () => {}, refresh: () => {}, assessmentWatcher: watcher, close: () => {} });
-        assert.deepEqual(watched.watchAssessment(''), { watching: false, captures: 3 });
-        assert.deepEqual(watched.watchAssessment('ON'), { watching: true, captures: 3 });
-        assert.deepEqual(watched.watchAssessment('off'), { watching: false, captures: 3 });
-        assert.throws(() => watched.watchAssessment('bogus'), /Usage/);
-        watched.start(); await Promise.resolve();
-        assert.throws(() => watched.watchAssessment('on'), /Stop before watching/);
-        assert.equal(startCalls, 1);
-        release(); await watched.stop();
-        watcher.start(); await watched.close(); assert.equal(stopCalls >= 2, true, 'close stops the watcher');
-        const none = createRunControls({ run: () => {}, requestStop: () => {}, setMode: () => {}, refresh: () => {}, close: () => {} });
-        assert.throws(() => none.watchAssessment('on'), /unavailable/);
+        let state = 'stopped', closes = 0;
+        const base = { status: () => ({ state }), close: () => { closes++; return Promise.resolve(); } };
+        let evals = 0;
+        const page = { evaluate: async () => { evals++; return 'sig'; } };
+        const { attachAssessmentControls } = require('../lib/assessment-diagnostics');
+        const c = attachAssessmentControls(base, page, () => {});
+        assert.deepEqual(c.watchAssessment(''), { watching: false, captures: 0 });
+        assert.equal(c.watchAssessment('ON').watching, true);
+        assert.equal(c.watchAssessment('off').watching, false);
+        assert.throws(() => c.watchAssessment('bogus'), /Usage/);
+        state = 'running';
+        assert.throws(() => c.watchAssessment('on'), /Stop before watching/);
+        assert.throws(() => c.inspectAssessment(), /Stop before/);
+        state = 'stopped';
+        c.watchAssessment('on');
+        await c.close();
+        assert.equal(c.watchAssessment('status').watching, false, 'close stops the watcher');
+        assert.equal(closes, 1);
+        const { pageRecorder } = require('../lib/assessment-diagnostics');
+        const rec = pageRecorder();
+        assert.equal(rec.attach(base), base, 'no page seen: controls unchanged');
+        assert.equal(rec.selectPage([page, {}]), page);
     }
     console.log('Watch-assessment controls: on/off/status, usage, busy refusal, close stops watcher passed.');
 })().catch(e => { console.error(e); process.exitCode = 1; });
