@@ -38,14 +38,11 @@ async function runLocal({launch=options=>puppeteer.launch(options),makeTerminal=
         if(!headless){
             terminal=makeTerminal({input:process.stdin,output:process.stdout});
             terminal.on('SIGINT',shutdown);
-            const sequence=popup?'ONE F4 + ArrowDown + Enter popup sequence':'ONE Home + ArrowDown pair';
-            const answer=await question('Switch back to this terminal as in the EP validator. Type run for '+sequence+'; anything else quits: ');
-            if(answer.trim()!=='run')return;
+            if(!await confirmRun(question,popup))return;
         }
         const baseline=await page.evaluateHandle(()=>({rows:[{select:document.querySelector('select')}]}));
         try{trace=await page.evaluateHandle(observeDropdownInput,baseline,{popup});}finally{await baseline.dispose();}
         const element=await page.$('select');
-        let returned=0,dispatchUncertain=false,f4OpenState=null,openAfterArrow=null,navigationTraceAvailable=false,navigationCommitSeen=false,commitDispatched=false;
         const popupState=async()=>await element.evaluate(el=>{try{return el.matches(':open');}catch{return null;}}).catch(()=>null);
         const waitPopupState=async open=>{
             const deadline=Date.now()+200;
@@ -61,26 +58,10 @@ async function runLocal({launch=options=>puppeteer.launch(options),makeTerminal=
             if(!snapshot)return{available:false,committed:true};
             return{available:true,committed:Boolean(snapshot.events?.some(event=>event.targetIndex===0&&(event.type===2||event.type===3)))};
         };
+        let returned,dispatchUncertain,f4OpenState,openAfterArrow,navigationTraceAvailable,navigationCommitSeen,commitDispatched;
         try{
-            await element.focus();
-            if(popup){
-                await element.press('F4');returned++;
-                f4OpenState=await waitPopupState(true);
-                if(f4OpenState===true){
-                    await element.press('ArrowDown');returned++;
-                    openAfterArrow=await waitPopupState(true);
-                    const navigation=await navigationState();
-                    navigationTraceAvailable=navigation.available;navigationCommitSeen=navigation.committed;
-                    if(openAfterArrow===true&&navigationTraceAvailable&&!navigationCommitSeen){
-                        await element.press('Enter');returned++;commitDispatched=true;
-                    }
-                }
-            }else{
-                await element.press('Home');returned++;
-                await element.press('ArrowDown');returned++;
-            }
-        }catch{dispatchUncertain=true;}
-        finally{await element.dispose();}
+            ({returned,dispatchUncertain,f4OpenState,openAfterArrow,navigationTraceAvailable,navigationCommitSeen,commitDispatched}=await dispatchKeySequence(element,popup,waitPopupState,navigationState));
+        }finally{await element.dispose();}
         // Same bounded observation window; never resend a key or reopen a popup.
         await new Promise(resolve=>setTimeout(resolve,200));
         const snapshot=await trace.evaluate(observer=>observer.snapshot());
@@ -93,5 +74,38 @@ async function runLocal({launch=options=>puppeteer.launch(options),makeTerminal=
         terminal?.removeListener('SIGINT',shutdown);terminal?.close();await closeBrowser();
     }
 }
+
+async function confirmRun(question,popup){
+    const sequence=popup?'ONE F4 + ArrowDown + Enter popup sequence':'ONE Home + ArrowDown pair';
+    const answer=await question('Switch back to this terminal as in the EP validator. Type run for '+sequence+'; anything else quits: ');
+    return answer.trim()==='run';
+}
+
+// One bounded key sequence; never resends a key or reopens a popup, and any
+// dispatch error marks the outcome uncertain instead of failing the check.
+async function dispatchKeySequence(element,popup,waitPopupState,navigationState){
+    const out={returned:0,dispatchUncertain:false,f4OpenState:null,openAfterArrow:null,navigationTraceAvailable:false,navigationCommitSeen:false,commitDispatched:false};
+    try{
+        await element.focus();
+        if(popup){
+            await element.press('F4');out.returned++;
+            out.f4OpenState=await waitPopupState(true);
+            if(out.f4OpenState===true){
+                await element.press('ArrowDown');out.returned++;
+                out.openAfterArrow=await waitPopupState(true);
+                const navigation=await navigationState();
+                out.navigationTraceAvailable=navigation.available;out.navigationCommitSeen=navigation.committed;
+                if(out.openAfterArrow===true&&out.navigationTraceAvailable&&!out.navigationCommitSeen){
+                    await element.press('Enter');out.returned++;out.commitDispatched=true;
+                }
+            }
+        }else{
+            await element.press('Home');out.returned++;
+            await element.press('ArrowDown');out.returned++;
+        }
+    }catch{out.dispatchUncertain=true;}
+    return out;
+}
+
 if(require.main===module)runLocal().catch(()=>{console.error('Local native check failed. No retry or EP action was performed.');process.exitCode=1;});
 module.exports={runLocal,localVariant};

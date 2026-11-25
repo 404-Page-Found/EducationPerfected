@@ -72,27 +72,30 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
             await setup();
             await page.evaluate(m => {
                 const f = dropdownNumberBoxFixture, dc = f.base['dropdown-0'][0], ds = dc.componentState, bc = f.base['box-0'][0], bs = bc.componentState;
-                if (m === 'manual') f.self.sectionData.activityGroup.isAutoMarked = false;
-                if (m === 'extraDef') f.q.questionDef.Components.push({ ComponentTypeCode: 'TEXT_BOX_COMPONENT', ComponentID: 'invented-text', Marked: 1 });
-                // Each surface uniform but the union mixed: dropdowns Marked 1,
-                // every number box authored Marked 0 (definition and metadata,
-                // like the unmarked variant) - only the orchestrator refuses.
-                if (m === 'mixedMarking') f.q.questionDef.Components.filter(d => d.ComponentTypeCode === 'NUMBER_BOX_COMPONENT').forEach(d => { d.Marked = 0; f.base[d.ComponentID][0].componentState.metadataInstance.Marked = 0; });
-                if (m === 'duplicate') ds._shuffledOptions[1].Description = ds._shuffledOptions[2].Description;
-                if (m === 'twoCorrect') ds.originalDropDownOptions[0].Correct = 'true';
-                if (m === 'noneCorrect') ds._shuffledOptions[2].Correct = 'false';
-                if (m === 'unmarked') dc.marked = 0;
-                if (m === 'foreign') dc.visualElement = document.body;
-                if (m === 'disabled') dc.dropDownList.disabled = true;
-                if (m === 'boxDisabled') bc.textBox.disabled = true;
-                if (m === 'boxNonNumeric') { const def = f.q.questionDef.Components.find(d => d.ComponentID === 'box-0'); def.Options = ['abc']; bs.metadataInstance.Options = ['abc']; bs.optionsInjector = [{ parts: [{ text: 'abc' }] }]; bs.answerOptions = ['abc']; }
-                if (m === 'boxStoredMismatch') bs.userAnswer = 'x';
-                if (m === 'boxEmptyOptions') bs.answerOptions = [];
-                if (m === 'boxUnmarked') bc.marked = 0;
-                if (m === 'badRounding') { bs.metadataInstance.RoundingTypeCode = 'BOGUS'; f.q.questionDef.Components.find(d => d.ComponentID === 'box-0').RoundingTypeCode = 'BOGUS'; }
-                if (m === 'tamperedInjector') bs.optionsInjector[0].parts[0].text = 'tampered';
-                if (m === 'extraNumberBox') { const input = document.createElement('input'); input.className = 'number-box-component'; const span = document.createElement('span'); span.append(input); f.group.append(span); }
-                if (m === 'unassociated') f.base['box-0'] = [{ ...bc, textBox: document.createElement('input') }];
+                const mutations = {
+                    manual: () => { f.self.sectionData.activityGroup.isAutoMarked = false; },
+                    extraDef: () => { f.q.questionDef.Components.push({ ComponentTypeCode: 'TEXT_BOX_COMPONENT', ComponentID: 'invented-text', Marked: 1 }); },
+                    // Each surface uniform but the union mixed: dropdowns Marked 1,
+                    // every number box authored Marked 0 (definition and metadata,
+                    // like the unmarked variant) - only the orchestrator refuses.
+                    mixedMarking: () => { f.q.questionDef.Components.filter(d => d.ComponentTypeCode === 'NUMBER_BOX_COMPONENT').forEach(d => { d.Marked = 0; f.base[d.ComponentID][0].componentState.metadataInstance.Marked = 0; }); },
+                    duplicate: () => { ds._shuffledOptions[1].Description = ds._shuffledOptions[2].Description; },
+                    twoCorrect: () => { ds.originalDropDownOptions[0].Correct = 'true'; },
+                    noneCorrect: () => { ds._shuffledOptions[2].Correct = 'false'; },
+                    unmarked: () => { dc.marked = 0; },
+                    foreign: () => { dc.visualElement = document.body; },
+                    disabled: () => { dc.dropDownList.disabled = true; },
+                    boxDisabled: () => { bc.textBox.disabled = true; },
+                    boxNonNumeric: () => { const def = f.q.questionDef.Components.find(d => d.ComponentID === 'box-0'); def.Options = ['abc']; bs.metadataInstance.Options = ['abc']; bs.optionsInjector = [{ parts: [{ text: 'abc' }] }]; bs.answerOptions = ['abc']; },
+                    boxStoredMismatch: () => { bs.userAnswer = 'x'; },
+                    boxEmptyOptions: () => { bs.answerOptions = []; },
+                    boxUnmarked: () => { bc.marked = 0; },
+                    badRounding: () => { bs.metadataInstance.RoundingTypeCode = 'BOGUS'; f.q.questionDef.Components.find(d => d.ComponentID === 'box-0').RoundingTypeCode = 'BOGUS'; },
+                    tamperedInjector: () => { bs.optionsInjector[0].parts[0].text = 'tampered'; },
+                    extraNumberBox: () => { const input = document.createElement('input'); input.className = 'number-box-component'; const span = document.createElement('span'); span.append(input); f.group.append(span); },
+                    unassociated: () => { f.base['box-0'] = [{ ...bc, textBox: document.createElement('input') }]; },
+                };
+                mutations[m]();
             }, mutation);
             const bad = await detectQuestion(page);
             assert.equal(bad.kind, 'unsupported', mutation);
