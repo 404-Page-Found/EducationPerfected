@@ -6,7 +6,7 @@ async function probe(rejectPath) {
  const asset=gzipSync(Buffer.from('synthetic browser archive')),raw=asset.buffer.slice(asset.byteOffset,asset.byteOffset+asset.byteLength);
  const executable='Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
  const processFixture={platform:'darwin',execPath:process.execPath,argv:['synthetic'],env:{},on(){},removeListener(){}};
- const order=[],moduleError=Error('synthetic invalid path');let finish,timer;
+ const order=[],moduleError=new Error('synthetic invalid path');let finish,timer;
  const completed=new Promise(resolve=>{finish=resolve;});
  const load=id=>{
   if(id==='../lib/runtime-directory')return {createRuntimeDirectory:()=>({directory:'/synthetic-owned-root',remove:safe=>{assert.ok(safe);order.push('cleanup');finish();return true;}})};
@@ -22,7 +22,7 @@ async function probe(rejectPath) {
   assert.ok(id.startsWith('node:'));return require(id);
  };
  vm.runInNewContext(source,{require:load,process:processFixture,Buffer,console:{error(){order.push('error');finish();}}}); // NOSONAR: fixed repository bootstrap with inert assets and synthetic dependencies, no external source.
- try {await Promise.race([completed,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Synthetic bootstrap timeout')),3000);})]);await new Promise(resolve=>setImmediate(resolve));}
+ try {await Promise.race([completed,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Synthetic bootstrap timeout')),3000);})]);await new Promise(resolve=>setImmediate(resolve));}
  finally {clearTimeout(timer);}
  assert.ok(order.includes('unpack'),'Bootstrap must unpack before validation');
  assert.ok(order.includes('validate'),'Bootstrap must validate executable');

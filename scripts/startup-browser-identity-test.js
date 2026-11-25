@@ -29,7 +29,7 @@ const {readVerifiedArchive,verifyArchive,parseIdentityReceipt,assertOwnedBrowser
    let calls=0;const result=await runStagedPanel(async()=>({...leg,...broken}),async()=>{calls++;return leg;},expected);assert.equal(calls,0);assert.deepEqual(result,{outcome:'uncertainty',leg:'source',seaAttempted:false});
   }
   const order=[];assert.deepEqual(await runStagedPanel(async()=>{order.push('source');return leg;},async()=>{order.push('sea');return leg;},expected),{outcome:'not-reproduced-in-one-instrumented-sample',seaAttempted:true});assert.deepEqual(order,['source','sea']);
-  let calls=0;await runStagedPanel(async()=>{throw Error('fixed failure');},async()=>{calls++;},expected);assert.equal(calls,0);
+  let calls=0;await runStagedPanel(async()=>{throw new Error('fixed failure');},async()=>{calls++;},expected);assert.equal(calls,0);
   assert.deepEqual(await runStagedPanel(async()=>leg,async()=>({...leg,receipt:null}),expected),{outcome:'uncertainty',leg:'sea',seaAttempted:true});
   console.log('Inert public-only identity, tampered/length/missing archive no fallback, missing receipt/mismatch/owned browser, staged source-first cleanup uncertainty stop contracts passed. No process/native/Windows proof.');
  } finally {fs.rmSync(root,{recursive:true,force:true});}

@@ -10,7 +10,7 @@ const { boundedClose, stopChild } = require('./packaged-test-cleanup');
 const { finishFixtureCleanup } = require('./fixture-cleanup-errors');
 const { connectAfterLoginReady, selectLoginPage, disconnectController } = require('./packaged-fixture-page');
 async function runPackagedFixture({directDownload=false}={}) {
- if (process.argv.length > 2) throw Error('No executable override arguments accepted');
+ if (process.argv.length > 2) throw new Error('No executable override arguments accepted');
  const base=require('./packaged-fixture-target').packagedFixtureTarget();
  const filename=base.filename,executable=directDownload?path.join(path.dirname(base.executable)+'-downloadable',filename):base.executable;
  let acquiredPath;

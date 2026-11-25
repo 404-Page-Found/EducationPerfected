@@ -31,7 +31,7 @@ async function prepareEmbeddedBrowser(dir,manifest){
             await nextTurn();
         }
     })());
-    if (browserAsset.length !== manifest.length) throw Error('Invalid browser payload size');
+    if (browserAsset.length !== manifest.length) throw new Error('Invalid browser payload size');
     const hash = createHash('sha256');
     for await (const chunk of browserStream()) hash.update(chunk);
     if (hash.digest('hex') !== manifest.sha256) throw Object.assign(new Error('Browser payload checksum mismatch'), {code:'EP_BROWSER_CHECKSUM'});

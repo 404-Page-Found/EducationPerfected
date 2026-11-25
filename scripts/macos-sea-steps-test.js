@@ -10,7 +10,7 @@ assert.deepEqual(calls.map(([command,args])=>[command,args]),[
 ]);
 for(const call of calls)assert.deepEqual(call[2],{stdio:'inherit'});
 for(let fail=0;fail<4;fail++) {
- let count=0;const error=Error('synthetic command failure');
+ let count=0;const error=new Error('synthetic command failure');
  assert.throws(()=>finishMacosSea(options,()=>{if(count++===fail)throw error;}),caught=>caught===error);
  assert.equal(count,fail+1,'No later command after a failure');
 }

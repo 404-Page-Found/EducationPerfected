@@ -8,11 +8,11 @@ function assertNetworkSandbox(text,histograms){
 }
 async function observeNetworkSandbox(browser,milliseconds=20000){
  let session,page,expired=false,timer;
- const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{expired=true;reject(Error('Network sandbox observation deadline'));},milliseconds);});
+ const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{expired=true;reject(new Error('Network sandbox observation deadline'));},milliseconds);});
  const bounded=operation=>Promise.race([operation,deadline]);
  const lateClose=async object=>{try{await object.close();}catch{}};
  try{
-  session=await bounded(browser.target().createCDPSession().then(async value=>{if(expired){try{await value.detach();}catch{}throw Error('Late sandbox session');}return value;}));
+  session=await bounded(browser.target().createCDPSession().then(async value=>{if(expired){try{await value.detach();}catch{}throw new Error('Late sandbox session');}return value;}));
   const prefix='Chrome.SystemNetworkContextManager.NetworkSandboxLaunchFailed.';
   const {histograms:values}=await bounded(session.send('Browser.getHistograms',{query:prefix,delta:false},{timeout:5000}));
   assert.ok(Array.isArray(values),'Network launch histogram enumeration unavailable');
@@ -23,7 +23,7 @@ async function observeNetworkSandbox(browser,milliseconds=20000){
   // Chromium lazily creates these failure histograms. An empty successful
   // prefix enumeration means no matching samples recorded, not a missing
   // single histogram measured as zero. The fixed prefix is source-verified.
-  page=await bounded(browser.newPage().then(async value=>{if(expired){await lateClose(value);throw Error('Late sandbox page');}return value;}));
+  page=await bounded(browser.newPage().then(async value=>{if(expired){await lateClose(value);throw new Error('Late sandbox page');}return value;}));
   await bounded(page.goto('chrome://sandbox',{waitUntil:'domcontentloaded',timeout:10000}));
   await bounded(page.waitForFunction(()=>document.body.innerText.includes('Network Service'),{timeout:10000}));
   return assertNetworkSandbox(await bounded(page.evaluate(()=>document.body.innerText)),histograms);

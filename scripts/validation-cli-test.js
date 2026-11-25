@@ -5,7 +5,7 @@ const path=require('node:path');
 const {runValidationCli}=require('../lib/validation-cli');
 (async()=>{
  const input=new PassThrough(),output=new PassThrough();let text='',closes=0;output.on('data',d=>text+=d);
- const controls={mode:async()=>{},status:()=>({state:'stopped'}),close:async()=>{closes++;if(closes===1)throw Error('synthetic close failure');},start:()=>{},stop:async()=>{}};
+ const controls={mode:async()=>{},status:()=>({state:'stopped'}),close:async()=>{closes++;if(closes===1)throw new Error('synthetic close failure');},start:()=>{},stop:async()=>{}};
  const run=runValidationCli({input,output,launch:async()=>controls,launchOptions:{choiceSelectOnly:true},action:'select once',warning:'Synthetic'});
  const wait=async predicate=>{for(let i=0;i<100&&!predicate();i++)await new Promise(r=>setTimeout(r,5));assert.ok(predicate());};
  await wait(()=>text.includes('Commands:'));input.write('quit\n');await wait(()=>text.includes('Validation control failed'));assert.equal(closes,1);input.write('quit\n');await run;assert.equal(closes,2);console.log('Validation CLI close failure clears cached promise; secondquit cleanup succeeds PASS');
@@ -21,7 +21,7 @@ const {runValidationCli}=require('../lib/validation-cli');
  }
  for(const stage of ['mode','terminal']) {
   let closes=0;const before=['SIGINT','SIGTERM','SIGHUP'].map(s=>process.listenerCount(s));
-  const controls={mode:async()=>{if(stage==='mode')throw Error('setup');},close:async()=>{closes++;}};
+  const controls={mode:async()=>{if(stage==='mode')throw new Error('setup');},close:async()=>{closes++;}};
   await assert.rejects(runValidationCli({input:stage==='terminal'?{}:new PassThrough(),output:new PassThrough(),launch:async()=>controls,action:'select once',warning:'Synthetic'}));
   assert.equal(closes,1);assert.deepEqual(['SIGINT','SIGTERM','SIGHUP'].map(s=>process.listenerCount(s)),before);
  }
@@ -33,7 +33,7 @@ const {runValidationCli}=require('../lib/validation-cli');
   const run=runValidationCli({input,output,launch:async()=>controls,action:'select once',warning:'Synthetic'});
   await wait(()=>text.includes('Commands:'));process.emit(signal);input.write('select once\n');
   await new Promise(r=>setTimeout(r,15));assert.equal(starts,0);assert.equal(closes,1);
-  release();await Promise.race([run,new Promise((_,reject)=>setTimeout(()=>reject(Error('signal shutdown did not settle')),200))]);
+  release();await Promise.race([run,new Promise((_,reject)=>setTimeout(()=>reject(new Error('signal shutdown did not settle')),200))]);
   assert.equal(starts,0);assert.equal(closes,1);assert.deepEqual(['SIGINT','SIGTERM','SIGHUP'].map(s=>process.listenerCount(s)),before);
  }
  console.log('Validation CLI signal rejects buffered action during slow close, settles loop and restores listeners PASS');

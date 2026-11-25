@@ -10,10 +10,10 @@ const source=fs.readFileSync(path.resolve(__dirname,'../packaging/build-developm
   for(const arch of ['arm64','x64']) {
    const payload=path.join(root,'chrome-mac-'+arch),contents=path.join(payload,'Google Chrome for Testing.app','Contents'),browser=path.join(contents,'MacOS','Google Chrome for Testing');
    for(const dir of ['MacOS','Frameworks','Resources'])fs.mkdirSync(path.join(contents,dir),{recursive:true});fs.writeFileSync(browser,'synthetic');fs.writeFileSync(path.join(contents,'Info.plist'),'synthetic');
-   const moduleFixture={exports:{}},stop=Error('archive boundary');let archives=0;
+   const moduleFixture={exports:{}},stop=new Error('archive boundary');let archives=0;
    const load=id=>{
     if(id==='puppeteer')return {executablePath:()=>browser};
-    if(id==='esbuild')return {build(){throw Error('Must not bundle');}};
+    if(id==='esbuild')return {build(){throw new Error('Must not bundle');}};
     if(id==='modern-tar/fs')return {packTar:directory=>{archives++;assert.equal(directory,payload);assert.notEqual(directory,path.dirname(browser));throw stop;}};
     if(id==='./notices/runtime.json')return runtime;
     if(id==='./macos-browser-layout')return require('../packaging/macos-browser-layout');

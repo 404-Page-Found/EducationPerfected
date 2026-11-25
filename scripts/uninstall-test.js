@@ -6,7 +6,7 @@ const {acquireMaintenance,storageRoot}=require('../lib/storage-maintenance');
 const {createRuntimeDirectory}=require('../lib/runtime-directory');
 (async()=>{
  const lockedHome=fs.mkdtempSync(path.join(os.tmpdir(),'ep-maintenance-inert-'));
- try{const root=storageRoot(lockedHome),write=fs.writeFileSync;try{fs.writeFileSync=()=>{throw Error('inert lock write');};assert.throws(()=>acquireMaintenance(root),/inert lock write/);}finally{fs.writeFileSync=write;}assert.equal(fs.existsSync(path.join(root,'MAINTENANCE.lock')),false);const release=acquireMaintenance(root);assert.throws(()=>createRuntimeDirectory({home:lockedHome}),{code:'EEXIST'});release();const runtime=createRuntimeDirectory({home:lockedHome});assert.ok(runtime.remove(true));}finally{fs.rmSync(lockedHome,{recursive:true,force:true});}
+ try{const root=storageRoot(lockedHome),write=fs.writeFileSync;try{fs.writeFileSync=()=>{throw new Error('inert lock write');};assert.throws(()=>acquireMaintenance(root),/inert lock write/);}finally{fs.writeFileSync=write;}assert.equal(fs.existsSync(path.join(root,'MAINTENANCE.lock')),false);const release=acquireMaintenance(root);assert.throws(()=>createRuntimeDirectory({home:lockedHome}),{code:'EEXIST'});release();const runtime=createRuntimeDirectory({home:lockedHome});assert.ok(runtime.remove(true));}finally{fs.rmSync(lockedHome,{recursive:true,force:true});}
  const ALL={login:true,data:true,browsers:true};
  const choicesFor=scenario=>({
   cancel:{login:false,data:false,browsers:false},
@@ -29,7 +29,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
    if(scenario==='browser-symlink'){fs.rmSync(browsers,{recursive:true});fs.mkdirSync(path.join(home,'unrelated'));fs.writeFileSync(path.join(home,'unrelated','keep'),'inert');fs.symlinkSync(path.join(home,'unrelated'),browsers,process.platform==='win32'?'junction':'dir');}
    const choices=choicesFor(scenario);
    let removed=0,output='';
-   const perform=()=>uninstallCommand({home,ownDirectory:runtime.directory,cleanupOwn:async()=>{if(scenario==='cleanup-error')throw Error('inert');runtime.remove(true);},executable:'inert.exe',env:{},confirm:async()=>choices,output:{write:text=>{output+=text;}},store:{async remove(){removed++;if(scenario==='store-error')throw Error('inert');}}});
+   const perform=()=>uninstallCommand({home,ownDirectory:runtime.directory,cleanupOwn:async()=>{if(scenario==='cleanup-error')throw new Error('inert');runtime.remove(true);},executable:'inert.exe',env:{},confirm:async()=>choices,output:{write:text=>{output+=text;}},store:{async remove(){removed++;if(scenario==='store-error')throw new Error('inert');}}});
    const result=await perform();
    assert.equal(removed,choices.login?1:0,'store.remove called exactly when the login item is confirmed');
    if(scenario==='cancel'){
@@ -80,7 +80,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
     confirm:async()=>({login:false,data:true,browsers:false,...choices}),
     confirmInno:async()=>choices.inno===true,
     output:{write:text=>{output+=text;}},
-    store:{async remove(){throw Error('not asked');}},
+    store:{async remove(){throw new Error('not asked');}},
     spawn:(...args)=>{spawns.push(args);return {status:spawnStatus};},
     spawnDetached:(...args)=>{detached.push(args);},
    });

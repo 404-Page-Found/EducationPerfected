@@ -9,7 +9,7 @@ const {unpackTar}=require('modern-tar/fs');
 const {Readable}=require('node:stream');
 const os=require('node:os');
 function requireDiagnosticHost() {
- if(process.platform!=='win32'||process.arch!=='x64'||process.env.GITHUB_ACTIONS!=='true'||process.env.RUNNER_ENVIRONMENT!=='github-hosted'||process.env.RUNNER_OS!=='Windows')throw Error('Diagnostic host guard');
+ if(process.platform!=='win32'||process.arch!=='x64'||process.env.GITHUB_ACTIONS!=='true'||process.env.RUNNER_ENVIRONMENT!=='github-hosted'||process.env.RUNNER_OS!=='Windows')throw new Error('Diagnostic host guard');
 }
 function copySeaExecutable(build,executable) {fs.copyFileSync(path.join(build,'educationperfected.exe'),executable,fs.constants.COPYFILE_EXCL);}
 function driverStage(mode,nonce,stage) {console.log('EP_DIAGNOSTIC_DRIVER_STAGE='+JSON.stringify({nonce,mode,stage}));}
@@ -49,7 +49,7 @@ async function runLeg(mode,nonce,expectedIdentity) {
   driverStage(mode,nonce,'spawn-returned');
   closed=new Promise(resolve=>child.once('close',(code,signal)=>resolve({code,signal})));
   child.once('error',error=>{spawnError=error;});
-  const capture=chunk=>{if(spawnError)return;text+=chunk.toString();if(Buffer.byteLength(text)>65536){text='';spawnError=Error('Diagnostic output limit');}};
+  const capture=chunk=>{if(spawnError)return;text+=chunk.toString();if(Buffer.byteLength(text)>65536){text='';spawnError=new Error('Diagnostic output limit');}};
   child.stdout.on('data',capture);child.stderr.on('data',capture);
   const ready=await connectAfterLoginReady({text:()=>text,child,failure:()=>spawnError||serverError,connect:options=>require('puppeteer').connect(options)});
   browser=ready.browser;result.networkSandbox=await require('./windows-network-sandbox').observeNetworkSandbox(browser);result.ready=true;driverStage(mode,nonce,'ready-observed');
@@ -69,8 +69,8 @@ async function runLeg(mode,nonce,expectedIdentity) {
  } catch(error) {primary=error;}
  finally {
   // Neither driver nor wrapper proves global browser tree closure. Disposable VM teardown is a backstop.
-  try {await disconnectController(browser);}catch{primary||=Error('Diagnostic disconnect uncertainty');}
-  try {await stopChild(child,closed);}catch{primary||=Error('Diagnostic owner closure uncertainty');}
+  try {await disconnectController(browser);}catch{primary||=new Error('Diagnostic disconnect uncertainty');}
+  try {await stopChild(child,closed);}catch{primary||=new Error('Diagnostic owner closure uncertainty');}
   await new Promise(resolve=>server.close(resolve));
  }
  const categories=['navigation-timeout','target-detached','browser-disconnected','protocol-error','other'];
@@ -78,7 +78,7 @@ async function runLeg(mode,nonce,expectedIdentity) {
  if(failures.length===1) {
   try {const value=JSON.parse(failures[0].slice('EP_TEST_NAVIGATION_FAILURE='.length));if(categories.includes(value.category))result.navigationCategory=value.category;}catch{}
  }
- if(primary)throw Object.assign(Error('Diagnostic leg uncertainty'),{diagnosticResult:result});
+ if(primary)throw Object.assign(new Error('Diagnostic leg uncertainty'),{diagnosticResult:result});
  // Source extraction is test-owned; SEA extraction must already have gone on exit.
  const residue=fs.readdirSync(tmp);
  if(mode==='source') {assert.equal(residue.length,1);assert.ok(residue[0].startsWith('educationperfected-source-'));fs.rmSync(path.join(tmp,residue[0]),{recursive:true,force:true});}
@@ -92,9 +92,9 @@ async function runLeg(mode,nonce,expectedIdentity) {
 module.exports={runLeg,copySeaExecutable};
 if(require.main===module)(async()=>{
  requireDiagnosticHost();
- if(process.argv.length!==7)throw Error('Diagnostic arguments');
+ if(process.argv.length!==7)throw new Error('Diagnostic arguments');
  const [mode,nonce,length,sha256,browserVersion]=process.argv.slice(2);
- if(!['source','sea'].includes(mode)||!/^[a-f0-9]{64}$/.test(nonce)||!/^[1-9][0-9]{0,9}$/.test(length)||!/^[a-f0-9]{64}$/.test(sha256)||!/^\d+\.\d+\.\d+\.\d+$/.test(browserVersion))throw Error('Diagnostic arguments');
+ if(!['source','sea'].includes(mode)||!/^[a-f0-9]{64}$/.test(nonce)||!/^[1-9][0-9]{0,9}$/.test(length)||!/^[a-f0-9]{64}$/.test(sha256)||!/^\d+\.\d+\.\d+\.\d+$/.test(browserVersion))throw new Error('Diagnostic arguments');
  const expected=require('../lib/test-browser-identity').browserIdentity({length:Number(length),sha256,browserVersion});
  driverStage(mode,nonce,'cli-entry');
  const result=await runLeg(mode,nonce,expected);

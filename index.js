@@ -2283,7 +2283,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
  * @returns {Promise<void>}
  */
             async function answerLoop() {
-                if (RUNNING !== null) throw Error("Tried to initiate answerLoop while it is already running");
+                if (RUNNING !== null) throw new Error("Tried to initiate answerLoop while it is already running");
 
                 TOGGLE = true;
                 runReason = 'stopped';

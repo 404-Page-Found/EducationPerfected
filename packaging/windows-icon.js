@@ -6,16 +6,16 @@ const resedit = require('resedit');
 
 function applyWindowsIcon(executable, iconFile, appVersion) {
  const parts = String(appVersion).split('.').map(Number);
- if (parts.length !== 3 || parts.some(n => !Number.isInteger(n) || n < 0)) throw Error('Windows icon step needs a three-part numeric version, got ' + appVersion);
+ if (parts.length !== 3 || parts.some(n => !Number.isInteger(n) || n < 0)) throw new Error('Windows icon step needs a three-part numeric version, got ' + appVersion);
  // The base node.exe ships signed; the SEA blob injection already voids that
  // signature, and these builds are unsigned by policy, so parsing proceeds
  // with the certificate ignored (the edit drops it).
  const exe = resedit.NtExecutable.from(fs.readFileSync(executable), { ignoreCert: true });
  const res = resedit.NtExecutableResource.from(exe);
  const icon = resedit.Data.IconFile.from(fs.readFileSync(iconFile));
- if (!icon.icons.length) throw Error(iconFile + ' contains no icons');
+ if (!icon.icons.length) throw new Error(iconFile + ' contains no icons');
  const groups = resedit.Resource.IconGroupEntry.fromEntries(res.entries);
- if (!groups.length) throw Error('The base executable has no icon group to replace');
+ if (!groups.length) throw new Error('The base executable has no icon group to replace');
  resedit.Resource.IconGroupEntry.replaceIconsForResource(res.entries, groups[0].id, groups[0].lang, icon.icons.map(item => item.data));
  const versionInfos = resedit.Resource.VersionInfo.fromEntries(res.entries);
  if (versionInfos.length) {

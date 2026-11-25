@@ -8,7 +8,7 @@ async function probe(kind, scenario) {
     const store = {
         async read() {
             reads++;
-            if (scenario === 'error') throw Error('do-not-print-fixture-secret');
+            if (scenario === 'error') throw new Error('do-not-print-fixture-secret');
             return scenario === 'valid' ? { email: 'fixture@example.test', password: 'synthetic-hidden' } : null; // NOSONAR: public inert fixture only; exact-path credential scanner exemption, never a real login.
         },
         async save() { writes++; },
@@ -36,7 +36,7 @@ async function probe(kind, scenario) {
         };
         if (id === 'node:sea') return {
             getAsset: key => key === 'manifest' ? '{}' : new ArrayBuffer(0),
-            getRawAsset() { browser++; throw Error('Browser must not be read'); },
+            getRawAsset() { browser++; throw new Error('Browser must not be read'); },
         };
         if (id === 'node:module') return { createRequire: () => () => ({}) };
         if (id === '../lib/native-binding') return { setPackagedBinding() {} };
@@ -46,7 +46,7 @@ async function probe(kind, scenario) {
     const load = id => {
         if (id === '../index') return {
             launchProgram() { browser++; },
-            promptCredentials() { throw Error('Unexpected prompt'); },
+            promptCredentials() { throw new Error('Unexpected prompt'); },
         };
         if (id === '../lib/credential-store') return { createCredentialStore: () => store };
         if (kind === 'bootstrap') {

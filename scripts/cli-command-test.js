@@ -51,11 +51,11 @@ async function probe(args,downloadFails=false,updateFails=false){
   if(id==='node:sea')return {getAsset:key=>key==='manifest'?JSON.stringify({browserMode:'direct-google-download',browserVersion:require('../packaging/browser-downloads.json').version}):new ArrayBuffer(0)};
   if(id==='modern-tar/fs')return {};
   if(id==='../lib/native-binding')return {setPackagedBinding(){}};
-  if(id==='./update')return {updateCommand:async options=>{assert.equal(options.executable,'fixed.exe');events.push('update');if(updateFails)throw Error('inert update failure');}};
+  if(id==='./update')return {updateCommand:async options=>{assert.equal(options.executable,'fixed.exe');events.push('update');if(updateFails)throw new Error('inert update failure');}};
   if(id==='../lib/credential-store')return {createCredentialStore:()=>({inert:true})};
   if(id==='./uninstall')return {uninstallCommand:async options=>{assert.equal(options.ownDirectory,'/inert-runtime');assert.equal(options.store.inert,true);events.push('uninstall');await options.cleanupOwn();return {incomplete:false};}};
-  if(id==='./download-browser')return {ensureBrowser:async(options)=>{events.push(options&&options.consent?(await options.consent())===true?'acquire-implied':'acquire-refused':'acquire');if(downloadFails)throw Error('inert cancellation');},downloadNotice:()=>'inert notice'};
-  if(id==='../bin/cli')return {credentialCommand:async command=>{events.push(command);},runCli:async()=>{throw Error('Must not launch browser');}};
+  if(id==='./download-browser')return {ensureBrowser:async(options)=>{events.push(options&&options.consent?(await options.consent())===true?'acquire-implied':'acquire-refused':'acquire');if(downloadFails)throw new Error('inert cancellation');},downloadNotice:()=>'inert notice'};
+  if(id==='../bin/cli')return {credentialCommand:async command=>{events.push(command);},runCli:async()=>{throw new Error('Must not launch browser');}};
   if(id==='./maintenance-exit')return {shouldExitAfterWindowsUninstall:()=>false,exitAfterMaintenanceHandoff:async()=>false};
   if(id==='../lib/diagnostics')return {diagnostic:()=> 'inert'};
   return require(id);

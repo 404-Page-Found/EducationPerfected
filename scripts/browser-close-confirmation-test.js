@@ -9,7 +9,7 @@ const {closeAndConfirm}=require('../lib/browser-close-confirmation');
  await new Promise(resolve=>setImmediate(resolve));assert.equal(deferredConfirmed,false);
  resolveClose();await pending;assert.equal(deferredConfirmed,true);
  let confirmed=false;
- await assert.rejects(closeAndConfirm(async()=>{throw Error('inert close failure');},()=>{confirmed=true;}));
+ await assert.rejects(closeAndConfirm(async()=>{throw new Error('inert close failure');},()=>{confirmed=true;}));
  assert.equal(confirmed,false);
  const fs=require('node:fs'),path=require('node:path');
  const index=fs.readFileSync(path.join(__dirname,'../index.js'),'utf8');

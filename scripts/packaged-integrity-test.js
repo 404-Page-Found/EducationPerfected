@@ -3,9 +3,9 @@ const {spawnSync, spawn} = require('node:child_process');
 const assert = require('node:assert/strict');
 const { boundedClose, stopChild } = require('./packaged-test-cleanup');
 (async () => {
- if(process.argv.length>2)throw Error('No executable override arguments accepted');
+ if(process.argv.length>2)throw new Error('No executable override arguments accepted');
  const windows = process.platform === 'win32' && process.arch === 'x64';
- if (!(process.platform === 'linux' && ['x64','arm64'].includes(process.arch)) && !windows) throw Error('No native integrity target for this platform');
+ if (!(process.platform === 'linux' && ['x64','arm64'].includes(process.arch)) && !windows) throw new Error('No native integrity target for this platform');
  const build=path.resolve(__dirname,windows?'../build/windows-x64':'../build/linux-'+process.arch);
  const executable=path.join(build,windows?'educationperfected.exe':'educationperfected');
  let child,closed;
@@ -50,8 +50,8 @@ const { boundedClose, stopChild } = require('./packaged-test-cleanup');
   closed=new Promise(resolve=>child.once('close',(code,signal)=>resolve({code,signal})));
   const deadline=Date.now()+5000;
   while(!fs.readdirSync(extract).some(name=>name.startsWith('educationperfected-') && fs.existsSync(path.join(extract,name,'keyring.node')))) {
-   if(child.exitCode!==null || child.signalCode!==null)throw Error('Extraction child exited before checkpoint: '+child.exitCode+'/'+child.signalCode);
-   if(Date.now()>deadline)throw Error('Extraction checkpoint timed out');
+   if(child.exitCode!==null || child.signalCode!==null)throw new Error('Extraction child exited before checkpoint: '+child.exitCode+'/'+child.signalCode);
+   if(Date.now()>deadline)throw new Error('Extraction checkpoint timed out');
    await new Promise(resolve=>setTimeout(resolve,1));
   }
   child.kill(signal);const interrupted=await boundedClose(closed,10000,'Extraction interrupt did not exit');assert.equal(interrupted.code,signal==='SIGINT'?130:signal==='SIGHUP'?129:143);assert.equal(interrupted.signal,null);

@@ -6,29 +6,29 @@ const { createHash } = require('node:crypto');
 const esbuild = require('esbuild');
 const { packTar } = require('modern-tar/fs');
 async function buildDevelopment(target) {
- if (process.argv.length > 2) throw Error('This development builder accepts no output path arguments');
- if (process.env.PUPPETEER_EXECUTABLE_PATH) throw Error('Custom browser paths are not accepted by this development builder');
+ if (process.argv.length > 2) throw new Error('This development builder accepts no output path arguments');
+ if (process.env.PUPPETEER_EXECUTABLE_PATH) throw new Error('Custom browser paths are not accepted by this development builder');
  const out = path.resolve(__dirname, '../build', target.directory); fs.mkdirSync(out, { recursive: true });
  const directDownload=target.browserMode==='direct-google-download';
  let browserDir,archiveRoot,browserExecutable;
  if(!directDownload){
  const browser = await require('puppeteer').executablePath();browserDir = path.dirname(browser);
- if (!fs.existsSync(browser)) throw Error('Chrome for Testing is not installed; run npx puppeteer browsers install chrome');
+ if (!fs.existsSync(browser)) throw new Error('Chrome for Testing is not installed; run npx puppeteer browsers install chrome');
  archiveRoot=browserDir;browserExecutable=path.basename(browser);
  if(target.macosLayout) {
-  if(process.platform!=='darwin' || !['arm64','x64'].includes(process.arch))throw Error('macOS archive preparation requires native macOS arm64 or x64');
+  if(process.platform!=='darwin' || !['arm64','x64'].includes(process.arch))throw new Error('macOS archive preparation requires native macOS arm64 or x64');
   const layout=require('./macos-browser-layout').macosBrowserLayout(browser,process.arch);
   archiveRoot=layout.archiveRoot; browserExecutable=layout.executable;
- } else if (path.basename(browserDir) !== target.browserDirectory || target.browserFiles.some(file => !fs.existsSync(path.join(browserDir,file)))) throw Error('Expected a Chrome for Testing payload directory');
+ } else if (path.basename(browserDir) !== target.browserDirectory || target.browserFiles.some(file => !fs.existsSync(path.join(browserDir,file)))) throw new Error('Expected a Chrome for Testing payload directory');
  }
  // Inventory every installed production dependency, including missing notice files.
  // This is an audit aid, not permission to redistribute an incomplete notice set.
  const notices = path.join(out, 'THIRD-PARTY-NOTICES'); fs.rmSync(notices, {recursive:true,force:true}); fs.mkdirSync(notices, { recursive: true });
  const lock = JSON.parse(fs.readFileSync(path.join(__dirname, '../package-lock.json'), 'utf8'));
  const runtime = require('./notices/runtime.json');
- if (process.versions.node !== runtime.version) throw Error('Node runtime notice version mismatch');
+ if (process.versions.node !== runtime.version) throw new Error('Node runtime notice version mismatch');
  const runtimeNotice = fs.readFileSync(path.join(__dirname, 'notices', runtime.file));
- if (createHash('sha256').update(runtimeNotice).digest('hex') !== runtime.sha256) throw Error('Node runtime notice checksum mismatch');
+ if (createHash('sha256').update(runtimeNotice).digest('hex') !== runtime.sha256) throw new Error('Node runtime notice checksum mismatch');
  fs.writeFileSync(path.join(notices, runtime.file), runtimeNotice);
  fs.copyFileSync(path.join(__dirname, 'notices/runtime.json'), path.join(notices, 'NODE-RUNTIME-PROVENANCE.json'));
  const inventory = [];
@@ -37,7 +37,7 @@ async function buildDevelopment(target) {
   const directory = path.join(__dirname, '..', relative);
   if (!fs.existsSync(directory)) {
    if (record.optional) continue; // Other-platform optional binary, not in this build.
-   throw Error('Missing required production dependency: ' + relative);
+   throw new Error('Missing required production dependency: ' + relative);
   }
   const pkg = JSON.parse(fs.readFileSync(path.join(directory, 'package.json'), 'utf8'));
   const copied = [];
@@ -52,7 +52,7 @@ async function buildDevelopment(target) {
    if (recovered) {
     const source = path.join(__dirname, 'notices', recovered.file);
     const bytes = fs.readFileSync(source);
-    if (createHash('sha256').update(bytes).digest('hex') !== recovered.sha256) throw Error('Recovered notice checksum mismatch');
+    if (createHash('sha256').update(bytes).digest('hex') !== recovered.sha256) throw new Error('Recovered notice checksum mismatch');
     fs.copyFileSync(source, path.join(notices, recovered.file)); copied.push(recovered.file);
    }
   }

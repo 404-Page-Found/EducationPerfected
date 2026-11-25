@@ -9,17 +9,17 @@ const {navigationCause,recordNavigationFailure} = require('../lib/test-navigatio
  const run=vm.runInNewContext('(async function(page,DIR,TEST_BOOT,require){'+navigation+'})',{}, {timeout:1000}); // NOSONAR: fixed exact repository navigation block above plus constant wrapper, no user/env/network source; caller supplies inert page/report only.
  const secret=['https://','private-user',':','private-pass','@','private-host','/private-path'].join('');
  for (const [error,expected] of [
-  [Object.assign(Error(secret),{name:'TimeoutError'}),'navigation-timeout'],
-  [Error('Navigating frame was detached '+secret),'target-detached'],
-  [Error('detached Frame '+secret),'target-detached'],
-  [Error('Requesting main frame too early! '+secret),'target-detached'],
-  [Error('Session closed '+secret),'browser-disconnected'],
-  [Error('Target closed '+secret),'browser-disconnected'],
-  [Error('browser has disconnected '+secret),'browser-disconnected'],
-  [Error('Connection closed '+secret),'browser-disconnected'],
-  [Object.assign(Error(secret),{name:'ProtocolError'}),'protocol-error'],
-  [Error(secret),'other'],
-  [Error('net::ERR_CONNECTION_REFUSED at '+secret),'other'],
+  [Object.assign(new Error(secret),{name:'TimeoutError'}),'navigation-timeout'],
+  [new Error('Navigating frame was detached '+secret),'target-detached'],
+  [new Error('detached Frame '+secret),'target-detached'],
+  [new Error('Requesting main frame too early! '+secret),'target-detached'],
+  [new Error('Session closed '+secret),'browser-disconnected'],
+  [new Error('Target closed '+secret),'browser-disconnected'],
+  [new Error('browser has disconnected '+secret),'browser-disconnected'],
+  [new Error('Connection closed '+secret),'browser-disconnected'],
+  [Object.assign(new Error(secret),{name:'ProtocolError'}),'protocol-error'],
+  [new Error(secret),'other'],
+  [new Error('net::ERR_CONNECTION_REFUSED at '+secret),'other'],
  ]) {
   assert.deepEqual(navigationCause(error),expected);
   const output=[],order=[];
@@ -30,13 +30,13 @@ const {navigationCause,recordNavigationFailure} = require('../lib/test-navigatio
   let loads=0;
   await assert.rejects(run(page,{login_url:secret},false,id=>{if(id==='./lib/initial-login-navigation')return {navigateInitialLogin:async(page,url)=>page.goto(url,{waitUntil:'domcontentloaded'})};loads++;}),caught=>caught===error); // NOSONAR: calls the fixed repository navigation block compiled above, with inert page and fake require only; no external code.
   assert.equal(loads,0,'Normal boot must not load diagnostics');
-  assert.doesNotThrow(()=>recordNavigationFailure(error,true,0,()=>{throw Error('Sink failed');}));
+  assert.doesNotThrow(()=>recordNavigationFailure(error,true,0,()=>{throw new Error('Sink failed');}));
  }
- let reports=0;recordNavigationFailure(Error(secret),false,0,()=>{reports++;});assert.equal(reports,0);
+ let reports=0;recordNavigationFailure(new Error(secret),false,0,()=>{reports++;});assert.equal(reports,0);
  for (const [start,now,expected] of [[0,200000,120000],[10,5,0],[Number.NaN,5,null]]) {
-  let detail;recordNavigationFailure(Error(secret),true,start,line=>{detail=JSON.parse(line.split('=')[1]);},()=>now);assert.equal(detail.elapsedMs,expected);
+  let detail;recordNavigationFailure(new Error(secret),true,start,line=>{detail=JSON.parse(line.split('=')[1]);},()=>now);assert.equal(detail.elapsedMs,expected);
  }
- let calls=0;await run({goto:async()=>{calls++;}}, {login_url:secret},true,id=>{if(id==='./lib/initial-login-navigation')return {navigateInitialLogin:async(page,url)=>page.goto(url,{waitUntil:'domcontentloaded'})};throw Error('Successful goto must not load recorder');});assert.equal(calls,1); // NOSONAR: calls the fixed repository navigation block compiled above, with inert page and fake require only; no external code.
+ let calls=0;await run({goto:async()=>{calls++;}}, {login_url:secret},true,id=>{if(id==='./lib/initial-login-navigation')return {navigateInitialLogin:async(page,url)=>page.goto(url,{waitUntil:'domcontentloaded'})};throw new Error('Successful goto must not load recorder');});assert.equal(calls,1); // NOSONAR: calls the fixed repository navigation block compiled above, with inert page and fake require only; no external code.
  const ready=source.indexOf("if (TEST_BOOT && loginForm !== null) console.log('EP_TEST_LOGIN_READY');");
  assert.ok(ready>source.indexOf('const loginForm = await reachLoginForm();'));
  assert.equal((source.match(/EP_TEST_LOGIN_READY/g)||[]).length,1);

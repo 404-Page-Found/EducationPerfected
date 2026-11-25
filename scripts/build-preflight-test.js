@@ -21,10 +21,10 @@ const source=fs.readFileSync(path.resolve(__dirname,'../packaging/build-developm
    fs.writeFileSync(path.join(packaging,'notices','node-LICENSE'),scenario==='runtime-corrupt'?'corrupted':runtimeBytes);
    fs.writeFileSync(path.join(packaging,'notices','runtime.json'),JSON.stringify(runtime));
    let archived=0,bundled=0,spawned=0;const warnings=[];
-   const stop=Error('synthetic archive boundary');const moduleFixture={exports:{}};
+   const stop=new Error('synthetic archive boundary');const moduleFixture={exports:{}};
    const load=id=>{
-    if(id==='node:child_process')return {execFileSync(){spawned++;throw Error('Native execution forbidden');}};
-    if(id==='esbuild')return {build(){bundled++;throw Error('Bundle execution forbidden');}};
+    if(id==='node:child_process')return {execFileSync(){spawned++;throw new Error('Native execution forbidden');}};
+    if(id==='esbuild')return {build(){bundled++;throw new Error('Bundle execution forbidden');}};
     if(id==='puppeteer')return {executablePath:()=>path.join(browserDir,'chrome')};
     if(id==='./notices/provenance.json')return [];
     if(id==='./notices/runtime.json')return runtime;
@@ -56,12 +56,12 @@ const source=fs.readFileSync(path.resolve(__dirname,'../packaging/build-developm
   const load=id=>{
    if(id==='node:fs')return {
     mkdirSync(){},existsSync:file=>scenario!=='missing-browser' && !(scenario==='missing-browser-file' && file.endsWith('required.dat')),
-    rmSync(){noticesTouched++;throw Error('Must not inventory rejected browser');},
+    rmSync(){noticesTouched++;throw new Error('Must not inventory rejected browser');},
    };
-   if(id==='node:child_process')return {execFileSync(){spawned++;throw Error('Must not execute native build');}};
-   if(id==='esbuild')return {build(){bundled++;throw Error('Must not bundle');}};
+   if(id==='node:child_process')return {execFileSync(){spawned++;throw new Error('Must not execute native build');}};
+   if(id==='esbuild')return {build(){bundled++;throw new Error('Must not bundle');}};
    if(id==='puppeteer')return {executablePath:()=>'/synthetic/'+(scenario==='wrong-directory'?'unexpected':'chrome-synthetic')+'/chrome'};
-   if(id==='modern-tar/fs')return {packTar(){archived++;throw Error('Must not archive');}};
+   if(id==='modern-tar/fs')return {packTar(){archived++;throw new Error('Must not archive');}};
    assert.ok(id.startsWith('node:'));return require(id);
   };
   vm.runInNewContext(source,{require:load,module:moduleFixture,__dirname:'/synthetic/packaging',process:{argv:scenario==='arguments'?['node','builder','unapproved-output']:['node','builder'],env:scenario==='custom-browser'?{PUPPETEER_EXECUTABLE_PATH:'/unapproved/browser'}:{},execPath:process.execPath},console}); // NOSONAR: fixed sibling source, inert dependencies and synthetic inputs only.

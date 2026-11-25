@@ -83,7 +83,7 @@ async function colorFixture(page, origin, pattern = '@@009900@BODY@@') {
                 if(mutation==='id') c.id='foreign';
                 if(mutation==='tabindex') c.tabIndex=0;
                 if(mutation==='disabled') c.disabled=true;
-                if(mutation==='disabled-fieldset') {const fieldset=document.createElement('fieldset');fieldset.disabled=true;c.parentElement.before(fieldset);fieldset.append(c.parentElement);if(c.disabled || !c.matches(':disabled'))throw Error('fixture must use inherited disablement');}
+                if(mutation==='disabled-fieldset') {const fieldset=document.createElement('fieldset');fieldset.disabled=true;c.parentElement.before(fieldset);fieldset.append(c.parentElement);if(c.disabled || !c.matches(':disabled'))throw new Error('fixture must use inherited disablement');}
                 if(mutation==='wrong-parent') c.parentElement.id='foreign';
                 if(mutation==='render-id') r.id='foreign';
                 if(mutation==='render-parent') p.element.append(r);

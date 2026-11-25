@@ -8,8 +8,8 @@ async function probe(signal) {
   on(name,handler){listeners.set(name,handler);},removeListener(name){listeners.delete(name);},
   exit(code){this.exitCode=code;listeners.get('exit')?.();}};
  const load=id=>{
-  if(id==='../lib/runtime-directory')return {createRuntimeDirectory:()=>({directory:'/synthetic-owned-root',remove:safe=>{safeValues.push(safe);throw Object.assign(Error('private path'),{code:'EPERM'});}})};
-  if(id==='node:fs')return {mkdtempSync:()=>'/synthetic-owned-root',chmodSync(){},writeFileSync(){},rmSync(){throw Object.assign(Error('private path'),{code:'EPERM'});}};
+  if(id==='../lib/runtime-directory')return {createRuntimeDirectory:()=>({directory:'/synthetic-owned-root',remove:safe=>{safeValues.push(safe);throw Object.assign(new Error('private path'),{code:'EPERM'});}})};
+  if(id==='node:fs')return {mkdtempSync:()=>'/synthetic-owned-root',chmodSync(){},writeFileSync(){},rmSync(){throw Object.assign(new Error('private path'),{code:'EPERM'});}};
   if(id==='node:sea')return {getAsset:key=>key==='manifest'?'{}':new ArrayBuffer(0)};
   if(id==='node:module')return {createRequire:()=>()=>({})};
   if(id==='../bin/cli')return {credentialCommand:async()=>{}};

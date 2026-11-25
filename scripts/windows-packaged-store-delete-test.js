@@ -5,8 +5,8 @@ const { spawn } = require('node:child_process');
 const { createWindowsBinding } = require('../lib/packaged-windows-binding');
 const { boundedClose, stopChild } = require('./packaged-test-cleanup');
 async function verifyPackagedDelete() {
- if (process.platform !== 'win32' || process.arch !== 'x64' || process.env.GITHUB_ACTIONS !== 'true' || process.env.RUNNER_OS !== 'Windows' || process.env.RUNNER_ENVIRONMENT !== 'github-hosted') throw Error('Requires disposable Windows x64 Actions runner');
- if (process.argv.length > 2) throw Error('No fixture arguments accepted');
+ if (process.platform !== 'win32' || process.arch !== 'x64' || process.env.GITHUB_ACTIONS !== 'true' || process.env.RUNNER_OS !== 'Windows' || process.env.RUNNER_ENVIRONMENT !== 'github-hosted') throw new Error('Requires disposable Windows x64 Actions runner');
+ if (process.argv.length > 2) throw new Error('No fixture arguments accepted');
  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ep-sea-store-'));
  let binding, entry, child, closed, childClosed = true, created = false, primary, cleanupFailure;
  let setupCertain = true, cancellationPending = false;
@@ -85,19 +85,19 @@ async function verifyPackagedDelete() {
   console.log('Windows SEA interactive setup saved a source-verified exact synthetic pair; fresh-process health read validated shape, then forget-credentials deleted it; independent source read, process exit and owned extraction cleanup passed. Not SEA-returned exact-value, browser startup, physical console or no-Node proof.');
  } catch (error) {primary=error;}
  finally {
-  try {await stopChild(child,closed);} catch {cleanupFailure=Error('Packaged child cleanup failed');}
-  if (cancellationPending || !setupCertain || !childClosed || binding?.hasLiveWorkers()) cleanupFailure=Error(retained);
+  try {await stopChild(child,closed);} catch {cleanupFailure=new Error('Packaged child cleanup failed');}
+  if (cancellationPending || !setupCertain || !childClosed || binding?.hasLiveWorkers()) cleanupFailure=new Error(retained);
   else if (created && entry) {
    try {await entry.deletePassword();assert.equal(await entry.getPassword(),null);created=false;}
-   catch {cleanupFailure=Error('Synthetic packaged record cleanup failed');}
+   catch {cleanupFailure=new Error('Synthetic packaged record cleanup failed');}
   }
-  if (cancellationPending || !setupCertain || created || !childClosed || binding?.hasLiveWorkers()) cleanupFailure ||= Error(retained);
+  if (cancellationPending || !setupCertain || created || !childClosed || binding?.hasLiveWorkers()) cleanupFailure ||= new Error(retained);
   else {try {fs.rmSync(root,{recursive:true,force:true});} catch (error) {
    const code = ['EPERM','EACCES','EBUSY','ENOTEMPTY','ENOENT'].includes(error?.code) ? error.code : 'other';
    const target = typeof error?.path === 'string' ? path.relative(root,error.path) : null;
    const kind = target === 'keyring.node' ? 'source-binding' : target === 'educationperfected.exe' ? 'executable-copy' : target === '' ? 'owned-root' : target && !target.startsWith('..') && !path.isAbsolute(target) ? 'owned-child' : 'unknown';
    console.error('Packaged store fixture cleanup checkpoint: code='+code+'; target='+kind+'; childClosed='+childClosed+'; workersLive='+Boolean(binding?.hasLiveWorkers()));
-   cleanupFailure ||= Error('Packaged store fixture file cleanup failed');
+   cleanupFailure ||= new Error('Packaged store fixture file cleanup failed');
   }}
   if (cleanupFailure) console.error(cleanupFailure.message);
  }

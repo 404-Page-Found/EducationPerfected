@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { Worker } = require('node:worker_threads');
 (async () => {
- if (process.platform !== 'win32' || process.arch !== 'x64') throw Error('Windows x64 proof requires its native host');
+ if (process.platform !== 'win32' || process.arch !== 'x64') throw new Error('Windows x64 proof requires its native host');
  const root = fs.mkdtempSync(path.join(os.tmpdir(),'ep-native-unload-'));
  let worker, confirmedExit=false, exitObserved, timer;
  try {
@@ -14,7 +14,7 @@ const { Worker } = require('node:worker_threads');
   // Fixed source and fixed build dependency, never external/user-supplied code.
   const source = `const {parentPort,workerData}=require('node:worker_threads');
   const binding=require(workerData.file);
-  if(typeof binding.AsyncEntry !== 'function') throw Error('Missing native API');
+  if(typeof binding.AsyncEntry !== 'function') throw new Error('Missing native API');
   parentPort.once('message',()=>parentPort.close());
   parentPort.postMessage('loaded');`;
   await new Promise((resolve,reject)=>{
@@ -28,8 +28,8 @@ const { Worker } = require('node:worker_threads');
     } catch(error) {reject(error);worker.unref();worker.terminate().catch(()=>{});}
    });
    worker.on('error',error=>{clearTimeout(timer);reject(error);});
-   worker.once('exit',code=>{confirmedExit=true;clearTimeout(timer);if(code===0)resolve();else reject(Error('Native worker load failed'));});
-   timer=setTimeout(()=>{worker.unref();worker.terminate().catch(()=>{});reject(Error('Native worker exit unconfirmed'));},10000);
+   worker.once('exit',code=>{confirmedExit=true;clearTimeout(timer);if(code===0)resolve();else reject(new Error('Native worker load failed'));});
+   timer=setTimeout(()=>{worker.unref();worker.terminate().catch(()=>{});reject(new Error('Native worker exit unconfirmed'));},10000);
   });
   fs.unlinkSync(file);assert.equal(fs.existsSync(file),false);
   console.log('Windows DLL locked while loaded, worker exited, copied DLL deleted; no credential API called (source-host proof only).');

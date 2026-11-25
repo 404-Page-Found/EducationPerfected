@@ -54,7 +54,7 @@ const { finishFixtureCleanup } = require('./fixture-cleanup-errors');
         const wait = async predicate => {
             const deadline = Date.now() + 10000;
             while (!predicate()) {
-                if (Date.now() > deadline) throw Error('Cleanup restart checkpoint timed out');
+                if (Date.now() > deadline) throw new Error('Cleanup restart checkpoint timed out');
                 await new Promise(resolve => setTimeout(resolve, 10));
             }
         };

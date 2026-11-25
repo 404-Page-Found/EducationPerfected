@@ -16,7 +16,7 @@ const { shouldExitAfterWindowsUninstall, exitAfterMaintenanceHandoff } = require
     const stream = name => ({ write(text, done) { assert.equal(text, ''); setImmediate(() => { events.push(name); done(); }); } });
     await exitAfterMaintenanceHandoff({ exitAfterHandoff: true }, { stdout: stream('stdout'), stderr: stream('stderr'), exitCode: 7, exit(code) { assert.equal(events.length, 2); assert.equal(code, 7); events.push('exit'); } });
     assert.equal(events[2], 'exit');
-    assert.equal(await exitAfterMaintenanceHandoff(undefined, { exit() { throw Error('unexpected exit'); } }), false);
+    assert.equal(await exitAfterMaintenanceHandoff(undefined, { exit() { throw new Error('unexpected exit'); } }), false);
     // A referenced interval models the actual failure class: the maintenance
     // command returned, but a remaining handle prevents natural process exit.
     const modulePath = path.resolve(__dirname, '../packaging/maintenance-exit');

@@ -50,7 +50,7 @@ const {validationLabel,inventory,targets}=require('./beta-candidate');
         fs.writeFileSync(path.join(checkout,'packaging',targets[target].builder),String.raw`
 const fs=require('node:fs'),path=require('node:path');
 const out=path.join(process.cwd(),'build',${JSON.stringify(target)});
-if(fs.existsSync(out))throw Error('Stale build directory was not removed');
+if(fs.existsSync(out))throw new Error('Stale build directory was not removed');
 if(process.env.EP_FIXTURE_FAIL==='1')process.exit(1);
 fs.mkdirSync(path.join(out,'THIRD-PARTY-NOTICES'),{recursive:true});
 fs.writeFileSync(path.join(out,${JSON.stringify(targets[target].executable)}),'synthetic fresh executable');
@@ -62,7 +62,7 @@ if(process.env.EP_FIXTURE_DIRTY==='1')fs.appendFileSync('package.json','\n');
         fs.writeFileSync(path.join(checkout,'packaging','build-downloadable.js'),`
 const fs=require('node:fs'),path=require('node:path');
 const out=path.join(process.cwd(),'build',${JSON.stringify(target+'-downloadable')});
-if(fs.existsSync(out))throw Error('Stale downloadable build');
+if(fs.existsSync(out))throw new Error('Stale downloadable build');
 fs.mkdirSync(path.join(out,'THIRD-PARTY-NOTICES'),{recursive:true});
 fs.writeFileSync(path.join(out,${JSON.stringify(targets[target].executable)}),'synthetic no-browser executable');
 fs.writeFileSync(path.join(out,'manifest.json'),JSON.stringify({browserMode:'direct-google-download',browserVersion:process.env.EP_BAD_PIN==='1'?'wrong':'synthetic'}));

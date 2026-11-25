@@ -9,21 +9,21 @@ async function probe(expectedHash, declaredLength) {
  const original=Buffer.from(bytes);
  let complete;
  const finished=new Promise(resolve=>{complete=resolve;});
- const fakeProcess={execPath:process.execPath,argv:['fixture','fixture'],env:{},on(){},removeListener(){},exit(){throw Error('Unexpected exit');}};
+ const fakeProcess={execPath:process.execPath,argv:['fixture','fixture'],env:{},on(){},removeListener(){},exit(){throw new Error('Unexpected exit');}};
  const load=id=>{
   if(id==='../lib/runtime-directory')return {createRuntimeDirectory:()=>({directory:'/inert-owned-runtime',remove:()=>true})};
   if(id==='node:fs')return {writeFileSync(){}};
   if(id==='node:sea')return {getAsset:key=>key==='manifest'?JSON.stringify({length:declaredLength ?? bytes.length,sha256:expectedHash}):new ArrayBuffer(0),getRawAsset:key=>{assert.equal(key,'browser');return raw;}};
   if(id==='node:module')return {createRequire:()=>()=>({})};
   if(id==='../lib/native-binding')return {setPackagedBinding(){}};
-  if(id==='modern-tar/fs')return {unpackTar:()=>{unpackCalls++;throw Error('Synthetic unpack checkpoint');}};
+  if(id==='modern-tar/fs')return {unpackTar:()=>{unpackCalls++;throw new Error('Synthetic unpack checkpoint');}};
   if(id==='../bin/cli')return {runCli:async()=>{cliCalls++;}};
   if(id==='../lib/diagnostics')return {diagnostic:error=>error.message === 'Invalid browser payload size' ? 'Synthetic payload size rejection' : 'Synthetic failure category'};
   return require(id);
  };
  // Executes only the fixed sibling repository bootstrap read above, never user input.
  vm.runInNewContext(source,{require:load,process:fakeProcess,Buffer,console:{error:text=>{output+=text;complete();},log(){}}},{filename:'synthetic-bootstrap.js'}); // NOSONAR: fixed repository source under test; no user-controlled code.
- try {await Promise.race([finished,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Synthetic bootstrap timeout')),3000);})]);}
+ try {await Promise.race([finished,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Synthetic bootstrap timeout')),3000);})]);}
  finally {clearTimeout(timer);}
  assert.deepEqual(Buffer.from(raw), original, 'Embedded raw asset must remain unchanged');
  return {unpackCalls,cliCalls,output};

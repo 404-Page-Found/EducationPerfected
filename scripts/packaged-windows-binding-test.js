@@ -33,7 +33,7 @@ const { createWindowsBinding } = require('../lib/packaged-windows-binding');
  assert.equal(constructed,count,'No overlapping native operation while timed-out worker remains live');
  worker.emit('exit',0);assert.equal(stalled.hasLiveWorkers(),false);assert.equal(idle,1);
  const resumed=blockedEntry.getPassword();worker.emit('message',{ok:true,value:null});worker.emit('exit',0);assert.equal(await resumed,null);
- const idleFailure=createWindowsBinding('/synthetic/keyring.node',{WorkerClass:FakeWorker,onIdle:()=>{throw Error('private callback');}});
+ const idleFailure=createWindowsBinding('/synthetic/keyring.node',{WorkerClass:FakeWorker,onIdle:()=>{throw new Error('private callback');}});
  const callbackFailed=new idleFailure.AsyncEntry('EducationPerfected','login-v1').getPassword();
  worker.emit('message',{ok:true,value:null});worker.emit('exit',0);
  await assert.rejects(callbackFailed,error=>error.code==='EP_NATIVE_STORE'&&!error.message.includes('private'));

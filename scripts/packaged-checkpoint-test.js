@@ -20,7 +20,7 @@ const { waitForPackagedCheckpoint } = require('./packaged-checkpoint');
  elapsed=0;
  await assert.rejects(waitForPackagedCheckpoint(()=>false,{...opts,child:{exitCode:1,signalCode:null}}),/"outcome":"child-exit"/);
  assert.equal(elapsed,0,'Exit must not wait for timeout');
- const failure=Error('synthetic spawn failure');
+ const failure=new Error('synthetic spawn failure');
  await assert.rejects(waitForPackagedCheckpoint(()=>false,{...opts,failure:()=>failure}),error=>error===failure);
  elapsed=0;
  await assert.rejects(waitForPackagedCheckpoint(()=>false,{...opts,milliseconds:20000}),/"budgetMs":20000/);

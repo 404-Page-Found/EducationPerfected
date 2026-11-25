@@ -7,7 +7,7 @@ const { guardVerifiedPointDispatch } = require('./verified-point-dispatch-fixtur
     // Negative control: a forbidden handle click must increment and throw;
     // a verified mouse point is forwarded, and the target path is counted.
     let forwarded = 0;
-    const element = {click: async () => { throw Error('unpatched click'); }};
+    const element = {click: async () => { throw new Error('unpatched click'); }};
     const button = {asElement: () => element};
     const handle = {getProperty: async () => button};
     const dispatch = guardVerifiedPointDispatch({mouse: {click: async () => {forwarded++;}}, evaluateHandle: async () => handle});

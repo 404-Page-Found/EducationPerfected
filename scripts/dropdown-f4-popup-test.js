@@ -26,7 +26,7 @@ const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restoreP
         let result = await once(page);
         assert.deepEqual(result, { status: 'submitted-once' });
         assert.deepEqual(await page.evaluate(() => dropdownFixture.keys), Array.from({ length: 5 }, (_, index) => ({ id: 'dropdown-' + index, key: 'F4', trusted: true })));
-        assert.deepEqual(await page.evaluate(() => dropdownFixture.changes.map(event => event.index)), Array(5).fill(2));
+        assert.deepEqual(await page.evaluate(() => dropdownFixture.changes.map(event => event.index)), new Array(5).fill(2));
         assert.deepEqual(await page.evaluate(() => [dropdownFixture.submits, dropdownFixture.nexts]), [1, 0]);
 
         await setup();
