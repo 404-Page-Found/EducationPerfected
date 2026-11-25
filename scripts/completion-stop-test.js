@@ -26,7 +26,7 @@ const gapsMode = process.argv.includes('--gaps')||selectionModalMode;
     };
     console.log = (...args) => { if (String(args[0]).includes('No credentials provided')) loginReady = true; log(...args); };
     try {
-        const launch = await launchAndAwaitLogin(() => browser, () => loginReady);
+        const { launch } = await launchAndAwaitLogin(() => browser, () => loginReady);
         const page = (await browser.pages())[0];
         await page.type('#loginId', 'fixture-user');
         await page.type('#password', 'fixture-only');
@@ -66,7 +66,7 @@ async function launchAndAwaitLogin(getBrowser, isLoginReady) {
         if (Date.now() >= deadline) throw new Error('Local login checkpoint timed out');
         await new Promise(resolve => setTimeout(resolve, 10));
     }
-    return launch;
+    return { launch };
 }
 
 async function armCompletionSurface(page, gapsMode, selectionModalMode) {
