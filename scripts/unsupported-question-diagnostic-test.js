@@ -71,6 +71,11 @@ function expectedDiagnostic(componentTypes, controls) {
         await wait(() => session.output.slice(offset).includes('lesson slide with an unsupported question type (not text, choice, or audio)'));
         const diagnosticLine = 'Unsupported question diagnostic ' + JSON.stringify(expectedDiagnostic(['FILE_UPLOADER_COMPONENT'], 'input'));
         assert.equal(session.output.slice(offset).includes(diagnosticLine), true);
+        // The run ended on the refusal, so the local support report block names the refused type by category only.
+        await wait(() => session.output.slice(offset).includes('--- end of report ---'));
+        const reportText = session.output.slice(offset);
+        assert.match(reportText, /- unsupported: answered 0, refused 1, skipped 0 \(reasons: unsupported-question x1\)/);
+        assert.equal(reportText.includes('Private unsupported question content'), false);
         assert.deepEqual(await page.evaluate(() => [window.unsupportedInputEvents, window.unsupportedSubmits]), [0, 0]);
         child.stdin.write('quit\n');
         await wait(() => child.exitCode !== null);

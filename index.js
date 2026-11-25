@@ -24,6 +24,8 @@ const { createHumanDelay, summarizeRanges } = require('./lib/human-delay');
 const { createSelectChoiceOnce } = require('./lib/choice-select-once');
 const { readChoiceInPage } = require('./lib/choice-state');
 const { diagnostic } = require('./lib/diagnostics');
+const { createSupportReport } = require('./lib/support-report');
+const { createSupportSender } = require('./lib/support-sender');
 const { collectSelfMarkDiagnostics } = require('./lib/self-mark-diagnostics');
 const { guardClassicEnter } = require('./lib/classic-enter');
 const { boxMatchesAnswer } = require('./lib/answer-normalize');
@@ -413,7 +415,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
     const validationFlags = Boolean(gapsFillOnly || choiceSelectOnly || gapsSubmitOnce || textboxFillOnly || dropdownSubmitOnce || multiSelectOnly);
     const { readConfig, writeConfig } = require('./lib/app-config');
     // Fixtures and one-shot validators never read or change personal settings.
-    const savedConfig = TEST_BOOT || validationFlags ? { version: 2 } : readConfig();
+    const savedConfig = TEST_BOOT || validationFlags ? { version: 1 } : readConfig();
     let accuracyConfig;
     try {
         accuracyConfig = require('./lib/accuracy').resolveAccuracyConfig({ cli: accuracy || {}, env: process.env, config: savedConfig.accuracy });
@@ -901,6 +903,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             let CLEANUP = null;  // promise of the most recent run's post-run modal cleanup
             let ENTER = true;
             let runReason = 'stopped';
+            // Local-only task support report (tally of task types and outcomes, reason categories only).
+            let supportReport = createSupportReport();
+            const supportSender = createSupportSender({ config: savedConfig, appVersion: require('./package.json').version });
             // Issue #222: per-run accuracy controller (target randomized per run).
             // Null when disabled (perfect). Created fresh in answerLoop so every
             // start() picks a new target in the band.
@@ -1994,6 +1999,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             async function handleNonTextRound(descriptor) {
                 if (!TOGGLE) return false;
                 if (descriptor.kind === 'unsupported') {
+                    supportReport.record('unsupported', 'refused', 'unsupported-question');
                     if (descriptor.diagnostic) console.error('Unsupported question diagnostic ' + JSON.stringify(descriptor.diagnostic));
                     console.error(descriptor.reason);
                     await alert(descriptor.reason);
@@ -2001,12 +2007,16 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 }
                 const handler = QUESTION_HANDLERS.find(h => h.type === descriptor.kind);
                 if (!handler) {
+                    supportReport.record(descriptor.kind, 'refused', 'no-handler');
                     const message = `No question handler is registered for "${descriptor.kind}"; stopping instead of guessing.`;
                     console.error(message);
                     await alert(message);
                     return false;
                 }
-                return await handler.play(descriptor);
+                const played = await handler.play(descriptor);
+                if (played) supportReport.record(descriptor.kind, 'answered');
+                else supportReport.record(descriptor.kind, TOGGLE ? 'refused' : 'skipped', TOGGLE ? 'handler-stopped' : 'stopped-by-user');
+                return played;
             }
 
             /**
@@ -2266,6 +2276,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 runReason = 'stopped';
                 lastSubmitted = null;
                 typedSubmissionsByKey.clear();
+                supportReport = createSupportReport();
                 futileStop = false;  // a manual restart after a futility stop gets a fresh bounded run
                 dashNoted = false;  // per-run Dash guidance: a second start must log the sprint notice again
                 startAccuracyRun();
@@ -2334,7 +2345,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         const acc = accuracyRun.accuracy();
                         console.log(`Accuracy this run: target ${accuracyRun.target}%, first-try ${accuracyRun.stats.attempts - accuracyRun.stats.mistakes}/${accuracyRun.stats.attempts}${acc === null ? '' : ` (${acc.toFixed(1)}%)`}.`);
                     }
+                    if (futileStop) supportReport.record('text', 'refused', 'futility-guard');
                     console.log(`answerLoop Exited. (reason=${runReason}, futileStop=${futileStop})`);
+                    console.log(supportReport.render(runReason));
+                    await supportSender.sendRun(supportReport);
                 }
                 return { reason: runReason };
             }
@@ -2568,6 +2582,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     // learn that adds new candidates, a changed-list refresh, or a run
                     // restart.
                     if (typeof answer !== 'string' || answer === '') {
+                        supportReport.record('text', 'refused', 'empty-answer');
                         console.log(`Answer loop stopping: refusing to type an empty answer for "${question}".`);
                         break;
                     }
@@ -2737,10 +2752,12 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     }
 
                     if (!await enterClassic(question, answer, ENTER)) {
+                        supportReport.record('text', 'refused', 'pre-submit-guard');
                         console.log(`Answer loop stopping: pre-submit guard refused submission for "${question}" (question changed, box mismatch, or stopped).`);
                         break;
                     }
                     lastSubmitted = { question, answer, isRandomProbe, randomRound };
+                    supportReport.record('text', 'answered');
                     // Record the first-try result only after a confirmed submission so
                     // changed questions, vanished boxes, or refused selections never
                     // inflate the displayed stats. Mark the question seen so a modal-driven
@@ -2837,6 +2854,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                             }
                         }
                         if (!await enterClassic(question, accuracyClassicCorrect, true)) {
+                            supportReport.record('text', 'refused', 'pre-submit-guard');
                             console.log(`Answer loop stopping: pre-submit guard refused retry for "${question}".`);
                             break;
                         }

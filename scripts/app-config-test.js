@@ -18,6 +18,8 @@ try {
   assert.deepEqual(readConfig(options),loaded);
  }
  const on={version:1,accuracy:{enabled:true},delay:{enabled:true}};
+ assert.deepEqual(normalizeConfig({version:1,supportReports:false,x:1}),{version:1,supportReports:false});
+ assert.deepEqual(normalizeConfig({version:1,supportReports:'no'}),{version:1});
  writeConfig({...on,password:'not-a-real-secret',email:'fixture'},options);
  assert.deepEqual(readConfig(options),on);
  assert(!fs.readFileSync(file,'utf8').includes('secret'));
