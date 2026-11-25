@@ -22,7 +22,7 @@ assert.match(text, /- text: answered 2, refused 0, skipped 0\n/);
 assert.match(text, /- audio: answered 0, refused 2, skipped 0 \(reasons: no-handler x2\)/);
 assert.match(text, /- gaps: answered 0, refused 0, skipped 1 \(reasons: pre-submit-guard x1\)/);
 assert.match(text, /Run ended: completed/);
-assert.match(text, /Nothing was sent/);
+assert.match(text, /No answers, question text or credentials/);
 
 // Free text in reason or kind never reaches the report.
 const leaky = createSupportReport();
