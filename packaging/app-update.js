@@ -17,25 +17,26 @@ const { shellQuote } = require('./app-maintenance');
 // exe and the macOS .pkg are per-arch fixed names; the Linux package names
 // embed the release version (they come from build-packages.sh).
 function installerAssetName({ method, arch = process.arch, version } = {}) {
-    switch (method) {
-        case 'setup-exe':
-            return 'educationperfected-windows-x64-setup.exe';
-        case 'pkg':
-            if (arch !== 'arm64' && arch !== 'x64') throw new Error('Unsupported update architecture ' + arch);
-            return 'educationperfected-macos-' + arch + '.pkg';
-        case 'deb':
-            if (!version) throw new Error('The deb asset name needs the release version');
-            if (arch === 'x64') return 'educationperfected_' + version + '_amd64.deb';
-            if (arch === 'arm64') return 'educationperfected_' + version + '_arm64.deb';
-            throw new Error('Unsupported update architecture ' + arch);
-        case 'rpm':
-            if (!version) throw new Error('The rpm asset name needs the release version');
-            if (arch === 'x64') return 'educationperfected-' + version + '-1.x86_64.rpm';
-            if (arch === 'arm64') return 'educationperfected-' + version + '-1.aarch64.rpm';
-            throw new Error('Unsupported update architecture ' + arch);
-        default:
-            throw new Error('This install method has no OS installer to update through: ' + method);
-    }
+    if (method === 'setup-exe') return 'educationperfected-windows-x64-setup.exe';
+    if (method === 'pkg') return pkgAssetName(arch);
+    if (method === 'deb' || method === 'rpm') return linuxPackageAssetName(method, arch, version);
+    throw new Error('This install method has no OS installer to update through: ' + method);
+}
+
+function pkgAssetName(arch) {
+    if (arch !== 'arm64' && arch !== 'x64') throw new Error('Unsupported update architecture ' + arch);
+    return 'educationperfected-macos-' + arch + '.pkg';
+}
+
+function linuxPackageAssetName(method, arch, version) {
+    if (!version) throw new Error('The ' + method + ' asset name needs the release version');
+    const names = {
+        deb: { x64: `educationperfected_${version}_amd64.deb`, arm64: `educationperfected_${version}_arm64.deb` },
+        rpm: { x64: `educationperfected-${version}-1.x86_64.rpm`, arm64: `educationperfected-${version}-1.aarch64.rpm` },
+    };
+    const name = names[method][arch];
+    if (!name) throw new Error('Unsupported update architecture ' + arch);
+    return name;
 }
 
 // Pick the newest stable release strictly newer than currentVersion and plan
@@ -190,37 +191,19 @@ async function applyAppUpdate(plan, {
         }
         await beforeHandoff();
         if (platform === 'win32') {
-            if (!receipt) throw new Error('The Windows installer helper needs a receipt path');
-            startWindowsInstallerHelper({ installer: staged, staging, receipt, version: plan.version, pid, lock, spawnDetached });
+            const outcome = handoffWindowsInstaller({ staged, staging, receipt, version: plan.version, pid, lock, spawnDetached, write });
             helperOwned = true; // staging and the helper script belong to the helper now
-            write('The verified installer starts when the app closes and upgrades the app and the CLI together.');
-            return { status: 'installer-started', quitRequired: true, version: plan.version };
+            return outcome;
         }
         if (platform === 'darwin') {
-            const handoff = macosInstallerCommand({ installer: staged, staging });
-            spawnDetached(handoff.command, handoff.args);
+            const outcome = handoffMacosInstaller({ staged, staging, version: plan.version, spawnDetached, write });
             helperOwned = true; // the shell removes staging when the Installer closes
-            write('The verified installer package opens in the macOS Installer and upgrades the app and the CLI together.');
-            return { status: 'installer-opened', quitRequired: true, version: plan.version };
+            return outcome;
         }
         if (platform === 'linux') {
-            const command = linuxInstallCommand({ method, file: staged });
-            const manual = 'sudo ' + command.map(shellQuote).join(' ');
-            write('Installing the verified package; the desktop asks for your password.');
-            const result = spawnSync('pkexec', command, { stdio: 'ignore' });
-            if (result.error || result.status !== 0) {
-                keepStaging = true;
-                // pkexec 126/127: the authentication was dismissed or failed, so
-                // the package manager never ran. Any other failure came FROM the
-                // package manager, which may have partly installed the update.
-                const cancelled = !result.error && (result.status === 126 || result.status === 127);
-                write(cancelled
-                    ? 'The password prompt was dismissed; nothing changed. The verified package is kept at ' + staged + '. Run it by hand: ' + manual
-                    : 'The package manager reported a failure; the update may be partly installed. The verified package is kept at ' + staged + ' - inspect it with your package manager or run it by hand: ' + manual);
-                return { status: 'failed', quitRequired: false, manual, file: staged };
-            }
-            write('Updated to ' + plan.version + '. The app closes now; relaunch it from your applications menu.');
-            return { status: 'updated', quitRequired: true, version: plan.version };
+            const { outcome, keepPackage } = handoffLinuxElevated({ method, staged, version: plan.version, spawnSync, write });
+            keepStaging = keepPackage;
+            return outcome;
         }
         throw new Error('Unsupported update platform ' + platform + '-' + arch);
     } finally {
@@ -229,6 +212,45 @@ async function applyAppUpdate(plan, {
             fs.rmSync(staging + '.cmd', { force: true });
         }
     }
+}
+
+// Windows handoff: a background helper runs the verified installer once the
+// app process exits. The caller marks staging helper-owned on success.
+function handoffWindowsInstaller({ staged, staging, receipt, version, pid, lock, spawnDetached, write }) {
+    if (!receipt) throw new Error('The Windows installer helper needs a receipt path');
+    startWindowsInstallerHelper({ installer: staged, staging, receipt, version, pid, lock, spawnDetached });
+    write('The verified installer starts when the app closes and upgrades the app and the CLI together.');
+    return { status: 'installer-started', quitRequired: true, version };
+}
+
+// macOS handoff: open the verified package in the Installer; its shell
+// cleanup removes staging when the Installer closes.
+function handoffMacosInstaller({ staged, staging, version, spawnDetached, write }) {
+    const handoff = macosInstallerCommand({ installer: staged, staging });
+    spawnDetached(handoff.command, handoff.args);
+    write('The verified installer package opens in the macOS Installer and upgrades the app and the CLI together.');
+    return { status: 'installer-opened', quitRequired: true, version };
+}
+
+// Elevated Linux install through pkexec. keepPackage tells the caller to
+// leave staging in place for a manual retry after a dismissed/failed prompt.
+function handoffLinuxElevated({ method, staged, version, spawnSync, write }) {
+    const command = linuxInstallCommand({ method, file: staged });
+    const manual = 'sudo ' + command.map(shellQuote).join(' ');
+    write('Installing the verified package; the desktop asks for your password.');
+    const result = spawnSync('pkexec', command, { stdio: 'ignore' });
+    if (result.error || result.status !== 0) {
+        // pkexec 126/127: the authentication was dismissed or failed, so the
+        // package manager never ran. Any other failure came FROM the package
+        // manager, which may have partly installed the update.
+        const cancelled = !result.error && (result.status === 126 || result.status === 127);
+        write(cancelled
+            ? 'The password prompt was dismissed; nothing changed. The verified package is kept at ' + staged + '. Run it by hand: ' + manual
+            : 'The package manager reported a failure; the update may be partly installed. The verified package is kept at ' + staged + ' - inspect it with your package manager or run it by hand: ' + manual);
+        return { outcome: { status: 'failed', quitRequired: false, manual, file: staged }, keepPackage: true };
+    }
+    write('Updated to ' + version + '. The app closes now; relaunch it from your applications menu.');
+    return { outcome: { status: 'updated', quitRequired: true, version }, keepPackage: false };
 }
 
 module.exports = { installerAssetName, planAppUpdate, fetchAppUpdatePlan, applyAppUpdate, windowsInstallerHelperScript, startWindowsInstallerHelper, macosInstallerCommand, linuxInstallCommand, detectPkexec, RELEASE_HEADERS };
