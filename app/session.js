@@ -17,7 +17,7 @@
 //    uninstall`.
 'use strict';
 
-const ACTIONS = new Set(['status', 'start', 'stop', 'mode', 'refresh', 'accuracy', 'delay']);
+const ACTIONS = new Set(['status', 'start', 'stop', 'mode', 'refresh', 'accuracy', 'delay', 'reports']);
 const MODES = new Set(['auto', 'semi']);
 
 function createAppSession({
@@ -357,8 +357,8 @@ function createAppSession({
             if (!ACTIONS.has(name)) throw new Error('Unknown app control.');
             if (!controls) throw new Error('The browser session is not running.');
             const settingValue = String(value ?? '').trim().toLowerCase();
-            const settingRead = name === 'accuracy' ? ['', 'show', 'status'].includes(settingValue) : name === 'delay' && settingValue === '';
-            if (['accuracy', 'delay'].includes(name) && !settingRead && !['stopped', 'completed', 'error'].includes(controls.status()?.state)) {
+            const settingRead = name === 'accuracy' ? ['', 'show', 'status'].includes(settingValue) : ['delay', 'reports'].includes(name) && settingValue === '';
+            if (['accuracy', 'delay', 'reports'].includes(name) && !settingRead && !['stopped', 'completed', 'error'].includes(controls.status()?.state)) {
                 throw new Error('Stop the run before changing settings.');
             }
             let result;
@@ -371,6 +371,10 @@ function createAppSession({
                     result = await controls.mode(value); break;
                 case 'refresh': result = await controls.refresh(); break;
                 case 'accuracy': result = await controls.setAccuracy(String(value ?? '')); break;
+                case 'reports':
+                    result = controls.reports(value === undefined || value === null || value === '' ? undefined : String(value));
+                    if (result && result.error) throw new Error(result.error);
+                    break;
                 case 'delay':
                     result = controls.delay(value === undefined || value === null || value === '' ? undefined : String(value));
                     if (result && result.error) throw new Error(result.error);

@@ -39,7 +39,7 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
     const recorder = require('../lib/assessment-diagnostics').pageRecorder();
     controls = recorder.attach(await launch({ onBrowserClosed, onBrowserDisconnected: browserGone, reflectionTextProvider: requestReflectionText, accuracy, selectPage: recorder.selectPage }));
     terminal = readline.createInterface({ input, output, terminal: Boolean(input.isTTY && output.isTTY) });
-    output.write('Commands: start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components, inspect-assessment, watch-assessment, quit\n');
+    output.write('Commands: start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, reports [on|off], refresh, inspect-self-mark, inspect-dash, inspect-components, inspect-assessment, watch-assessment, quit\n');
     const print = () => output.write(JSON.stringify(controls.status()) + '\n');
     require('../lib/assessment-diagnostics').armWatchFromEnv(controls, process.env, output);
     const onSignal = () => { quit().catch(error => output.write(diagnostic(error, 'Shutdown') + '\n')); };
@@ -91,6 +91,10 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
                     const pacing = controls.delay(command === 'delay' ? undefined : command.slice(6).trim());
                     output.write((pacing.error ? pacing.error : 'Answer pacing: ' + pacing.delay) + '\n');
                 }
+                else if (command === 'reports' || command.startsWith('reports ')) {
+                    const reports = controls.reports(command === 'reports' ? undefined : command.slice(8).trim());
+                    output.write((reports.error ? reports.error : 'Support reports: ' + reports.reports) + '\n');
+                }
                 else if (command === 'inspect-self-mark') output.write('EP_SELF_MARK_INSPECT ' + JSON.stringify(await controls.inspect()) + '\n');
                 else if (command === 'inspect-dash') output.write('EP_DASH_INSPECT ' + JSON.stringify(await controls.inspectDash()) + '\n');
                 else if (command === 'inspect-components') output.write('EP_COMPONENTS_INSPECT ' + JSON.stringify(await controls.inspectComponents()) + '\n');
@@ -100,7 +104,7 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
                 }
                 else if (command === 'refresh') await controls.refresh();
                 else if (command === 'quit' || command === 'exit') { await quit(); print(); break; }
-                else { output.write('Unknown command. Use start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, refresh, inspect-self-mark, inspect-dash, inspect-components, inspect-assessment, watch-assessment or quit.\n'); continue; }
+                else { output.write('Unknown command. Use start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, reports [on|off], refresh, inspect-self-mark, inspect-dash, inspect-components, inspect-assessment, watch-assessment or quit.\n'); continue; }
                 print();
             } catch {
                 output.write(command === 'inspect-self-mark' || command === 'inspect-dash' || command === 'inspect-components' || command === 'inspect-assessment'

@@ -148,7 +148,7 @@ function renderMain(state) {
     $('refresh-words').disabled = busy;
     $('apply-mode').disabled = busy;
     const settingsBusy = busy || !['stopped', 'completed', 'error'].includes(status?.state);
-    for (const [id, enabled] of [['accuracy', status?.accuracy?.enabled], ['delay', status?.pacing?.enabled]]) {
+    for (const [id, enabled] of [['accuracy', status?.accuracy?.enabled], ['delay', status?.pacing?.enabled], ['reports', status?.supportReports?.enabled]]) {
         const pending = pendingSettings.has(id);
         $(id).disabled = settingsBusy || pending || typeof enabled !== 'boolean';
         if (!pending) $(id).checked = enabled === true;
@@ -254,7 +254,7 @@ $('refresh-words').addEventListener('click', () => run('refresh'));
 $('apply-mode').addEventListener('click', () => run('mode', $('mode').value));
 async function toggleSetting(id) {
     if (pendingSettings.has(id)) return;
-    const stateKey = id === 'accuracy' ? 'accuracy' : 'pacing';
+    const stateKey = { accuracy: 'accuracy', delay: 'pacing', reports: 'supportReports' }[id];
     const status = latest?.status;
     if (!status || !['stopped', 'completed', 'error'].includes(status.state)) {
         if (latest) renderMain(latest);
@@ -266,7 +266,7 @@ async function toggleSetting(id) {
     $(id + '-value').textContent = enabled ? 'On' : 'Off';
     showMessage('', false);
     try {
-        await api.action(id === 'accuracy' ? 'accuracy' : 'delay', enabled ? 'on' : 'off');
+        await api.action(id, enabled ? 'on' : 'off');
     } catch (error) {
         $(id).checked = status[stateKey]?.enabled === true;
         showMessage(String(error?.message || error), true);
@@ -278,6 +278,7 @@ async function toggleSetting(id) {
 }
 $('accuracy').addEventListener('change', () => toggleSetting('accuracy'));
 $('delay').addEventListener('change', () => toggleSetting('delay'));
+$('reports').addEventListener('change', () => toggleSetting('reports'));
 
 $('save-login').addEventListener('click', async () => {
     $('login-error').hidden = true;

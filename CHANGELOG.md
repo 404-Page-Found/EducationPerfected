@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Anonymous support reports can now be turned on or off from the CLI (`reports`, `reports on`, `reports off`, when stopped) and from a desktop switch. The choice is saved as `supportReports` in `config.json`; `EP_SUPPORT_REPORTS=off` still wins. No relay is configured yet, so nothing is sent.
+
 - Config schema is now numbered version 1 (was 2). Saved version 1 and version 2 files both load with their accuracy and pacing choices kept, retired keys still drop, and a version 2 file is overwritten once as version 1 with the same choices when it is loaded. Any other version is ignored.
 
 - Browser accuracy and pacing now use on/off switches with immediate changes, confirmed-state sync and pending/running locks. Read buttons stay available. As with desktop settings, a storage-write failure keeps the session-only setting and terminal warning.

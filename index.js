@@ -3060,7 +3060,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // Issue #222: expose accuracy in status and allow tuning when stopped.
             // Validation sessions stay perfect and reject accuracy changes.
             const baseStatus = controls.status.bind(controls);
-            controls.status = () => ({ ...baseStatus(), accuracy: accuracyStatus(), pacing: humanDelay.describe(), wordList: lastWordListRefresh });
+            controls.status = () => ({ ...baseStatus(), accuracy: accuracyStatus(), pacing: humanDelay.describe(), supportReports: { enabled: savedConfig.supportReports !== false && String(process.env.EP_SUPPORT_REPORTS || '').toLowerCase() !== 'off' }, wordList: lastWordListRefresh });
             controls.setAccuracy = async raw => {
                 if (validationOnly) throw new Error('Validation session is fixed to one-shot only.');
                 const text = String(raw ?? '').trim().toLowerCase();
@@ -3106,6 +3106,19 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 if (action) persistSetting('delay', state);
                 const base = state.enabled ? 'per-question-type ranges: ' + summarizeRanges() : 'off (super speed)';
                 return { delay: `${base}. ${DASH_PACING_NOTE}` };
+            };
+            // Anonymous support reports (on by default once a relay is set): no action
+            // reports state, on/off save the choice. EP_SUPPORT_REPORTS=off always wins.
+            controls.reports = action => {
+                if (action && !['stopped', 'completed', 'error'].includes(controls.status().state)) return { error: 'Stop the run before changing support reports.' };
+                if (action === 'on' || action === 'off') {
+                    savedConfig.supportReports = action === 'on';
+                    persistSetting('supportReports', savedConfig.supportReports);
+                } else if (action) return { error: 'Use reports, reports on or reports off.' };
+                const enabled = savedConfig.supportReports !== false;
+                const forcedOff = String(process.env.EP_SUPPORT_REPORTS || '').toLowerCase() === 'off';
+                const sending = supportSender.isEnabled();
+                return { reports: `${enabled && !forcedOff ? 'on' : 'off'}${forcedOff ? ' (EP_SUPPORT_REPORTS=off)' : ''}; ${sending ? 'a relay is configured' : 'no relay is configured, so nothing is sent'}. The local report block always prints.` };
             };
             browser.on('disconnected', () => { controls.browserClosed(); onBrowserDisconnected(); });
 
