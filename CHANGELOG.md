@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Config schema is now numbered version 1 (was 2). Saved version 1 and version 2 files both load with their accuracy and pacing choices kept, retired keys still drop, and every save writes version 1. Any other version is ignored.
+- Config schema is now numbered version 1 (was 2). Saved version 1 and version 2 files both load with their accuracy and pacing choices kept, retired keys still drop, and a version 2 file is overwritten once as version 1 with the same choices when it is loaded. Any other version is ignored.
 
 - Browser accuracy and pacing now use on/off switches with immediate changes, confirmed-state sync and pending/running locks. Read buttons stay available. As with desktop settings, a storage-write failure keeps the session-only setting and terminal warning.
 - The browser control panel defaults to the top right while preserving a saved position. In the desktop app it appears only when the sidebar is collapsed; CLI sessions keep it visible.
