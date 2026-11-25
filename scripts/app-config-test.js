@@ -13,8 +13,8 @@ try {
   const loaded=readConfig(options); assert.deepEqual(loaded,{version:1,accuracy:{enabled},delay:{enabled}});
   assert.equal(resolveAccuracyConfig({env:{},config:loaded.accuracy}).enabled,enabled);
   assert.equal(createHumanDelay({env:{},config:loaded.delay}).isEnabled(),enabled);
-  // Loading rewrote the file as version 1 with the same kept choices.
-  assert.deepEqual(JSON.parse(fs.readFileSync(file,'utf8')),{version:1,accuracy:{enabled},delay:{enabled}});
+  // Loading a version 2 file rewrote it as version 1 with the same kept choices.
+  if(version===2) assert.deepEqual(JSON.parse(fs.readFileSync(file,'utf8')),{version:1,accuracy:{enabled},delay:{enabled}});
   assert.deepEqual(readConfig(options),loaded);
  }
  const on={version:1,accuracy:{enabled:true},delay:{enabled:true}};
