@@ -4,7 +4,7 @@ const {startupFailure}=require('../lib/test-startup-failure');
 const {browserStderr,browserLogFile}=require('./windows-browser-stderr');
 async function sample({kind,executablePath,env,url,launch,requestSeen,logPath,recover=false}){
  const stderr=browserStderr();let detach=()=>{};
- let browser,cleanup=false,initialBlank=null,navigated=false,ready=false,cause=null,stage='launch';
+ let browser,initialBlank=null,navigated=false,ready=false,cause=null,stage='launch';
  try{
   browser=await launch({headless:'shell',defaultViewport:null,handleSIGINT:false,handleSIGTERM:false,handleSIGHUP:false,executablePath,env,...(logPath?{args:['--enable-logging','--log-file='+logPath]}:{})});
   detach=stderr.attach(browser.process()?.stderr);
@@ -23,15 +23,25 @@ async function sample({kind,executablePath,env,url,launch,requestSeen,logPath,re
  // Throw outside finally so closure uncertainty cannot be mistaken for an observed sample.
  if(!browser)throw new Error('Diagnostic launch closure unconfirmed');
  // Read only after navigation/readiness was observed, never before goto.
+ const {networkSandbox,networkSandboxError,utilityHistograms}=await observeBrowserInternals(browser);
+ const cleanup=await closeWithDeadline(browser);detach();
+ if(!cleanup)throw new Error('Diagnostic browser cleanup unconfirmed');
+ return {networkSandboxError,networkSandbox,kind,recover,initialBlank,navigated,ready,stage,requestSeen:requestSeen()?true:null,cleanup,cause,utilityHistograms,stderr:stderr.result(),...(logPath?{loggingEnabled:true,logFile:browserLogFile(logPath)}:{})};
+}
+
+async function observeBrowserInternals(browser){
  let networkSandbox=null,networkSandboxError=null;
  try{networkSandbox=await require('./windows-network-sandbox').observeNetworkSandbox(browser);}catch(error){networkSandboxError=error?.message==='Network sandbox observation deadline'?'observation-timeout':'sandbox-acceptance-failed';}
  const utilityHistograms=await require('./windows-utility-histograms').utilityHistograms(browser);
+ return {networkSandbox,networkSandboxError,utilityHistograms};
+}
+
+async function closeWithDeadline(browser){
  let timer;
- try{await Promise.race([browser.close(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Close deadline')),10000);})]);cleanup=true;}
+ try{await Promise.race([browser.close(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Close deadline')),10000);})]);return true;}
  catch{try{browser.process()?.kill();}catch{ /* Retain uncertainty even if best-effort kill fails. */ }}
- finally{clearTimeout(timer);detach();}
- if(!cleanup)throw new Error('Diagnostic browser cleanup unconfirmed');
- return {networkSandboxError,networkSandbox,kind,recover,initialBlank,navigated,ready,stage,requestSeen:requestSeen()?true:null,cleanup,cause,utilityHistograms,stderr:stderr.result(),...(logPath?{loggingEnabled:true,logFile:browserLogFile(logPath)}:{})};
+ finally{clearTimeout(timer);}
+ return false;
 }
 
 async function panel(){

@@ -36,22 +36,14 @@ async function runLeg(mode,nonce,expectedIdentity) {
  let sourceExecutable;
  assert.equal(manifest.executable,path.basename(manifest.executable));
  assert.equal(path.isAbsolute(manifest.executable),false);
- if(mode==='source') {
-  driverStage(mode,nonce,'unpack-entered');
-  const extraction=fs.mkdtempSync(path.join(tmp,'educationperfected-source-'));
-  await pipeline(Readable.from([verified.bytes]),createGunzip(),unpackTar(extraction));
-  sourceExecutable=path.join(extraction,manifest.executable);assertOwnedBrowser(tmp,sourceExecutable);driverStage(mode,nonce,'unpacked');
- }
+ if(mode==='source')sourceExecutable=await unpackSourceBrowser(tmp,verified,manifest,mode,nonce);
  const server=require('./mock-ep').createServer();let child,closed,browser,text='',serverError,spawnError,primary;
  const result={nonce,mode,receipt:null,observedVersion:null,owned:false,ready:false,cleanupCertain:false,navigationCategory:'unobserved'};
  try {
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});server.on('error',error=>{serverError=error;});
   const origin='http://127.0.0.1:'+server.address().port;
-  const env={...process.env,HOME:home,USERPROFILE:home,PATH:path.join(root,'empty'),TEMP:tmp,TMP:tmp,TMPDIR:tmp,XDG_CONFIG_HOME:path.join(home,'config'),XDG_CACHE_HOME:path.join(home,'cache'),XDG_DATA_HOME:path.join(home,'data'),XDG_RUNTIME_DIR:path.join(root,'runtime'),EP_TEST_BOOT:'1',EP_TEST_BROWSER_IDENTITY:'1',EP_LOGIN_URL:origin+'/app/login',EP_LOGIN_HOST:'127.0.0.1',PUPPETEER_EXECUTABLE_PATH:sourceExecutable||''};
-  for(const name of ['EP_EMAIL','EP_PASSWORD','NODE_OPTIONS','NODE_EXTRA_CA_CERTS','PUPPETEER_CACHE_DIR','PUPPETEER_BROWSER'])delete env[name];
-  let executable,args;
-  if(mode==='source'){executable=process.execPath;args=[path.resolve(__dirname,'../bin/cli.js')];}
-  else {executable=path.join(root,'educationperfected.exe');copySeaExecutable(build,executable);args=[];}
+  const env=legEnv(home,tmp,root,origin,sourceExecutable);
+  const {executable,args}=legCommand(mode,root,build);
   driverStage(mode,nonce,'spawn-entered');
   child=spawn(executable,args,{env,cwd:home,stdio:['pipe','pipe','pipe']});
   driverStage(mode,nonce,'spawn-returned');
@@ -109,3 +101,23 @@ if(require.main===module)(async()=>{
  // Final carrier only after every semantic predicate and owned-root removal.
  console.log('EP_OWNED_PIPE_SUCCESS='+JSON.stringify({nonce,mode,identity:expected,ready:result.ready,owned:result.owned,cleanupCertain:result.cleanupCertain}));
 })().catch(()=>{console.error('EP_OWNED_PIPE_UNCERTAIN');process.exitCode=1;});
+
+async function unpackSourceBrowser(tmp,verified,manifest,mode,nonce) {
+ driverStage(mode,nonce,'unpack-entered');
+ const extraction=fs.mkdtempSync(path.join(tmp,'educationperfected-source-'));
+ await pipeline(Readable.from([verified.bytes]),createGunzip(),unpackTar(extraction));
+ const sourceExecutable=path.join(extraction,manifest.executable);assertOwnedBrowser(tmp,sourceExecutable);driverStage(mode,nonce,'unpacked');
+ return sourceExecutable;
+}
+
+function legEnv(home,tmp,root,origin,sourceExecutable) {
+ const env={...process.env,HOME:home,USERPROFILE:home,PATH:path.join(root,'empty'),TEMP:tmp,TMP:tmp,TMPDIR:tmp,XDG_CONFIG_HOME:path.join(home,'config'),XDG_CACHE_HOME:path.join(home,'cache'),XDG_DATA_HOME:path.join(home,'data'),XDG_RUNTIME_DIR:path.join(root,'runtime'),EP_TEST_BOOT:'1',EP_TEST_BROWSER_IDENTITY:'1',EP_LOGIN_URL:origin+'/app/login',EP_LOGIN_HOST:'127.0.0.1',PUPPETEER_EXECUTABLE_PATH:sourceExecutable||''};
+ for(const name of ['EP_EMAIL','EP_PASSWORD','NODE_OPTIONS','NODE_EXTRA_CA_CERTS','PUPPETEER_CACHE_DIR','PUPPETEER_BROWSER'])delete env[name];
+ return env;
+}
+
+function legCommand(mode,root,build) {
+ if(mode==='source')return {executable:process.execPath,args:[path.resolve(__dirname,'../bin/cli.js')]};
+ const executable=path.join(root,'educationperfected.exe');copySeaExecutable(build,executable);
+ return {executable,args:[]};
+}
