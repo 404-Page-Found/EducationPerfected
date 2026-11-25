@@ -74,25 +74,29 @@ async function main(){
     fs.rmSync(directory,{recursive:true,force:true});
     const result=spawnSync(process.execPath,[path.join(root,'packaging',directDownload?'build-downloadable.js':expected.builder)],{cwd:root,stdio:'inherit'});
     if(result.error||result.status!==0)throw new Error('Candidate build failed; no candidate manifest created');
-    if(directDownload){
-        // The downloadable installers also carry the desktop app: build its
-        // payload (and Electron notices) before the candidate inventory runs.
-        const app=spawnSync(process.execPath,[path.join(root,'packaging','build-app.js'),target,directory],{cwd:root,stdio:'inherit'});
-        if(app.error||app.status!==0)throw new Error('App payload build failed; no candidate manifest created');
-    }
+    if(directDownload)buildAppPayload(root,target,directory);
     if(sourceState(root)!==sourceCommit)throw new Error('Source changed during candidate build');
     const manifest=await inventory({directory,target,version,sourceCommit,sourceVersion:info.sourceVersion,expectedBrowserVersion:require('puppeteer').PUPPETEER_REVISIONS.chrome});
-    if(directDownload){
-        const built=JSON.parse(fs.readFileSync(path.join(directory,'manifest.json'),'utf8'));
-        const sea=JSON.parse(fs.readFileSync(path.join(directory,'sea.json'),'utf8'));
-        if(built.browserVersion!==manifest.expectedBrowserVersion)throw new Error('Direct-download pin differs from expected browser version');
-        if(built.browserMode!=='direct-google-download'||Object.hasOwn(sea.assets||{},'browser')||Object.keys(sea.assets||{}).sort((a,b)=>a.localeCompare(b,'en')).join(',')!=='manifest,native')throw new Error('Direct-download candidate has unexpected browser assets');
-        manifest.distributionMode='direct-google-download';manifest.browserBundled=false;
-    }
+    if(directDownload)verifyDirectDownloadAssets(directory,manifest);
     fs.writeFileSync(path.join(directory,'CANDIDATE.json'),JSON.stringify(manifest,null,2)+'\n');
     fs.writeFileSync(path.join(directory,'SHA256SUMS'),manifest.files.map(file=>file.sha256+'  '+file.path).join('\n')+'\n');
     console.log(JSON.stringify(manifest,null,2));
     console.log(manifest.files.map(file=>file.sha256+'  '+file.path).join('\n'));
 }
+// The downloadable installers also carry the desktop app: build its payload
+// (and Electron notices) before the candidate inventory runs.
+function buildAppPayload(root,target,directory){
+    const app=spawnSync(process.execPath,[path.join(root,'packaging','build-app.js'),target,directory],{cwd:root,stdio:'inherit'});
+    if(app.error||app.status!==0)throw new Error('App payload build failed; no candidate manifest created');
+}
+
+function verifyDirectDownloadAssets(directory,manifest){
+    const built=JSON.parse(fs.readFileSync(path.join(directory,'manifest.json'),'utf8'));
+    const sea=JSON.parse(fs.readFileSync(path.join(directory,'sea.json'),'utf8'));
+    if(built.browserVersion!==manifest.expectedBrowserVersion)throw new Error('Direct-download pin differs from expected browser version');
+    if(built.browserMode!=='direct-google-download'||Object.hasOwn(sea.assets||{},'browser')||Object.keys(sea.assets||{}).sort((a,b)=>a.localeCompare(b,'en')).join(',')!=='manifest,native')throw new Error('Direct-download candidate has unexpected browser assets');
+    manifest.distributionMode='direct-google-download';manifest.browserBundled=false;
+}
+
 module.exports={validationLabel,inventory,targets,hashFile};
 if(require.main===module)main().catch(error=>{console.error(error.message);process.exitCode=1;});
