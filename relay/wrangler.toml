@@ -1,0 +1,26 @@
+# Deploy steps are in relay/README.md. Fill in the KV namespace id after creating it.
+name = "ep-support-relay"
+main = "worker.mjs"
+compatibility_date = "2026-11-01"
+
+# Workers logs and observability stay off so nothing about a request is kept.
+[observability]
+enabled = false
+
+[vars]
+REPO = "404-Page-Found/EducationPerfected"
+DAILY_WRITE_CAP = "30"
+# Set DISABLED to any non-empty value to make the relay accept and ignore everything.
+DISABLED = ""
+
+[[kv_namespaces]]
+binding = "REPORTS"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Rate limit per connection, evaluated before any other work. The key is not stored.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1001"
+  [ratelimits.simple]
+  limit = 20
+  period = 60
