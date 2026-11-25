@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Anonymous support reports are now on by default and go to the project's relay, which files one GitHub issue per task type and reason. Only task type, reason, app version and schema are sent. Turn off with `reports off`, the desktop switch, `supportReports: false` or `EP_SUPPORT_REPORTS=off`.
+
 - Anonymous support reports can now be turned on or off from the CLI (`reports`, `reports on`, `reports off`, when stopped) and from a desktop switch. The choice is saved as `supportReports` in `config.json`; `EP_SUPPORT_REPORTS=off` still wins. No relay is configured yet, so nothing is sent.
 
 - Config schema is now numbered version 1 (was 2). Saved version 1 and version 2 files both load with their accuracy and pacing choices kept, retired keys still drop, and a version 2 file is overwritten once as version 1 with the same choices when it is loaded. Any other version is ignored.

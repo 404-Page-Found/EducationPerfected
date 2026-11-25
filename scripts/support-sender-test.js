@@ -4,7 +4,9 @@ const { createSupportReport } = require('../lib/support-report');
 const { createSupportSender, buildPayload, isEnabled, RELAY_URL } = require('../lib/support-sender');
 
 (async () => {
-    assert.equal(RELAY_URL, '', 'PR 1 ships with no relay URL, so nothing is sent');
+    assert.equal(RELAY_URL, 'https://ep-support-relay.lucas20220605.workers.dev');
+    assert.equal(isEnabled({ env: {}, config: {} }), true, 'on by default with the built-in relay');
+    assert.equal(isEnabled({ env: { EP_TEST_BOOT: '1' }, config: {} }), false, 'test boots never use the built-in relay');
     const report = createSupportReport();
     report.record('text', 'answered');
     report.record('audio', 'refused', 'no-handler');
@@ -16,8 +18,8 @@ const { createSupportSender, buildPayload, isEnabled, RELAY_URL } = require('../
     const fakeFetch = async (url, options) => { calls.push({ url, options }); return { ok: true }; };
     const env = { EP_SUPPORT_RELAY_URL: 'https://relay.example.test/report' };
 
-    // Disabled: no URL, env off, config off.
-    await Promise.all([[{}, {}], [{ ...env, EP_SUPPORT_REPORTS: 'off' }, {}], [env, { supportReports: false }]].map(async ([e, c]) => {
+    // Disabled: test boot (no URL), env off, config off.
+    await Promise.all([[{ EP_TEST_BOOT: '1' }, {}], [{ ...env, EP_SUPPORT_REPORTS: 'off' }, {}], [env, { supportReports: false }]].map(async ([e, c]) => {
         assert.equal(isEnabled({ env: e, config: c }), false);
         assert.equal(await createSupportSender({ fetchImpl: fakeFetch, env: e, config: c, appVersion: '2026.11.26' }).sendRun(report), 0);
     }));
