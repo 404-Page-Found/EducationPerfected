@@ -23,7 +23,6 @@ const pins=require('../packaging/browser-downloads.json');
    assert.match(skip.text,/\]   9%/);assert.match(skip.text,/\]  11%/);assert.doesNotMatch(skip.text,/19%/);assert.match(skip.text,/\] 100%/);
    assert.equal(skip.text.split('\n').filter(Boolean).length,3);
   }
-  let reported=false;
   await assert.rejects(ensureBrowser({...base,consent:async()=>false,install:()=>{throw new Error('Must not download');}}),/cancelled/);
   const root=path.join(home,'.educationperfected','browsers');assert.deepEqual(fs.readdirSync(root),[]);
   await assert.rejects(ensureBrowser({...base,install:async()=>{throw new Error('Network failed');}}),/Network failed/);assert.deepEqual(fs.readdirSync(root),[]);

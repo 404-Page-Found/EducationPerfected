@@ -4,7 +4,7 @@ const { cleanupTestProcess } = require('./test-process-cleanup');
 const { createCliFixture } = require('./cli-test-harness');
 const { installControlMenu } = require('../lib/browser-controls');
 (async () => {
-    const { server, origin, child, wait, command, output, browser, page } = await createCliFixture();
+    const { server, origin, child, command, output, browser, page } = await createCliFixture();
     try {
         const ready = () => page.waitForFunction(() => document.getElementById('educationperfected-controls')?.shadowRoot?.getElementById('live').textContent.includes('|'));
         const press = async (action, value, read = false) => {

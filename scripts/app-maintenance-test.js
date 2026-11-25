@@ -67,11 +67,9 @@ async function main() {
     }
 
     // shellQuote: the manual sudo command app-update prints quotes paths.
-    {
-        assert.equal(maintenance.shellQuote('/plain/path'), '/plain/path');
-        assert.equal(maintenance.shellQuote('/Program Files/x'), "'/Program Files/x'");
-        console.log('ok shell quoting');
-    }
+    assert.equal(maintenance.shellQuote('/plain/path'), '/plain/path');
+    assert.equal(maintenance.shellQuote('/Program Files/x'), "'/Program Files/x'");
+    console.log('ok shell quoting');
 
     // checkUpdate: no recognized layout refuses; a plan lands in state; a
     // failed check surfaces as state, not a crash.

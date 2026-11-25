@@ -85,7 +85,7 @@ async function main() {
     assert.deepEqual([...handlers.keys()].sort(byName), expected.map(([channel]) => channel).sort(byName));
     await new Promise(resolve => setImmediate(resolve)); // let start()'s setup probe land
     session.calls.length = 0;
-    for (const [channel, method, args] of expected) await handlers.get(channel)({}, ...args);
+    for (const [channel, , args] of expected) await handlers.get(channel)({}, ...args);
     // Full argument comparison: dropped or swapped IPC payloads fail here.
     assert.deepEqual(session.calls, expected.map(([, method, args]) => {
         if (method === 'saveLogin') return ['saveLogin', { email: args[0], password: args[1] }];

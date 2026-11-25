@@ -33,7 +33,7 @@ function megabytes(bytes){return (bytes/1048576).toFixed(1);}
 function createProgress(output=process.stdout){
  const live=Boolean(output.isTTY);let last=-1,lastBucket=-1,done=false;
  return (downloaded,total)=>{
-  if(done||!(total>0)||!(downloaded>=0))return;
+  if(done||total<=0||downloaded<0)return;
   const fraction=Math.min(1,downloaded/total),percent=Math.floor(fraction*100);
   if(percent===last)return;
   const bucket=Math.floor(percent/10);

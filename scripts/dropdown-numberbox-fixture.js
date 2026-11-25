@@ -29,7 +29,7 @@ function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxIt
         res.push(buf);
         return res;
     };
-    const isExpressionPart = part => part.length > 2 && part[0] === '{' && part[part.length - 1] === '}' && part.slice(1, -1).indexOf('}') === -1;
+    const isExpressionPart = part => part.length > 2 && part[0] === '{' && part[part.length - 1] === '}' && !part.slice(1, -1).includes('}');
     const injectorFrom = template => ({ parts: splitTemplate(template).map(seg => isExpressionPart(seg) ? { temporaryVariable: { expression: seg.slice(1, -1) } } : { text: seg }) });
     const old = document.querySelector('.multi-choice-component');
     const self = window.angular.element(old).scope().self, q = self.model._currentQuestion, base = {}, group = document.createElement('div');

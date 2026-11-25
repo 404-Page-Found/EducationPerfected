@@ -133,13 +133,11 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
         // A prefilled number box is never overwritten: detection succeeds but the round stops before any input.
         await setup();
         await page.evaluate(() => { const c = dropdownNumberBoxFixture.base['box-0'][0]; c.textBox.value = '3'; c.componentState.userAnswer = '3'; c.componentState.isUserAnswerSet = true; });
-        {
-            d = await detectQuestion(page);
-            assert.equal(d.kind, 'dropdown-numberbox', JSON.stringify(d));
-            assert.equal(d.boxes[0].value, '3');
-            assert.equal((await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 50 })).status, 'stopped');
-            assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.keys.length, dropdownNumberBoxFixture.inputs.length, dropdownNumberBoxFixture.submits]), [0, 0, 0]);
-        }
+        d = await detectQuestion(page);
+        assert.equal(d.kind, 'dropdown-numberbox', JSON.stringify(d));
+        assert.equal(d.boxes[0].value, '3');
+        assert.equal((await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 50 })).status, 'stopped');
+        assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.keys.length, dropdownNumberBoxFixture.inputs.length, dropdownNumberBoxFixture.submits]), [0, 0, 0]);
         // Mid-run tamper stops before Submit: dropdown answer swap after the first change.
         await setup(); d = await detectQuestion(page);
         await page.evaluate(() => {
@@ -202,12 +200,10 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
         // Three surfaces: a prefilled text box stops the round with no input.
         await setup('textbox');
         await page.evaluate(() => { const c = dropdownNumberBoxFixture.base['text-0'][0]; c.textBox.value = 'x'; c.componentState.userAnswer = 'x'; c.componentState.isUserAnswerSet = true; });
-        {
-            d = await detectQuestion(page);
-            assert.equal(d.kind, 'dropdown-numberbox', JSON.stringify(d));
-            assert.equal((await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 50 })).status, 'stopped');
-            assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.keys.length, dropdownNumberBoxFixture.inputs.length, dropdownNumberBoxFixture.submits]), [0, 0, 0]);
-        }
+        d = await detectQuestion(page);
+        assert.equal(d.kind, 'dropdown-numberbox', JSON.stringify(d));
+        assert.equal((await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 50 })).status, 'stopped');
+        assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.keys.length, dropdownNumberBoxFixture.inputs.length, dropdownNumberBoxFixture.submits]), [0, 0, 0]);
         // Three surfaces: marking mixed only on the text-box surface refuses
         // at detection with the orchestrator's uniform-marking guard.
         await setup('textbox');

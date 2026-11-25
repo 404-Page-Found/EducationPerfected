@@ -313,7 +313,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
   try{
    const runtime=createRuntimeDirectory({home});
    let output='';const prompts=[];
-   const result=await uninstallCommand({
+   await uninstallCommand({
     home,ownDirectory:runtime.directory,cleanupOwn:async()=>{runtime.remove(true);},
     executable:'/usr/bin/educationperfected',platform:'linux',env:{},
     confirm:async(i,o,program)=>{prompts.push(program);return {login:false,data:true,browsers:false,program:program===null?undefined:false};},

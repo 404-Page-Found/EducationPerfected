@@ -2,7 +2,7 @@
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 function windowsTaskkillPath(systemRoot) {
-    if (typeof systemRoot !== 'string' || !/^[a-z]:[\\/]/i.test(systemRoot) || systemRoot.split(/[\\/]/).some(part => part === '..')) {
+    if (typeof systemRoot !== 'string' || !/^[a-z]:[\\/]/i.test(systemRoot) || systemRoot.split(/[\\/]/).includes('..')) {
         throw new Error('An absolute Windows SystemRoot is required for test cleanup.');
     }
     return path.win32.join(systemRoot, 'System32', 'taskkill.exe');

@@ -226,7 +226,7 @@ function promptSecret(label, cleaner) {
                 }
                 if (byte === 8 || byte === 127) {
                     // drop one whole UTF-8 character (continuation bytes, then the lead byte)
-                    while (bytes.length && (bytes[bytes.length - 1] & 0xC0) === 0x80) bytes.pop();
+                    while (bytes.length && (bytes.at(-1) & 0xC0) === 0x80) bytes.pop();
                     bytes.pop();
                     echo('\b \b');   // erase the echoed character
                 } else if (byte >= 32) {
@@ -1007,29 +1007,6 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             const questionVariants = questionKeyVariants;
 
             /**
- * Builds an ordered list of candidate answers from a raw answer string.
- * Single source lives in lib/classic-dict (issue #234 review): production
- * and regression tests share the same builder.
- * @param {string} rawAnswer
- * @returns {string[]}
- */
-            function answerCandidates(rawAnswer) {
-                return buildAnswerCandidates(rawAnswer);
-            }
-
-            /**
- * Merges two candidate arrays, preserving order and deduplicating.
- * Single source lives in lib/classic-dict.
- * @param {string[]} existing
- * @param {string[]} incoming
- * @param {boolean} incomingFirst - If true, incoming candidates take priority
- * @returns {string[]}
- */
-            function mergeCandidates(existing, incoming, incomingFirst = true) {
-                return mergeCandidateLists(existing, incoming, incomingFirst);
-            }
-
-            /**
  * Generates the canonical key for a question's futility counter.
  * Uses the cleaned question text so all rendering variants share one counter.
  * @param {string} question
@@ -1604,7 +1581,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
  */
             async function enterAnswer(answer, allowed = async () => (await detectQuestion(page))?.kind === 'text') {
                 const delays = [TYPE_DELAY_MS, TYPE_DELAY_MS * 3, TYPE_DELAY_MS * 8];
-                for (let attempt = 0; attempt < delays.length; attempt++) {
+                for (const delay of delays) {
                     if (!await allowed()) { TOGGLE = false; console.error('Answer context changed; stopping before further input.'); return false; }
                     if (!await clearAnswerBox(allowed)) {
                         // Never type into an uncleared box: EP-restored text would combine
@@ -1618,7 +1595,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     for (const character of answer) {
                         if (!TOGGLE) return false;
                         if (!await allowed()) { TOGGLE = false; console.error('Answer context changed; stopping before further input.'); return false; }
-                        await page.keyboard.type(character, { delay: delays[attempt] });
+                        await page.keyboard.type(character, { delay });
                     }
                     if (!TOGGLE) return false;
                     const typed = await readSettledBox(answer);

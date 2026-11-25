@@ -95,7 +95,7 @@ async function testCorrectAnswers(page) {
         { timeout: 2000 }, WORDS[1][0]);
 
     for (const [base, answer] of WORDS.slice(1)) {
-        const last = base === WORDS[WORDS.length - 1][0];
+        const last = base === WORDS.at(-1)[0];
         assert.equal(await question(), base);
         await clearBox();
         await page.keyboard.type(answer, { delay: 20 });

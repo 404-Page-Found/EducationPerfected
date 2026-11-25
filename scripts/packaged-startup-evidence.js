@@ -33,7 +33,7 @@ function parseStartupFailure(text){
   const keys=[...raw.matchAll(/"((?:[^"\\]|\\.)*)"\s*:/g)].map(match=>JSON.parse('"'+match[1]+'"'));
   if(keys.length!==new Set(keys).size)return null;
   if(Object.keys(value).sort((a,b)=>a.localeCompare(b,'en')).join(',')!==Object.keys(schema).sort((a,b)=>a.localeCompare(b,'en')).join(','))return null;
-  for(const [key,options] of Object.entries(schema))if(!options.some(option=>option===value[key]))return null;
+  for(const [key,options] of Object.entries(schema))if(!options.includes(value[key]))return null;
   return value;
  }catch{return null;}
 }
