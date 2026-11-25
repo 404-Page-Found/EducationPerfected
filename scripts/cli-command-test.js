@@ -1,7 +1,7 @@
 // Fixed bootstrap with inert dependencies. Never downloads, launches or reads stores.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 // Inert config provider: status tests must never touch a personal store.
-require('../lib/app-config').readConfig = () => ({version:2});
+require('../lib/app-config').readConfig = () => ({version:1});
 const {parseCommand,helpText,accuracyStatusText}=require('../lib/cli-command');
 for(const command of ['setup','check-credentials','forget-credentials','update','uninstall','version','help'])assert.equal(parseCommand([command]).command,command);
 for(const flag of ['-h','--help'])assert.equal(parseCommand([flag]).command,'help');
