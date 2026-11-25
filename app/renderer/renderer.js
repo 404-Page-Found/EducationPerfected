@@ -53,25 +53,27 @@ function describeStatus(status) {
     if (status.mode) lines.push(status.mode === 'auto'
         ? 'Auto mode: answers are submitted for you.'
         : 'Semi-auto mode: answers are filled in, you submit them.');
-    const a = status.accuracy || {};
-    if (status.accuracy) {
-        if (!a.enabled) lines.push('Accuracy: off, no intentional mistakes.');
-        else {
-            const target = a.target ?? a.fixedTarget;
-            lines.push(target != null
-                ? `Accuracy: aiming for about ${target}% correct.`
-                : `Accuracy: aiming for about ${a.min}-${a.max}% correct; the exact target is picked each run.`);
-            if (a.attempts > 0 && a.accuracy != null) {
-                lines.push(`So far this run: ${Math.round(a.accuracy)}% correct over ${a.attempts} answers (${a.mistakes} intentional mistake${a.mistakes === 1 ? '' : 's'}).`);
-            }
-        }
-    }
-    const p = status.pacing;
-    if (p) {
-        if (!p.enabled) lines.push('Pacing: off, answers are submitted at full speed.');
-        else lines.push('Pacing: a short human-like pause before each answer (varies by question type).');
+    if (status.accuracy) lines.push(...describeAccuracy(status.accuracy));
+    if (status.pacing) lines.push(describePacing(status.pacing));
+    return lines;
+}
+
+function describeAccuracy(a) {
+    if (!a.enabled) return ['Accuracy: off, no intentional mistakes.'];
+    const lines = [];
+    const target = a.target ?? a.fixedTarget;
+    lines.push(target != null
+        ? `Accuracy: aiming for about ${target}% correct.`
+        : `Accuracy: aiming for about ${a.min}-${a.max}% correct; the exact target is picked each run.`);
+    if (a.attempts > 0 && a.accuracy != null) {
+        lines.push(`So far this run: ${Math.round(a.accuracy)}% correct over ${a.attempts} answers (${a.mistakes} intentional mistake${a.mistakes === 1 ? '' : 's'}).`);
     }
     return lines;
+}
+
+function describePacing(p) {
+    if (!p.enabled) return 'Pacing: off, answers are submitted at full speed.';
+    return 'Pacing: a short human-like pause before each answer (varies by question type).';
 }
 
 function describeWordList(wordList) {
@@ -167,25 +169,7 @@ function renderMaintenance(state) {
     const maintenance = state.maintenance || { install: null, update: {} };
     const update = maintenance.update || {};
     $('check-update').disabled = !maintenance.install || update.checking || update.applying;
-    const lines = [];
-    if (update.lastResult) lines.push(`Last update result: ${update.lastResult}.`);
-    if (!maintenance.install) {
-        lines.push('This copy was not installed by an OS installer; update it from the terminal CLI or by reinstalling.');
-    } else if (update.applying) {
-        lines.push('Updating…');
-    } else if (update.checking) {
-        lines.push('Checking for updates…');
-    } else if (update.error) {
-        lines.push(`Update failed: ${update.error}`);
-    } else if (update.plan) {
-        const size = update.plan.size === null || update.plan.size === undefined ? 'unknown size' : `${(update.plan.size / 1048576).toFixed(1)} MB`;
-        lines.push(`Update available: v${update.plan.version} (${size}). The app and the educationperfected command are updated together.`);
-    } else if (update.upToDate) {
-        lines.push(`Up to date${update.latest ? ` (latest release: v${update.latest})` : ''}.`);
-    } else {
-        lines.push('The app updates through the same verified OS installer that installed it.');
-    }
-    $('update-status').textContent = lines.join(' ');
+    $('update-status').textContent = updateStatusLines(maintenance, update).join(' ');
     $('apply-update').hidden = !update.plan || update.applying;
     if (update.plan) $('apply-update').textContent = `Update to v${update.plan.version}`;
     $('update-log').hidden = !(update.log && update.log.length);
@@ -193,7 +177,32 @@ function renderMaintenance(state) {
     $('update-manual').hidden = !update.manual;
     $('update-manual').textContent = update.manual ? `Run this in a terminal, then relaunch the app: ${update.manual}` : '';
     // One quiet background check per app run once the main screen is up.
-    if (state.session === 'ready' && maintenance.install && !updateCheckedOnce && !update.checking && !update.applying && !update.plan && !update.upToDate && !update.error) {
+    if (state.session === 'ready') maybeCheckUpdateOnce(maintenance, update);
+}
+
+function updateStatusLines(maintenance, update) {
+    const lines = [];
+    if (update.lastResult) lines.push(`Last update result: ${update.lastResult}.`);
+    if (!maintenance.install) {
+        lines.push('This copy was not installed by an OS installer; update it from the terminal CLI or by reinstalling.');
+        return lines;
+    }
+    if (update.applying) lines.push('Updating…');
+    else if (update.checking) lines.push('Checking for updates…');
+    else if (update.error) lines.push(`Update failed: ${update.error}`);
+    else if (update.plan) {
+        const size = update.plan.size === null || update.plan.size === undefined ? 'unknown size' : `${(update.plan.size / 1048576).toFixed(1)} MB`;
+        lines.push(`Update available: v${update.plan.version} (${size}). The app and the educationperfected command are updated together.`);
+    } else if (update.upToDate) {
+        lines.push(`Up to date${update.latest ? ` (latest release: v${update.latest})` : ''}.`);
+    } else {
+        lines.push('The app updates through the same verified OS installer that installed it.');
+    }
+    return lines;
+}
+
+function maybeCheckUpdateOnce(maintenance, update) {
+    if (maintenance.install && !updateCheckedOnce && !update.checking && !update.applying && !update.plan && !update.upToDate && !update.error) {
         updateCheckedOnce = true;
         api.checkUpdate().catch(() => {});
     }
