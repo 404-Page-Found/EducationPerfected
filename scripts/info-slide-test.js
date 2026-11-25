@@ -159,22 +159,32 @@ const eachSequential = (values, run) => values.reduce((previous, value) => previ
         // Detection-level refusals: every deviation is unsupported, never an info-slide.
         const mutate = (name) => page.evaluate((m) => {
             const f = window.infoSlideFixture;
-            if (m === 'questionType') f.q.questionType = 8;
-            if (m === 'gameMode1') f.self.model.gameMode = 1;
-            if (m === 'assessment') f.self.model.gameMode = 2;
-            if (m === 'dash') f.self.model.isDash = true;
-            if (m === 'identity') f.q.contentID = 0;
-            if (m === 'component') f.q.questionDef.Components = [{ ComponentTypeCode: 'SOUND_COMPONENT', ComponentID: 'snd-1' }];
-            if (m === 'unlistedComponent') f.q.questionDef.Components = [{ ComponentTypeCode: 'VIDEO_COMPONENT', ComponentID: 'vid-1' }];
-            if (m === 'componentsUnreadable') f.q.questionDef.Components = null;
-            if (m === 'input') { const i = document.createElement('input'); document.querySelector('#ep-question-container').append(i); }
-            if (m === 'textarea') { const t = document.createElement('textarea'); document.querySelector('#ep-question-container').append(t); }
-            if (m === 'select') { const s = document.createElement('select'); document.querySelector('#ep-question-container').append(s); }
-            if (m === 'canvas') { const c = document.createElement('canvas'); document.querySelector('#ep-question-container').append(c); }
-            if (m === 'button') { const b = document.createElement('button'); b.textContent = 'Order me'; document.querySelector('#question-container-group').append(b); }
-            if (m === 'contenteditable') { const e = document.createElement('div'); e.setAttribute('contenteditable', ''); e.textContent = 'edit'; document.querySelector('#ep-question-container').append(e); }
-            if (m === 'speaker') { const s = document.createElement('div'); s.className = 'voice-speaker'; document.querySelector('#ep-question-container').append(s); }
-            if (m === 'noModel') { window.angular = { element: () => ({ scope: () => ({}) }) }; }
+            const container = document.querySelector('#ep-question-container');
+            const appendControl = tag => {
+                const el = document.createElement(tag);
+                if (tag === 'button') el.textContent = 'Order me';
+                if (tag === 'div') { el.setAttribute('contenteditable', ''); el.textContent = 'edit'; }
+                (tag === 'button' ? document.querySelector('#question-container-group') : container).append(el);
+            };
+            const mutations = {
+                questionType: () => { f.q.questionType = 8; },
+                gameMode1: () => { f.self.model.gameMode = 1; },
+                assessment: () => { f.self.model.gameMode = 2; },
+                dash: () => { f.self.model.isDash = true; },
+                identity: () => { f.q.contentID = 0; },
+                component: () => { f.q.questionDef.Components = [{ ComponentTypeCode: 'SOUND_COMPONENT', ComponentID: 'snd-1' }]; },
+                unlistedComponent: () => { f.q.questionDef.Components = [{ ComponentTypeCode: 'VIDEO_COMPONENT', ComponentID: 'vid-1' }]; },
+                componentsUnreadable: () => { f.q.questionDef.Components = null; },
+                input: () => appendControl('input'),
+                textarea: () => appendControl('textarea'),
+                select: () => appendControl('select'),
+                canvas: () => appendControl('canvas'),
+                button: () => appendControl('button'),
+                contenteditable: () => appendControl('div'),
+                speaker: () => { const s = document.createElement('div'); s.className = 'voice-speaker'; container.append(s); },
+                noModel: () => { window.angular = { element: () => ({ scope: () => ({}) }) }; },
+            };
+            mutations[m]();
         }, name);
         await eachSequential([
             'questionType', 'gameMode1', 'assessment', 'dash', 'identity',

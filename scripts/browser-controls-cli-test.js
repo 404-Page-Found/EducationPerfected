@@ -94,19 +94,7 @@ const { installControlMenu } = require('../lib/browser-controls');
                 guideButtons: root.getElementById('guide')?.querySelectorAll('button[data-action]').length ?? -1,
             };
         });
-        for (const button of helpers.buttons) {
-            assert.ok(button.title.trim().length > 0, `${button.action}${button.read ? ' read' : ''} button has a tooltip`);
-            assert.ok(button.aria.trim().length > 0, `${button.action}${button.read ? ' read' : ''} button keeps a screen-reader label`);
-        }
-        for (const field of helpers.fields) {
-            assert.ok(field.title.trim().length > 0, `${field.id} field has a tooltip`);
-            assert.ok(field.aria.trim().length > 0, `${field.id} field keeps a screen-reader label`);
-        }
-        for (const name of ['Start', 'Stop', 'Refresh words', 'Status', 'Mode', 'Accuracy', 'Pacing']) {
-            assert.ok(helpers.help.includes(name), `help maps ${name} to one sentence`);
-        }
-        assert.equal(helpers.helpButtons, 0, 'help adds no extra panel commands');
-        assert.equal(helpers.guideButtons, 0, 'guide adds no extra panel commands');
+        assertGuideAndHelp(helpers);
         // Collapsing the guide persists on this origin and applies to a fresh mount.
         await page.evaluate(() => {
             const root = document.getElementById('educationperfected-controls').shadowRoot;
@@ -209,3 +197,19 @@ const { installControlMenu } = require('../lib/browser-controls');
         server.closeAllConnections(); server.close();
     }
 })().catch(error => { console.error(error); process.exitCode = 1; });
+
+function assertGuideAndHelp(helpers) {
+    for (const button of helpers.buttons) {
+        assert.ok(button.title.trim().length > 0, `${button.action}${button.read ? ' read' : ''} button has a tooltip`);
+        assert.ok(button.aria.trim().length > 0, `${button.action}${button.read ? ' read' : ''} button keeps a screen-reader label`);
+    }
+    for (const field of helpers.fields) {
+        assert.ok(field.title.trim().length > 0, `${field.id} field has a tooltip`);
+        assert.ok(field.aria.trim().length > 0, `${field.id} field keeps a screen-reader label`);
+    }
+    for (const name of ['Start', 'Stop', 'Refresh words', 'Status', 'Mode', 'Accuracy', 'Pacing']) {
+        assert.ok(helpers.help.includes(name), `help maps ${name} to one sentence`);
+    }
+    assert.equal(helpers.helpButtons, 0, 'help adds no extra panel commands');
+    assert.equal(helpers.guideButtons, 0, 'guide adds no extra panel commands');
+}

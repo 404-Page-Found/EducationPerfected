@@ -317,6 +317,20 @@ async function testAudioGateSignals(page, origin) {
     check('audio gate signals: assigned/missing/wrong-type/malformed/null/numeric contexts stop, manual beats list, explicit auto passes, unexpected mode unsupported');
 }
 
+async function assertInvalidIdentityFields(page, route, original) {
+    for (const field of ['contentID', 'questionIndex']) {
+        for (const bad of [null, Number.NaN, Number.POSITIVE_INFINITY, '0', -1, {}, []]) {
+            await page.evaluate(({ field, bad, original }) => {
+                const q = window.angular.element().scope().self.model._currentQuestion;
+                Object.assign(q, original); q[field] = bad;
+            }, { field, bad, original });
+            const refusal = await detectQuestion(page);
+            assert.equal(refusal.kind, 'unsupported', `${route}: invalid ${field}`);
+            if (route === '/typed-fixture') assert.match(refusal.reason, /stable identity/);
+        }
+    }
+}
+
 async function testDetectorRegressions(page, origin) {
     for (const route of ['/audio', '/lesson', '/typed-fixture']) {
         await page.goto(`${origin}${route === '/typed-fixture' ? '/audio' : route}`);
@@ -327,17 +341,7 @@ async function testDetectorRegressions(page, origin) {
             const q = window.angular.element().scope().self.model._currentQuestion;
             return { contentID: q.contentID, questionIndex: q.questionIndex };
         });
-        for (const field of ['contentID', 'questionIndex']) {
-            for (const bad of [null, Number.NaN, Number.POSITIVE_INFINITY, '0', -1, {}, []]) {
-                await page.evaluate(({ field, bad, original }) => {
-                    const q = window.angular.element().scope().self.model._currentQuestion;
-                    Object.assign(q, original); q[field] = bad;
-                }, { field, bad, original });
-                const refusal = await detectQuestion(page);
-                assert.equal(refusal.kind, 'unsupported', `${route}: invalid ${field}`);
-                if (route === '/typed-fixture') assert.match(refusal.reason, /stable identity/);
-            }
-        }
+        await assertInvalidIdentityFields(page, route, original);
     }
     await page.goto(`${origin}/audio`);
     await page.evaluate(() => {

@@ -53,22 +53,7 @@ const { createRunControls } = require('../lib/run-controls');
     queued.start(); queued.browserClosed();
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(queuedRuns, 0); assert.equal(queued.status().state, 'closed');
-    for (const action of ['restart', 'stop', 'close', 'browserClosed']) {
-        let count = 0, releaseDrain;
-        const draining = createRunControls({
-            run: () => { count++; return count === 1 ? new Promise(resolve => { releaseDrain = resolve; }) : Promise.resolve(); },
-            requestStop() {}, setMode() {}, refresh() {}, close() {},
-        });
-        draining.start(); await Promise.resolve();
-        const restart = draining.restartAfterDrain();
-        assert.equal(draining.status().state, 'stopping');
-        const duplicate = draining.restartAfterDrain();
-        const supersede = action === 'stop' ? draining.stop() : action === 'close' ? draining.close() : action === 'browserClosed' ? draining.browserClosed() : null;
-        releaseDrain(); await restart; await duplicate; await supersede;
-        await new Promise(resolve => setImmediate(resolve));
-        assert.equal(count, action === 'restart' ? 2 : 1, 'Explicit ' + action + ' must supersede a pending restart; duplicate restart must not duplicate work');
-        await draining.close();
-    }
+    for (const action of ['restart', 'stop', 'close', 'browserClosed']) await assertRestartSuperseded(action);
     const { diagnostic } = require('../lib/diagnostics');
     const secret = new Error('private payload https://user:password@example.invalid/private'); secret.code = 'ENOENT';
     assert.match(diagnostic(secret), /ENOENT.*missing/);
@@ -77,12 +62,7 @@ const { createRunControls } = require('../lib/run-controls');
     assert.match(diagnostic(new Error('Missing X server or DISPLAY')), /could not launch/);
     assert.doesNotMatch(diagnostic(new Error('Question displayed unexpectedly')), /display and system browser/);
     assert.doesNotMatch(diagnostic(new Error('REDISPLAY')), /display and system browser/);
-    for (const marker of ['No usable sandbox!', 'Failed to move to new namespace', 'The SUID sandbox helper binary was found, but is not configured correctly']) {
-        const output = diagnostic(new Error(marker+' private-fixture-secret https://sensitive.invalid/?token=fixture'), 'Startup');
-        assert.match(output,/browser sandbox was blocked by operating-system policy/);
-        assert.match(output,/do not disable the browser sandbox/);
-        assert.doesNotMatch(output,/private-fixture|sensitive.invalid|token=|--no-sandbox|sysctl|chmod/);
-    }
+    for (const marker of ['No usable sandbox!', 'Failed to move to new namespace', 'The SUID sandbox helper binary was found, but is not configured correctly']) assertSandboxDiagnostic(diagnostic, marker);
     assert.doesNotMatch(diagnostic(new Error('A page says sandbox in ordinary content')), /operating-system policy/);
 
     const { windowsTaskkillPath } = require('./test-process-cleanup');
@@ -91,3 +71,27 @@ const { createRunControls } = require('../lib/run-controls');
     assert.throws(() => windowsTaskkillPath('C:\\Windows\\..\\other'));
     console.log('Run controls: idempotent start/stop, stop drain, mode guard, same-tick cancel, close passed.');
 })().catch(e => { console.error(e); process.exitCode = 1; });
+
+async function assertRestartSuperseded(action) {
+    let count = 0, releaseDrain;
+    const draining = createRunControls({
+        run: () => { count++; return count === 1 ? new Promise(resolve => { releaseDrain = resolve; }) : Promise.resolve(); },
+        requestStop() {}, setMode() {}, refresh() {}, close() {},
+    });
+    draining.start(); await Promise.resolve();
+    const restart = draining.restartAfterDrain();
+    assert.equal(draining.status().state, 'stopping');
+    const duplicate = draining.restartAfterDrain();
+    const supersede = action === 'stop' ? draining.stop() : action === 'close' ? draining.close() : action === 'browserClosed' ? draining.browserClosed() : null;
+    releaseDrain(); await restart; await duplicate; await supersede;
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(count, action === 'restart' ? 2 : 1, 'Explicit ' + action + ' must supersede a pending restart; duplicate restart must not duplicate work');
+    await draining.close();
+}
+
+function assertSandboxDiagnostic(diagnostic, marker) {
+    const output = diagnostic(new Error(marker+' private-fixture-secret https://sensitive.invalid/?token=fixture'), 'Startup');
+    assert.match(output,/browser sandbox was blocked by operating-system policy/);
+    assert.match(output,/do not disable the browser sandbox/);
+    assert.doesNotMatch(output,/private-fixture|sensitive.invalid|token=|--no-sandbox|sysctl|chmod/);
+}
