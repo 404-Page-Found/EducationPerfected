@@ -9,7 +9,7 @@ async function run(mode,fail,path){
  const child=new EventEmitter();child.stdout=new EventEmitter();child.stderr=new EventEmitter();child.stdin={write:data=>{assert.equal(data,'quit\n');fault('quit');closed=true;child.emit('close',fail==='owner-exit'?1:0,null);}};
  const server=new EventEmitter();server.listen=(port,host,cb)=>{assert.equal(host,'127.0.0.1');fault('listen');cb();};server.address=()=>({port:43188});server.close=cb=>{fault('server-close');cb();};
  const browser={target:()=>({createCDPSession:async()=>({send:async()=>{fault('argv');return {arguments:[path.join(root,'tmp','educationperfected-source-ABC','chrome.exe')]};},detach:async()=>{fault('detach');}})}),version:async()=>{fault('version');return 'Chrome/'+identity.browserVersion;}};
- function req(name){
+ function reqEarly(name){
   if(name==='./windows-fixture-profile')return {prepareWindowsFixtureProfile:()=>{fault('profile');}};
   if(name==='./windows-network-sandbox')return {observeNetworkSandbox:async()=>{fault('network-sandbox');return {sandbox:'Network',appContainer:true,launchFailures:0};}};
   if(name==='node:path')return path;
@@ -17,6 +17,9 @@ async function run(mode,fail,path){
   if(name==='node:child_process')return {spawn:(exe,args,opts)=>{assert.ok(opts.cwd.startsWith(root+path.sep));fault('spawn');return child;}};
   if(name==='./packaged-test-cleanup')return {boundedClose:async promise=>{fault('owner-close');return promise;},stopChild:async()=>{fault('stop');}};
   if(name==='./packaged-fixture-page')return {connectAfterLoginReady:async()=>{fault('ready');child.stdout.emit('data',Buffer.from('EP_TEST_BROWSER_IDENTITY=x\nCommands: start'));return {browser,checkpoint:{}};},selectLoginPage:async()=>{fault('page');return {type:async()=>{fault('type');},click:async()=>{fault('click');}};},disconnectController:async()=>{fault('disconnect');}};
+  return undefined;
+ }
+ function reqLate(name){
   if(name==='./startup-browser-identity')return {readVerifiedArchive:async()=>{fault('archive');return {identity,bytes:Buffer.from('x')};},parseIdentityReceipt:()=>{fault('receipt');return identity;},assertOwnedBrowser:(tmp,exe)=>{assert.equal(tmp,path.join(root,'tmp'));fault('origin');return true;},verifyLegIdentity:value=>{fault('identity');realAssert.deepEqual(value.expected,identity);realAssert.equal(value.owned,true);realAssert.equal(value.observedVersion,'Chrome/'+identity.browserVersion);}};
   if(name==='../lib/test-browser-identity')return {emitBrowserIdentity:(m,cb)=>cb('inert')};
   if(name==='puppeteer')return {PUPPETEER_REVISIONS:{chrome:identity.browserVersion}};
@@ -24,6 +27,11 @@ async function run(mode,fail,path){
   if(name==='modern-tar/fs')return {unpackTar:()=>({})};if(name==='node:zlib')return {createGunzip:()=>({})};
   if(name==='./mock-ep')return {createServer:()=>server};
   if(name==='./packaged-checkpoint')return {waitForPackagedCheckpoint:async predicate=>{fault('cli-ready');assert.equal(predicate(),true);}};
+  return undefined;
+ }
+ function req(name){
+  const early=reqEarly(name);if(early!==undefined)return early;
+  const late=reqLate(name);if(late!==undefined)return late;
   return require(name);
  }
  const originalLoad=Module._load,originalLog=console.log,originalExec=process.execPath,originalEnv=process.env,originalPlatform=Object.getOwnPropertyDescriptor(process,'platform'),originalArch=Object.getOwnPropertyDescriptor(process,'arch');

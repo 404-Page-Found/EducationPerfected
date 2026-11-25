@@ -37,12 +37,13 @@ function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxIt
     // keepMulti: a multi-select fixture already owns the page - keep its
     // definition, renderer cache and component group, and take over its
     // definition marking, so the slide carries both surfaces.
-    if (keepMulti) {
+    const preserveMultiSurface = () => {
         Object.assign(base, q.cachedRenderers?.[1]?.identifiedComponents?.baseComponents || {});
         q.cachedRenderers = { 1: { identifiedComponents: { baseComponents: base } } };
         const multiDef = (q.questionDef.Components || []).find(c => c && c.ComponentTypeCode === 'MULTICHOICE_COMPONENT');
         if (multiDef) multiDef.Marked = variant === 'unmarked' ? 0 : 1;
-    } else {
+    };
+    if (keepMulti) { preserveMultiSurface(); } else {
         q.questionDef.Components = [];
         q.cachedRenderers = { 1: { identifiedComponents: { baseComponents: base } } };
     }
@@ -57,7 +58,7 @@ function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxIt
         const button = e.target.closest('#sa-navigation-controls button');
         if (button && button.textContent.trim() !== 'Submit') f.nexts++;
     }, true);
-    for (const [i, answer] of (dropdownAnswers || ['Tenth', 'Hundredth', 'Tenth', 'Unit']).entries()) {
+    const addDropdown = (i, answer) => {
         const id = 'dropdown-' + i;
         const options = [{ Description: 'wrong', Correct: 'false', Validity: 'true', SortOrder: 0 }, { Description: answer, Correct: 'true', Validity: 'true', SortOrder: 1 }];
         const def = { ComponentTypeCode: 'DROPDOWN_COMPONENT', ComponentID: id, Marked: marked, Options: JSON.parse(JSON.stringify(options)), DefaultSelection: { Description: '', Correct: 'false', Validity: 'true', SortOrder: 0 } };
@@ -76,7 +77,8 @@ function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxIt
         base[id] = [component];
         select.addEventListener('keydown', e => { f.keys.push({ id, key: e.key, trusted: e.isTrusted }); f.beforeKey?.(e); });
         select.addEventListener('change', e => { const text = select.options[select.selectedIndex].text; state._selectedOption = original.find(o => o.Description.trim() === text.trim()) || null; f.changes.push({ id, index: select.selectedIndex, trusted: e.isTrusted }); f.afterChange?.(); });
-    }
+    };
+    for (const [i, answer] of (dropdownAnswers || ['Tenth', 'Hundredth', 'Tenth', 'Unit']).entries()) addDropdown(i, answer);
     const items = numberBoxItems || [
         { id: 'box-0', answer: '30' },
         { id: 'box-1', answer: '94.2', definition: { RoundingTypeCode: 'DP', RoundingAmount: 2 } },
@@ -85,7 +87,7 @@ function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxIt
         { id: 'box-4', answer: '12' },
         { id: 'box-5', answer: '0.25', definition: { RoundingTypeCode: 'DP', RoundingAmount: 2 } },
     ];
-    for (const item of items) {
+    const addNumberBox = item => {
         const def = Object.assign({ ComponentTypeCode: 'NUMBER_BOX_COMPONENT', ComponentID: item.id, Marked: marked, InitialText: '', Options: [item.raw || item.answer] }, numberBoxDefinition, item.definition);
         q.questionDef.Components.unshift(def); // Metadata order deliberately differs from DOM.
         const input = document.createElement('input');
@@ -105,10 +107,11 @@ function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxIt
             state.isUserAnswerSet = true;
             f.afterInput?.();
         });
-    }
+    };
+    for (const item of items) addNumberBox(item);
     // Optional third surface: one lesson text box (EP chunk606
     // NewTextBoxComponent: visualElement IS the input, never wrapped).
-    if (textBoxItem) {
+    const addTextBox = () => {
         const def = Object.assign({ ComponentTypeCode: 'TEXT_BOX_COMPONENT', ComponentID: textBoxItem.id, Marked: marked, InitialText: '', Options: [textBoxItem.raw || textBoxItem.answer] }, { CaseSensitive: true, MarkPunctuation: false, IgnoredCharacters: '' });
         q.questionDef.Components.unshift(def);
         const input = document.createElement('input');
@@ -123,21 +126,23 @@ function installDropdownNumberBoxFixture(variant, numberBoxDefinition, textBoxIt
             state.isUserAnswerSet = true;
             f.afterInput?.();
         });
-    }
+    };
+    if (textBoxItem) addTextBox();
     const oldSubmit = [...document.querySelectorAll('#sa-navigation-controls button')].find(b => b.textContent.trim() === 'Submit');
     const submit = oldSubmit.cloneNode(true);
     oldSubmit.replaceWith(submit);
     // 'delayed' variant: EP enables Submit asynchronously after its own
     // validation accepts the filled inputs - model it as a debounce: every
     // input event re-disables the button, which re-enables shortly after.
-    if (variant === 'delayed') {
+    const armDelayedSubmit = () => {
         submit.disabled = true;
         document.addEventListener('input', () => {
             submit.disabled = true;
             clearTimeout(f.enableTimer);
             f.enableTimer = setTimeout(() => { if (!f.neverEnable) submit.disabled = false; }, 120);
         }, true);
-    }
+    };
+    if (variant === 'delayed') armDelayedSubmit();
     submit.addEventListener('click', () => {
         f.submittedSelections = [...group.querySelectorAll('select')].map(el => [el.options[el.selectedIndex].textContent, base[el.id][0].componentState._selectedOption?.Description]);
         f.submittedBoxValues = [...group.querySelectorAll('input.number-box-component')].map(el => { const entry = Object.values(base).flat().find(c => c.textBox === el); return [el.value, entry?.componentState.userAnswer]; });

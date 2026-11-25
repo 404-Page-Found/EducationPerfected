@@ -22,6 +22,27 @@ async function probe(kind, scenario) {
         on() {}, removeListener() {},
     };
     if (scenario === 'conflict') fakeProcess.argv.push('forget-credentials');
+    const bootstrapModule = id => {
+        if (id === '../bin/cli') return {
+            credentialCommand: async command => {
+                assert.equal(command, '--check-credentials');
+                return require('../bin/cli').credentialCommand(command, { store, output: fakeProcess.stdout });
+            },
+        };
+        if (id === '../lib/runtime-directory') return {createRuntimeDirectory: () => ({directory:'/fixed-owned', remove(safe) {assert.equal(safe,true);cleaned++;return true;}})};
+        if (id === 'node:fs') return {
+            mkdtempSync: () => '/fixed-owned', chmodSync() {}, writeFileSync() {},
+            rmSync() { cleaned++; },
+        };
+        if (id === 'node:sea') return {
+            getAsset: key => key === 'manifest' ? '{}' : new ArrayBuffer(0),
+            getRawAsset() { browser++; throw Error('Browser must not be read'); },
+        };
+        if (id === 'node:module') return { createRequire: () => () => ({}) };
+        if (id === '../lib/native-binding') return { setPackagedBinding() {} };
+        if (id === 'modern-tar/fs') return {};
+        return undefined;
+    };
     const load = id => {
         if (id === '../index') return {
             launchProgram() { browser++; },
@@ -29,24 +50,8 @@ async function probe(kind, scenario) {
         };
         if (id === '../lib/credential-store') return { createCredentialStore: () => store };
         if (kind === 'bootstrap') {
-            if (id === '../bin/cli') return {
-                credentialCommand: async command => {
-                    assert.equal(command, '--check-credentials');
-                    return require('../bin/cli').credentialCommand(command, { store, output: fakeProcess.stdout });
-                },
-            };
-            if (id === '../lib/runtime-directory') return {createRuntimeDirectory: () => ({directory:'/fixed-owned', remove(safe) {assert.equal(safe,true);cleaned++;return true;}})};
-            if (id === 'node:fs') return {
-                mkdtempSync: () => '/fixed-owned', chmodSync() {}, writeFileSync() {},
-                rmSync() { cleaned++; },
-            };
-            if (id === 'node:sea') return {
-                getAsset: key => key === 'manifest' ? '{}' : new ArrayBuffer(0),
-                getRawAsset() { browser++; throw Error('Browser must not be read'); },
-            };
-            if (id === 'node:module') return { createRequire: () => () => ({}) };
-            if (id === '../lib/native-binding') return { setPackagedBinding() {} };
-            if (id === 'modern-tar/fs') return {};
+            const stub = bootstrapModule(id);
+            if (stub !== undefined) return stub;
         }
         return require(id);
     };
