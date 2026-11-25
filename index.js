@@ -1132,6 +1132,25 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 }
             }
 
+            // Dash-only guidance must not leak into classic tasks: the empty
+            // and mismatch alerts are shared by both starters, so detect a
+            // Dash starter (URL plus provisional markers) before appending
+            // timed-sprint wording. Every probe failure keeps the generic wording.
+            async function detectDashStarter() {
+                try {
+                    const url = page.url();
+                    if (typeof url === 'string' && url.toLowerCase().includes('dash')) return true;
+                } catch { /* keep generic on URL failure */ }
+                try {
+                    const found = await page.evaluate(detectDashInPage, DIR.dash_timer_css, DIR.dash_results_css);
+                    if (found && found.isDash) return true;
+                } catch { /* keep generic on evaluate failure */ }
+                try {
+                    return !!(await page.evaluate(() => !!document.querySelector('.dash-info')));
+                } catch { /* keep generic on evaluate failure */ }
+                return false;
+            }
+
             /**
  * Scrapes and learns word pairs from the task-starter page.
  * Resets dictionaries if the lists have changed (new task), otherwise merges.
@@ -1141,26 +1160,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             async function refreshWords() {
                 const base = await wordList(DIR.baseList_css);
                 const target = await wordList(DIR.targetList_css);
-                // Dash-only guidance must not leak into classic tasks: the empty
-                // and mismatch alerts are shared by both starters, so detect a
-                // Dash starter (URL plus provisional markers) before appending
-                // timed-sprint wording.
-                let isDashStarter = false;
-                try {
-                    const url = page.url();
-                    isDashStarter = typeof url === 'string' && url.toLowerCase().includes('dash');
-                } catch { /* keep generic on URL failure */ }
-                if (!isDashStarter) {
-                    try {
-                        const found = await page.evaluate(detectDashInPage, DIR.dash_timer_css, DIR.dash_results_css);
-                        isDashStarter = !!(found && found.isDash);
-                    } catch { /* keep generic on evaluate failure */ }
-                }
-                if (!isDashStarter) {
-                    try {
-                        isDashStarter = await page.evaluate(() => !!document.querySelector('.dash-info'));
-                    } catch { /* keep generic on evaluate failure */ }
-                }
+                const isDashStarter = await detectDashStarter();
 
                 if (base.length !== target.length) {
                     lastWordListRefresh = { outcome: 'mismatch', entries: 0, base: base.length, target: target.length, at: new Date().toISOString() };
@@ -1449,10 +1449,24 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
  * @param {boolean} isRandomProbe - True when the submission was an unknown-probe random string
  * @returns {Promise<'advanced'|'modal'|'timeout'|'aborted'>}
  */
+            const CLEAR_GRACE_MS = 2000;
+            // A cleared box counts as advancement only after the grace period (and
+            // never for random probes, issue #234). Tracks clearedSince on `tracker`.
+            function clearedBoxAdvanced(tracker, submitted, box, isRandomProbe) {
+                if (typeof submitted !== 'string' || box !== '' || isRandomProbe) {
+                    tracker.clearedSince = null;
+                    return false;
+                }
+                if (tracker.clearedSince === null) {
+                    tracker.clearedSince = Date.now();
+                    return false;
+                }
+                return Date.now() - tracker.clearedSince >= CLEAR_GRACE_MS;
+            }
+
             async function waitForAdvance(previous, timeout, submitted, isRandomProbe = false) {
                 const deadline = timeout > 0 ? Date.now() + timeout : Infinity;
-                const CLEAR_GRACE_MS = 2000;
-                let clearedSince = null;
+                const tracker = { clearedSince: null };
                 while (TOGGLE && Date.now() < deadline) {
                     if ((await detectQuestion(page))?.kind === 'unsupported') {
                         TOGGLE = false;
@@ -1471,17 +1485,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
                     if (state.modal) return 'modal';
                     if (state.question === null || state.question !== previous) return 'advanced';
-                    if (typeof submitted === 'string' && state.box === '') {
-                        if (isRandomProbe) {
-                            clearedSince = null;
-                        } else if (clearedSince === null) {
-                            clearedSince = Date.now();
-                        } else if (Date.now() - clearedSince >= CLEAR_GRACE_MS) {
-                            return 'advanced';
-                        }
-                    } else {
-                        clearedSince = null;
-                    }
+                    if (clearedBoxAdvanced(tracker, submitted, state.box, isRandomProbe)) return 'advanced';
                     await new Promise(resolve => setTimeout(resolve, 50));
                 }
                 return TOGGLE ? 'timeout' : 'aborted';
@@ -1507,37 +1511,47 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
  * EP's asynchronous content restoration.
  * @returns {Promise<boolean>} True if box is empty, false if box missing or content persisted
  */
+            // A revoked stop permission flips TOGGLE off and fails the clear.
+            async function stillAllowed(allowed) {
+                if (!allowed || await allowed()) return true;
+                TOGGLE = false;
+                return false;
+            }
+
+            // The mouse triple-click selection can be swallowed by the page;
+            // select-all via the keyboard is a different code path. The chord
+            // is sent as explicit modifier/key presses, not a "Control+a"
+            // combo string whose parsing varies between Puppeteer versions,
+            // and a failure to send it must not kill the run: the
+            // triple-click + Backspace still applies.
+            async function selectAllChord() {
+                await page.keyboard.down('Control').catch(() => { });
+                await page.keyboard.press('a').catch(() => { });
+                await page.keyboard.up('Control').catch(() => { });
+            }
+
+            // Empty after clearing: no content means no restore can surface, so
+            // skip the settle beat when the box started empty (the common case);
+            // otherwise wait a beat so an EP restore lands before typing starts.
+            async function boxStayedEmpty(before) {
+                if (before === '') return true;
+                await new Promise(resolve => setTimeout(resolve, 20));
+                return (await answerBoxValue()) === '';
+            }
+
             async function clearAnswerBox(allowed) {
                 for (let attempt = 0; attempt < 5; attempt++) {
                     const before = await answerBoxValue();
                     if (before === null) return false;
-                    if (allowed && !await allowed()) { TOGGLE = false; return false; }
+                    if (!await stillAllowed(allowed)) return false;
                     await page.click(DIR.answer_box_css, { clickCount: 3 }).catch(() => { });
-                    if (allowed && !await allowed()) { TOGGLE = false; return false; }
-                    if (attempt % 2 === 1) {
-                        // the mouse triple-click selection can be swallowed by the page;
-                        // select-all via the keyboard is a different code path. The chord
-                        // is sent as explicit modifier/key presses, not a "Control+a"
-                        // combo string whose parsing varies between Puppeteer versions,
-                        // and a failure to send it must not kill the run: the
-                        // triple-click + Backspace still applies.
-                        await page.keyboard.down('Control').catch(() => { });
-                        await page.keyboard.press('a').catch(() => { });
-                        await page.keyboard.up('Control').catch(() => { });
-                    }
-                    if (allowed && !await allowed()) { TOGGLE = false; return false; }
+                    if (!await stillAllowed(allowed)) return false;
+                    if (attempt % 2 === 1) await selectAllChord();
+                    if (!await stillAllowed(allowed)) return false;
                     await page.keyboard.press('Backspace');
                     const value = await answerBoxValue();
                     if (value === null) return false;
-                    if (value === '') {
-                        // nothing was ever in the box: no content could be restored, so
-                        // skip the settle beat (the common case mid-task)
-                        if (before === '') return true;
-                        // content was cleared: brief settle so an EP restore of it still
-                        // surfaces before typing starts
-                        await new Promise(resolve => setTimeout(resolve, 20));
-                        return (await answerBoxValue()) === '';
-                    }
+                    if (value === '') return boxStayedEmpty(before);
                     // content survived/reappeared (restored asynchronously); pause so this
                     // round's restore lands, then check and clear again
                     await new Promise(resolve => setTimeout(resolve, 40));
@@ -2032,45 +2046,49 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
  * @param {string} modalNote - extra sentence in the modal stop message ('' when none)
  * @returns {Promise<boolean>} False to stop the run, true to keep looping
  */
+            async function mapCompleteOutcome() {
+                if (await taskCompletionProven()) {
+                    runReason = 'completed';
+                    console.log('Lesson completed.');
+                } else if (TOGGLE) {
+                    const message = 'A Continue screen appeared without proof of task completion; stopping the run.';
+                    console.error(message);
+                    await alert(message);
+                }
+                return false;
+            }
+
+            async function mapModalOutcome(again, modalBaseline, modalLabel, roundLabel, modalNote) {
+                preserveSelectionModal=true;
+                const modalDiagnostic=await inspectSelectionModal(page,again,modalBaseline);
+                if(!TOGGLE)return false;
+                console.error(modalLabel+' modal diagnostic '+JSON.stringify(modalDiagnostic));
+                if(modalDiagnostic.guard==='section-next-action-required'){
+                    const sectionResult=await advanceSelectionSection(page,again,modalBaseline,{shouldStop:()=>!TOGGLE,timeout:ADVANCE_TIMEOUT});
+                    console.log('Section transition diagnostic '+JSON.stringify(sectionResult));
+                    if(!TOGGLE)return false;
+                    if(sectionResult.guard==='next-section-verified'){
+                        // Detect the new question read-only before allowing the next
+                        // normal round to run its own complete fresh safety checks.
+                        const nextQuestion=await detectQuestion(page);
+                        if(nextQuestion&&nextQuestion.kind!=='unsupported'&&nextQuestion.key!==again.key){
+                            console.log('Verified the next section and a new question.');
+                            return TOGGLE;
+                        }
+                        console.error('The next section opened without a supported new question; stopping.');
+                        return false;
+                    }
+                }
+                console.error(`A modal appeared during the ${roundLabel} round; stopping so it can be checked.${modalNote} The dialog is left open.`);
+                await alert(`A modal interrupted the ${roundLabel} round; stopping the run.`);
+                return false;
+            }
+
             async function mapRoundOutcome(result, again, modalBaseline, modalLabel, roundLabel, modalNote) {
                 if (result.status === 'advanced') return TOGGLE;
                 if (result.status === 'aborted') return false;
-                if (result.status === 'complete') {
-                    if (await taskCompletionProven()) {
-                        runReason = 'completed';
-                        console.log('Lesson completed.');
-                    } else if (TOGGLE) {
-                        const message = 'A Continue screen appeared without proof of task completion; stopping the run.';
-                        console.error(message);
-                        await alert(message);
-                    }
-                    return false;
-                }
-                if (result.status === 'modal') {
-                    preserveSelectionModal=true;
-                    const modalDiagnostic=await inspectSelectionModal(page,again,modalBaseline);
-                    if(!TOGGLE)return false;
-                    console.error(modalLabel+' modal diagnostic '+JSON.stringify(modalDiagnostic));
-                    if(modalDiagnostic.guard==='section-next-action-required'){
-                        const sectionResult=await advanceSelectionSection(page,again,modalBaseline,{shouldStop:()=>!TOGGLE,timeout:ADVANCE_TIMEOUT});
-                        console.log('Section transition diagnostic '+JSON.stringify(sectionResult));
-                        if(!TOGGLE)return false;
-                        if(sectionResult.guard==='next-section-verified'){
-                            // Detect the new question read-only before allowing the next
-                            // normal round to run its own complete fresh safety checks.
-                            const nextQuestion=await detectQuestion(page);
-                            if(nextQuestion&&nextQuestion.kind!=='unsupported'&&nextQuestion.key!==again.key){
-                                console.log('Verified the next section and a new question.');
-                                return TOGGLE;
-                            }
-                            console.error('The next section opened without a supported new question; stopping.');
-                            return false;
-                        }
-                    }
-                    console.error(`A modal appeared during the ${roundLabel} round; stopping so it can be checked.${modalNote} The dialog is left open.`);
-                    await alert(`A modal interrupted the ${roundLabel} round; stopping the run.`);
-                    return false;
-                }
+                if (result.status === 'complete') return mapCompleteOutcome();
+                if (result.status === 'modal') return mapModalOutcome(again, modalBaseline, modalLabel, roundLabel, modalNote);
                 // 'stopped'
                 console.error(result.message);
                 await alert(result.message);
