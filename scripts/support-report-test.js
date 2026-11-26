@@ -55,6 +55,10 @@ for (const d of [{}, { reason: 5 }, { diagnostic: 'x' }, { diagnostic: { compone
 assert.ok(isValidDetail(generic) && BRANCHES.has(generic.branch));
 assert.equal(describeUnsupported({ reason: 'x' }).question_type, -1, 'unreadable is -1');
 assert.equal(describeUnsupported({ reason: 'x' }).game_mode, 'unknown');
+assert.ok(!isValidDetail({ ...generic, components: ['My secret hunter2'] }) && !isValidDetail({ ...generic, controls: { ...generic.controls, inputs: 'lots' } }));
+assert.equal(branchOf({ reason: 'choice option metadata is missing or unreadable; no answer was selected' }), 'missing-metadata');
+assert.equal(branchOf({ reason: 'Multi-select with lesson inputs: unsafe, unsupported or changed renderer state' }), 'foreign-controls');
+assert.equal(branchOf({ reason: 'Question detection failed: no stable identity' }), 'detection-error');
 assert.ok(!isValidDetail({ ...generic, branch: 'free text' }) && !isValidDetail({ ...generic, extra: 1 }));
 const shaped = createSupportReport();
 shaped.record('unsupported', 'refused', 'unsupported-question', { ...generic, branch: 'hunter2' });

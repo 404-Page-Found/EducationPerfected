@@ -122,7 +122,9 @@ function shapeLine(s) {
 function shapeLines(record) {
     const shapes = Object.values(record.shapes || {}).sort((a, b) => b.count - a.count);
     if (!shapes.length) return [];
-    return ['', 'Shapes seen (game mode, EP question type, component count, component codes, control counts):', ...shapes.map(shapeLine)];
+    const lines = ['', 'Shapes seen (game mode, EP question type, component count, component codes, control counts):', ...shapes.map(shapeLine)];
+    if (record.otherShapes) lines.push(`- plus ${record.otherShapes} reports with other shapes, not listed (limit ${MAX_SHAPES} shapes)`);
+    return lines;
 }
 function bodyFor({ task_type, reason, detail }, record) {
     return [
@@ -171,7 +173,10 @@ function countShape(rec, detail) {
         rec.shapes[key].count += 1;
         return false;
     }
-    if (Object.keys(rec.shapes).length >= MAX_SHAPES) return false;
+    if (Object.keys(rec.shapes).length >= MAX_SHAPES) {
+        rec.otherShapes = (rec.otherShapes || 0) + 1;
+        return false;
+    }
     rec.shapes[key] = { ...detail, count: 1 };
     return true;
 }

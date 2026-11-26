@@ -62,6 +62,10 @@ const { createSupportSender, buildPayload, isEnabled, RELAY_URL } = require('../
     assert.equal(await s3.sendRun(r3), 1);
     assert.deepEqual(c3[0], { task_type: 'unsupported', reason: 'unsupported-question', app_version: '2026.11.27', schema: 2, branch: 'generic-slide', game_mode: 'lesson', question_type: 9, component_count: 1, components: ['LONG_ANSWER_COMPONENT'], controls: { inputs: 0, textareas: 1, selects: 0, editable: 0, canvases: 0, buttons: 1 } });
     assert.ok(JSON.stringify(c3[0]).length < 1024);
+    // A second branch in the same session still sends.
+    r3.record('unsupported', 'refused', 'unsupported-question', { ...shape, branch: 'dash' });
+    assert.equal(await s3.sendRun(r3), 1);
+    assert.equal(c3.at(-1).branch, 'dash');
     // Without a valid shape it falls back to the four-field schema 1 report.
     const r4 = createSupportReport();
     r4.record('unsupported', 'refused', 'unsupported-question');
