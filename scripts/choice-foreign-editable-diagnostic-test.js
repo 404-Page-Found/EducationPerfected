@@ -28,7 +28,7 @@ const { describeUnsupported, isValidDetail } = require('../lib/support-report');
         assert.ok(shape.controls.textareas >= 1 && shape.controls.buttons >= 0);
         assert.ok(isValidDetail(shape));
         // Content-free: only fixed keys and counts, never page text.
-        assert.deepEqual(Object.keys(shape).sort(), ['branch', 'component_count', 'components', 'controls', 'game_mode', 'question_type']);
+        assert.deepEqual(Object.keys(shape).sort((a, b) => a.localeCompare(b)), ['branch', 'component_count', 'components', 'controls', 'game_mode', 'question_type']);
         assert.ok(!/SECRET-PAGE-TEXT/.test(JSON.stringify(bad.diagnostic)));
         console.log('choice-foreign-editable-diagnostic-test passed');
     } finally { if (browser) await browser.close(); await new Promise(r => server.close(r)); }
