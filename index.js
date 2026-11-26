@@ -24,7 +24,8 @@ const { createHumanDelay, summarizeRanges } = require('./lib/human-delay');
 const { createSelectChoiceOnce } = require('./lib/choice-select-once');
 const { readChoiceInPage } = require('./lib/choice-state');
 const { diagnostic } = require('./lib/diagnostics');
-const { createSupportReport, describeUnsupported } = require('./lib/support-report');
+const { createSupportReport, describeUnsupported, needsShapeProbe } = require('./lib/support-report');
+const { readUnsupportedShape } = require('./lib/unsupported-shape');
 const { createSupportSender } = require('./lib/support-sender');
 const { collectSelfMarkDiagnostics } = require('./lib/self-mark-diagnostics');
 const { guardClassicEnter } = require('./lib/classic-enter');
@@ -1999,7 +2000,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             async function handleNonTextRound(descriptor) {
                 if (!TOGGLE) return false;
                 if (descriptor.kind === 'unsupported') {
-                    supportReport.record('unsupported', 'refused', 'unsupported-question', describeUnsupported(descriptor));
+                    // Refusal sites that carry no shape of their own get a read-only probe of the page, so the report still says what the slide was.
+                    const shapeProbe = needsShapeProbe(descriptor) ? await readUnsupportedShape(page) : null;
+                    supportReport.record('unsupported', 'refused', 'unsupported-question', describeUnsupported(descriptor, shapeProbe));
                     if (descriptor.diagnostic) console.error('Unsupported question diagnostic ' + JSON.stringify(descriptor.diagnostic));
                     console.error(descriptor.reason);
                     await alert(descriptor.reason);

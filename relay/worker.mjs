@@ -20,7 +20,8 @@ export const SCHEMA = 1;
 // builds stay valid.
 export const BRANCHES = [
     'assessment', 'dash', 'unknown-game-mode', 'scope-unreadable', 'no-identity', 'translation-mode',
-    'accompanying-component', 'foreign-controls', 'multiple-components', 'renderer-association',
+    'accompanying-component', 'foreign-controls', 'foreign-choice', 'foreign-multiselect', 'foreign-dropdown',
+    'foreign-textbox', 'foreign-formula', 'foreign-slide-surfaces', 'multiple-components', 'renderer-association',
     'missing-metadata', 'generic-slide', 'detection-error', 'guard-refusal', 'other',
 ];
 export const GAME_MODES = ['classic', 'assessment', 'lesson', 'unknown'];

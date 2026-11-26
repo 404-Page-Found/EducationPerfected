@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Support reports for unsupported-question refusals now say which guard fired: the foreign-controls branch is split per refusal site (`foreign-choice`, `foreign-multiselect`, `foreign-dropdown`, `foreign-textbox`, `foreign-formula`, `foreign-slide-surfaces`; the old `foreign-controls` stays for any other editable-controls refusal). A refusal site that carries no shape of its own now gets a read-only page probe (game mode, question type, component codes, visible control counts, no text), so the shape is no longer all unknown. Still schema 1. The relay must be redeployed with the new branch list before this build sends.
+
 - A choice or multi-select slide refused for editable controls outside the choice component now records its content-free shape (game mode, question type, component codes, control counts) in the support report, and relay issues list the refusal branch on each shape line.
 
 - Anonymous support reports for an unsupported question now carry its content-free shape (still schema 1; older builds' four-field reports stay valid), so an issue says what to build instead of only that something was refused: the refusal branch (assessment, Dash, unknown game mode, unreadable state, extra components, and so on), game mode, EP question type number, component codes (unlisted ones are redacted) and control counts. All values come from fixed lists or small integers; no question text, answers, URLs or identifiers. Other reports stay at four fields. The relay files one issue per refusal branch and lists the shapes it has seen. The local console diagnostic is unchanged and the report block now also prints the branch and components. The relay is redeployed with this change.
