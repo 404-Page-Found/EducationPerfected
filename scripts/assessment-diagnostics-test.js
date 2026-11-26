@@ -99,7 +99,23 @@ const SHELL = () => {
         assert.equal(JSON.stringify(saved.full.question).includes('[accessor]'), true);
         if (process.platform !== 'win32') assert.equal(fs.statSync(cli.file).mode & 0o077, 0);
         fs.rmSync(cli.file, { force: true });
-        assert.deepEqual(await page.evaluate(() => window.inspectionCounts), { events: 0, calls: 0, getters: 0 });
+
+        // Alt+I takes the same read-only capture and never starts the answer
+        // loop (the hotkey calls inspectAssessmentKey); Alt+S still refuses.
+        const seen = () => session.output.split('\n').filter(l => l.startsWith('EP_ASSESSMENT_INSPECT ')).length;
+        const before = seen();
+        await page.bringToFront(); await page.keyboard.down('Alt'); await page.keyboard.press('KeyI'); await page.keyboard.up('Alt');
+        await wait(() => seen() > before);
+        const hot = JSON.parse(session.output.split('\n').filter(l => l.startsWith('EP_ASSESSMENT_INSPECT ')).pop().slice('EP_ASSESSMENT_INSPECT '.length));
+        assert.equal(hot.guard, 'captured');
+        assert.ok(hot.file?.includes('assessment-captures') && fs.existsSync(hot.file), 'hotkey capture file written');
+        assert.equal(session.output.includes('Starting answerLoop.'), false, 'hotkey never starts the loop on an Assessment');
+        child.stdin.write('status\n');
+        await wait(() => session.output.includes('"state":"stopped"'));
+        fs.rmSync(hot.file, { force: true });
+        // Only the two real keydowns (Alt, I) from the key press itself; the capture adds none.
+        assert.deepEqual(await page.evaluate(() => window.inspectionCounts), { events: 2, calls: 0, getters: 0 });
+        await page.evaluate(() => { window.inspectionCounts.events = 0; });
 
         // Passive watch: writes a capture only when the page changes; never an event.
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ep-watch-'));

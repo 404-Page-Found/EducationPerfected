@@ -28,6 +28,7 @@ const { createSupportReport, describeUnsupported, needsShapeProbe } = require('.
 const { readUnsupportedShape } = require('./lib/unsupported-shape');
 const { createSupportSender } = require('./lib/support-sender');
 const { collectSelfMarkDiagnostics } = require('./lib/self-mark-diagnostics');
+const { captureAssessment } = require('./lib/assessment-diagnostics');
 const { guardClassicEnter } = require('./lib/classic-enter');
 const { boxMatchesAnswer } = require('./lib/answer-normalize');
 const { cleanString: cleanQuestionString, questionKeyVariants } = require('./lib/question-keys');
@@ -899,6 +900,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
             // ===== Auto-answer code starts here ===== //
             let TOGGLE = false;  // user intent: the loop should be answering right now
+            let capturingAssessment = false;  // an Alt+I capture is in flight
             let RUNNING = null;  // promise handle of the run currently executing, or null
             let preserveSelectionModal = false; // do not erase an unclassified selection dialog
             let CLEANUP = null;  // promise of the most recent run's post-run modal cleanup
@@ -2938,6 +2940,24 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 }
             }
 
+            // Temporary Alt+I hotkey: one read-only Assessment capture while no
+            // run is active. Never starts, answers or clicks anything. Remove
+            // together with its docs once the Assessment inspection is done.
+            async function inspectAssessmentHotkey() {
+                // Held under the shared control lock so no run can start while
+                // the capture is pending. Written under the app data root.
+                const dir = require('node:path').join(require('node:os').homedir(), '.educationperfected', 'assessment-captures');
+                if (capturingAssessment) return;
+                let captured = null;
+                try { captured = await controls.exclusive(async () => { capturingAssessment = true; try { return await captureAssessment(page, { dir }); } finally { capturingAssessment = false; } }); }
+                catch { await notifyControl('Stop the run before an Assessment capture.'); return; }
+                if (captured?.guard === 'captured') {
+                    const where = captured.file ? ' Saved to ' + captured.file + '.' : captured.fileError ? ' The capture file could not be written (' + captured.fileError + ').' : '';
+                    console.log('EP_ASSESSMENT_INSPECT ' + JSON.stringify(captured));
+                    await notifyControl('Assessment captured (read-only); nothing was answered.' + where);
+                } else await notifyControl('Not an Assessment page (or unreadable); nothing captured.');
+            }
+
             /**
  * Toggles between auto mode (auto-submit Enter) and semi-auto mode (user presses Enter).
  * @returns {Promise<void>}
@@ -3144,6 +3164,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // survive navigation - but the keyup listener does not, and must be re-added.
             await page.exposeFunction('refresh', validationOnly ? () => 'Validation session: refresh is disabled.' : refreshControl);
             await page.exposeFunction('startAnswer', validationOnly ? () => 'Validation session: use the approved terminal one-shot command.' : toggleLoop);
+            await page.exposeFunction('inspectAssessmentKey', validationOnly ? () => 'Validation session: capture is disabled.' : inspectAssessmentHotkey);
             await page.exposeFunction('toggleMode', validationOnly ? () => 'Validation mode is fixed to one-shot only.' : toggleAuto);
             // Harness-only observability and idempotent stop, never inferred
             // from log text or exposed during normal runs.
@@ -3171,6 +3192,8 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                             await window.startAnswer();
                         } else if ((event.altKey && key === "a") || (key === "å")) {
                             await window.toggleMode();
+                        } else if (event.altKey && event.code === "KeyI") {
+                            await window.inspectAssessmentKey();
                         }
                     }
                 });

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Temporary Alt+I hotkey (Option+I on macOS): on an Assessment page it takes one read-only capture, saved under `~/.educationperfected/assessment-captures`, the same file format and `EP_ASSESSMENT_INSPECT` line as `inspect-assessment`, and never starts or answers anything. Alt+S is unchanged and still refuses Assessments. To be removed after the Assessment inspection. Synthetic coverage only.
+
 - Support reports for unsupported-question refusals now say which guard fired: the foreign-controls branch is split per refusal site (`foreign-choice`, `foreign-multiselect`, `foreign-dropdown`, `foreign-textbox`, `foreign-formula`, `foreign-slide-surfaces`; the old `foreign-controls` stays for any other editable-controls refusal). A refusal site that carries no shape of its own now gets a read-only page probe (game mode, question type, component codes, visible control counts, no text), so the shape is no longer all unknown. Still schema 1. The relay must be redeployed with the new branch list before this build sends.
 
 - A choice or multi-select slide refused for editable controls outside the choice component now records its content-free shape (game mode, question type, component codes, control counts) in the support report, and relay issues list the refusal branch on each shape line.
