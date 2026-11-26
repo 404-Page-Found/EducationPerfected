@@ -190,19 +190,23 @@ export async function record(storage, env, report) {
     rec.count += 1;
     const newShape = countShape(rec, report.detail);
     if (isNewer(report.app_version, rec.maxVersion)) rec.maxVersion = report.app_version;
+    if (newShape) rec.dirty = true;
     try {
         if (!rec.issue) {
             if (await takeWrite(env)) {
                 const issue = await github(env, '/issues', 'POST', { title: titleFor(report), body: bodyFor(report, rec), labels: [LABEL] });
                 rec.issue = issue.number;
+                rec.dirty = false;
             }
         } else if (newer) {
             const issue = await github(env, `/issues/${rec.issue}`, 'GET');
-            if (issue.state === 'closed' && await takeWrite(env)) {
-                await github(env, `/issues/${rec.issue}`, 'PATCH', { state: 'open', body: bodyFor(report, rec) });
+            if ((issue.state === 'closed' || rec.dirty) && await takeWrite(env)) {
+                await github(env, `/issues/${rec.issue}`, 'PATCH', { ...(issue.state === 'closed' ? { state: 'open' } : {}), body: bodyFor(report, rec) });
+                rec.dirty = false;
             }
-        } else if ((newShape || THRESHOLDS.has(rec.count)) && await takeWrite(env)) {
+        } else if ((rec.dirty || THRESHOLDS.has(rec.count)) && await takeWrite(env)) {
             await github(env, `/issues/${rec.issue}`, 'PATCH', { body: bodyFor(report, rec) });
+            rec.dirty = false;
         }
     } catch { /* counted anyway; GitHub is retried on a later report */ }
     await storage.put('rec', rec);

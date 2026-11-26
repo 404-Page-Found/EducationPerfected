@@ -152,7 +152,7 @@ const byName = (a, b) => a.localeCompare(b);
     assert.equal(calls.length - d0, 3, 'a different branch files its own issue');
     assert.equal(pairKey({ task_type: 'unsupported', reason: 'unsupported-question' }), 'pair:unsupported:unsupported-question', 'schema 1 key is unchanged');
     const badDetail = [
-        detail({ branch: 'free text' }), detail({ game_mode: 'mode 4' }), detail({ question_type: 'nine' }), detail({ question_type: 100 }), detail({ question_type: -2 }), detail({ question_type: null }),
+        detail({ branch: 'free text' }), detail({ game_mode: 'mode 4' }), detail({ question_type: 'nine' }), detail({ question_type: 100 }), detail({ question_type: -2 }), detail({ component_count: 1.5 }), detail({ controls: { inputs: 100, textareas: 0, selects: 0, editable: 0, canvases: 0, buttons: 0 } }), detail({ question_type: null }),
         detail({ components: ['What is the French for dog'] }), detail({ components: new Array(9).fill('DEPTH_COMPONENT') }),
         detail({ controls: { inputs: 1 } }), detail({ controls: { inputs: 1, textareas: 0, selects: 0, editable: 0, canvases: 0, buttons: 0, text: 1 } }),
         detail({ extra: 1 }), detail({ task_type: 'audio' }), detail({ reason: 'no-handler' }),

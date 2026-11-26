@@ -58,6 +58,16 @@ assert.equal(describeUnsupported({ reason: 'x' }).game_mode, 'unknown');
 assert.ok(!isValidDetail({ ...generic, components: ['My secret hunter2'] }) && !isValidDetail({ ...generic, controls: { ...generic.controls, inputs: 'lots' } }));
 assert.equal(branchOf({ reason: 'choice option metadata is missing or unreadable; no answer was selected' }), 'missing-metadata');
 assert.equal(branchOf({ reason: 'Multi-select with lesson inputs: unsafe, unsupported or changed renderer state' }), 'foreign-controls');
+const sample = {
+    'no-identity': 'lesson text question without a stable identity (contentID/questionIndex missing from EP\'s question state)',
+    'translation-mode': 'speaker slide with an unexpected translationMode (5); only Listening (2) and Dictation (3) were captured live',
+    'accompanying-component': 'choice slide has other answer-bearing question components; answering one part would submit the rest blank',
+    'multiple-components': 'multiple visible choice components; cannot safely associate answer state with one component',
+    'renderer-association': 'formula choices lack a unique current renderer-to-option association; stopping instead of guessing',
+    'foreign-controls': 'choice slide has editable controls outside the choice component; answering would submit them blank',
+    'missing-metadata': 'a correct-marked choice option has no usable text; stopping with incomplete answer metadata',
+};
+for (const [branch, reason] of Object.entries(sample)) assert.equal(branchOf({ reason }), branch, branch);
 assert.equal(branchOf({ reason: 'Question detection failed: no stable identity' }), 'detection-error');
 assert.ok(!isValidDetail({ ...generic, branch: 'free text' }) && !isValidDetail({ ...generic, extra: 1 }));
 const shaped = createSupportReport();
