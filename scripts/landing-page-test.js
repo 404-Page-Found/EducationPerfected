@@ -80,7 +80,8 @@ assert.equal(platforms.length, 3);
 const installerCounts = [1, 2, 4];
 for (const [i, os] of ["Windows", "macOS", "Linux"].entries()) {
   assert.match(platforms[i], new RegExp(`<h3>${os}</h3>`));
-  assert.match(platforms[i], /releases\/(?:latest\/download|download\/v[\d.]+)\/educationperfected[^"]*\.(?:exe|pkg|deb|rpm)"/, "direct installer download");
+  if (os === "Linux") assert.equal((platforms[i].match(/href="https:\/\/github\.com\/404-Page-Found\/EducationPerfected\/releases\/latest"/g) || []).length, 4, "all four Linux links fall back to the latest release page");
+  else assert.match(platforms[i], /releases\/latest\/download\/educationperfected[^"]*\.(?:exe|pkg)"/, "direct installer download");
   const boxes = platforms[i].match(/<div class="installer">/g) || [];
   assert.equal(boxes.length, installerCounts[i], `${os} has ${installerCounts[i]} installer container(s)`);
   assert.match(platforms[i], /#installation/, "install guide hyperlink");
@@ -90,19 +91,15 @@ assert.doesNotMatch(html, /Single installer for 64-bit Windows/);
 assert.match(html, /id="hero-download" href="#download"/, "hero button falls back to the download section");
 const stable = /releases\/latest\/download\/(educationperfected-(?:windows-x64-setup\.exe|macos-(?:arm64|x64)\.pkg))"/g;
 assert.deepEqual([...html.matchAll(stable)].map((m) => m[1]).sort((a, b) => a.localeCompare(b)), ["educationperfected-macos-arm64.pkg", "educationperfected-macos-x64.pkg", "educationperfected-windows-x64-setup.exe"], "stable-name direct links for Windows and macOS");
-// The pinned Linux URLs are the no-JS / lookup-failure fallback; the page
-// script rewrites them to the latest published release at load time.
-const pinned = [...html.matchAll(/releases\/download\/(v[\d.]+)\/(educationperfected[^"]+)"/g)];
-assert.equal(pinned.length, 4, "four Linux package links");
-for (const [, tag, file] of pinned) {
-  assert.ok(file.includes(tag.slice(1)), `Linux file matches its tag: ${file}`);
-}
-assert.equal(new Set(pinned.map((m) => m[1])).size, 1, "Linux links share one release tag");
+// No version is hardcoded: the Linux links fall back to the latest release
+// page, and the page script rewrites them to the latest release at load time.
+assert.doesNotMatch(html, /releases\/download\/v\d/, "no versioned release URLs in the page");
+assert.doesNotMatch(html, /\d{4}\.\d+\.\d+/, "no version number in the page");
 for (const id of ["linux-deb-x64", "linux-deb-arm64", "linux-rpm-x64", "linux-rpm-arm64"]) {
   assert.match(html, new RegExp(`id="${id}"`), `Linux card ${id} is updatable`);
 }
-// The hero download detector mirrors the page links, pins the same fallback
-// tag and resolves the latest release through GitHub's public API.
+// The hero download detector mirrors the page links, falls back to the latest release page
+// and resolves the latest release through GitHub's public API.
 const heroScript = fs.readFileSync(path.join(root, "docs/assets/download.js"), "utf8");
 assert.match(heroScript, /getElementById\("hero-download"\)/);
 assert.match(
@@ -111,6 +108,7 @@ assert.match(
   "hero script looks up the latest release tag",
 );
 // Each card id maps to its package filename pattern in the hero script.
+assert.doesNotMatch(heroScript, /v\d{4}\.\d+\.\d+/, "no hardcoded version in the hero script");
 assert.match(heroScript, /"linux-deb-x64": "educationperfected_" \+ version \+ "_amd64\.deb"/);
 assert.match(heroScript, /"linux-deb-arm64": "educationperfected_" \+ version \+ "_arm64\.deb"/);
 assert.match(heroScript, /"linux-rpm-x64": "educationperfected-" \+ version \+ "-1\.x86_64\.rpm"/);
@@ -125,15 +123,13 @@ for (const file of [
 ]) {
   assert.ok(heroScript.includes(`/latest/download/${file}`), `hero script offers ${file}`);
 }
-assert.ok(heroScript.includes(`"${pinned[0][1]}"`), "hero script pins the same Linux release tag");
 assert.match(html, /not affiliated with Education Perfect/);
 assert.match(html, /docs\/disclaimer.md/);
 assert.match(html, /Dash has no end-to-end live verification/);
 assert.match(html, /Main can contain fixes not yet in a published download/);
 assert.match(html, /Assessments and unsupported shapes are refused/);
-// Versioned filenames are allowed only inside the pinned Linux release URLs checked above.
 assert.doesNotMatch(
-  html.replace(/releases\/download\/v[\d.]+\//g, ""),
+  html,
   /uninstall from (?:the app|Settings)|undetectable|guaranteed|v2026\./i,
 );
 assert.match(css, /prefers-reduced-motion/);
