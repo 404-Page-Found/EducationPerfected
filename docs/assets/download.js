@@ -17,10 +17,10 @@
     RELEASES + "/latest/download/educationperfected-macos-arm64.pkg";
   var MACOS_X64 =
     RELEASES + "/latest/download/educationperfected-macos-x64.pkg";
-  // Linux filenames embed the version. The pinned tag is only the fallback
-  // for when the latest-release lookup below fails; the page resolves the
-  // current release at load time, so releases no longer bump this pin.
-  var LINUX_TAG = "v2026.11.22";
+  // Linux filenames embed the version, so no version is hardcoded here. The
+  // page resolves the latest release at load time; until that lookup lands
+  // (or if it fails) the Linux links open the latest release page.
+  var LATEST_PAGE = RELEASES + "/latest";
 
   function linuxPackages(tag) {
     var version = tag.slice(1);
@@ -58,7 +58,7 @@
   }
 
   // Resolves the newest published release tag through GitHub's public API.
-  // Any failure keeps the pinned fallback links, which still download.
+  // Any failure keeps the links on the latest release page.
   function fetchLatestTag(done) {
     var cached = readCachedTag();
     if (cached) return done(cached);
@@ -180,9 +180,13 @@
     label.textContent = text;
   }
 
-  var linuxTag = LINUX_TAG; // fallback until the latest-release lookup lands
+  var linuxTag = null; // set once the latest-release lookup lands
 
   function applyLinuxHero(arm64) {
+    if (!linuxTag) {
+      apply(LATEST_PAGE, "Download for Linux");
+      return;
+    }
     var packages = linuxPackages(linuxTag);
     if (arm64 === true) {
       apply(
@@ -213,7 +217,7 @@
 
   // Fresh Linux links for everyone, whatever OS the hero detected.
   fetchLatestTag(function (tag) {
-    if (!tag || tag === linuxTag) return;
+    if (!tag) return;
     linuxTag = tag;
     updateLinuxCards(tag);
     if (os === "linux") detectArm64(applyLinuxHero);
