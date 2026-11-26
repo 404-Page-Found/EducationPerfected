@@ -1,16 +1,20 @@
 // Relay fixture tests with an in-memory KV and a mocked GitHub fetch. No network.
 const assert = require('node:assert/strict');
-const { TASK_TYPES: APP_TYPES, REASONS: APP_REASONS } = require('../lib/support-report');
+const { TASK_TYPES: APP_TYPES, REASONS: APP_REASONS, BRANCHES: APP_BRANCHES, GAME_MODES: APP_GAME_MODES, COMPONENT_CODES: APP_CODES, CONTROL_KEYS: APP_CONTROLS } = require('../lib/support-report');
 const { REPORTABLE_REASONS } = require('../lib/support-sender');
 
 const byName = (a, b) => a.localeCompare(b);
 
 (async () => {
-    const { default: worker, Pair, Cap, TASK_TYPES, REASONS, validate } = await import('../relay/worker.mjs');
+    const { default: worker, Pair, Cap, TASK_TYPES, REASONS, validate, BRANCHES, GAME_MODES, COMPONENT_CODES, CONTROL_KEYS, pairKey } = await import('../relay/worker.mjs');
     // Relay allow-lists stay in step with the app.
     assert.deepEqual([...TASK_TYPES].filter(t => t !== 'unknown').sort(byName), [...APP_TYPES].sort(byName));
     assert.deepEqual([...REASONS].sort(byName), [...REPORTABLE_REASONS].sort(byName));
     assert.ok([...APP_REASONS].includes('other'));
+    assert.deepEqual([...BRANCHES].sort(byName), [...APP_BRANCHES].sort(byName));
+    assert.deepEqual([...GAME_MODES].sort(byName), [...APP_GAME_MODES].sort(byName));
+    assert.deepEqual([...COMPONENT_CODES].sort(byName), [...APP_CODES].sort(byName));
+    assert.deepEqual([...CONTROL_KEYS].sort(byName), [...APP_CONTROLS].sort(byName));
 
     // In-memory stand-ins for KV (`store`) and the two Durable Object namespaces (`durable`, kept
     // separate so a broken KV fallback cannot pass). Records are JSON under the pair name.
@@ -123,6 +127,40 @@ const byName = (a, b) => a.localeCompare(b);
     await send(capped, good({ task_type: 'choice' }));
     assert.equal(calls.length - n0, 1);
     assert.equal(JSON.parse(capped.durable.get('pair:choice:no-handler')).count, 1);
+
+    // Schema 2: the shape of an unsupported round. One issue per refusal branch, shapes listed in the body.
+    const detail = (over = {}) => JSON.stringify({
+        task_type: 'unsupported', reason: 'unsupported-question', app_version: '2026.11.27', schema: 2,
+        branch: 'generic-slide', game_mode: 'lesson', question_type: 9, component_count: 1,
+        components: ['FILE_UPLOADER_COMPONENT'], controls: { inputs: 1, textareas: 0, selects: 0, editable: 0, canvases: 0, buttons: 2 }, ...over,
+    });
+    const v2 = makeEnv();
+    const d0 = calls.length;
+    assert.equal((await send(v2, detail())).status, 204);
+    assert.equal(calls.length - d0, 1);
+    const detailIssue = JSON.parse(calls[calls.length - 1].options.body);
+    assert.equal(detailIssue.title, 'Task support: unsupported not handled (unsupported-question, generic-slide)');
+    assert.match(detailIssue.body, /game mode lesson, question type 9, 1 components \(FILE_UPLOADER_COMPONENT\), controls buttons 2, canvases 0, editable 0, inputs 1, selects 0, textareas 0/);
+    assert.ok(v2.durable.has('pair:unsupported:unsupported-question:generic-slide'));
+    assert.equal((await send(v2, detail())).status, 204);
+    assert.equal(calls.length - d0, 1, 'same shape only counts');
+    await send(v2, detail({ question_type: 12 }));
+    assert.equal(calls.length - d0, 2, 'a new shape refreshes the body');
+    assert.match([...issues.values()].at(-1).body, /x2: game mode lesson, question type 9/);
+    assert.match([...issues.values()].at(-1).body, /x1: game mode lesson, question type 12/);
+    await send(v2, detail({ branch: 'dash' }));
+    assert.equal(calls.length - d0, 3, 'a different branch files its own issue');
+    assert.equal(pairKey({ task_type: 'unsupported', reason: 'unsupported-question' }), 'pair:unsupported:unsupported-question', 'schema 1 key is unchanged');
+    const badDetail = [
+        detail({ branch: 'free text' }), detail({ game_mode: 'mode 4' }), detail({ question_type: 'nine' }), detail({ question_type: 100 }),
+        detail({ components: ['What is the French for dog'] }), detail({ components: Array(9).fill('DEPTH_COMPONENT') }),
+        detail({ controls: { inputs: 1 } }), detail({ controls: { inputs: 1, textareas: 0, selects: 0, editable: 0, canvases: 0, buttons: 0, text: 1 } }),
+        detail({ extra: 1 }), detail({ task_type: 'audio' }), detail({ reason: 'no-handler' }),
+        JSON.stringify({ ...JSON.parse(detail()), branch: undefined }), detail({ components: 'FILE_UPLOADER_COMPONENT' }),
+    ];
+    for (const body of badDetail) assert.equal(validate(body), null, `rejected ${body.slice(0, 60)}`);
+    assert.ok(validate(detail()));
+    assert.ok(new TextEncoder().encode(detail({ components: Array(8).fill('TYPE_SUBSCRIPT_SUPERSCRIPT_COMPONENT') })).length < 1024, 'largest report fits the cap');
 
     // Kill switch, rate limit, GitHub failure.
     const n1 = calls.length;

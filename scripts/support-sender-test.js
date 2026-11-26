@@ -1,6 +1,6 @@
 // Fixture coverage for lib/support-sender.js with a fake fetch. No network.
 const assert = require('node:assert/strict');
-const { createSupportReport } = require('../lib/support-report');
+const { createSupportReport, describeUnsupported } = require('../lib/support-report');
 const { createSupportSender, buildPayload, isEnabled, RELAY_URL } = require('../lib/support-sender');
 
 (async () => {
@@ -53,5 +53,21 @@ const { createSupportSender, buildPayload, isEnabled, RELAY_URL } = require('../
     assert.equal(await hung.sendRun(r2), 0);
 
     assert.deepEqual(buildPayload('nonsense', 'nonsense', '2026.11.26'), { task_type: 'unknown', reason: 'other', app_version: '2026.11.26', schema: 1 });
+    // Schema 2: an unsupported refusal carries its content-free shape, in its own body.
+    const shape = describeUnsupported({ kind: 'unsupported', reason: 'lesson slide with an unsupported question type (not text, choice, or audio)', diagnostic: { modelReadable: true, gameMode: 3, questionType: 9, componentCount: 1, componentTypes: ['LONG_ANSWER_COMPONENT'], controls: { inputs: 0, textareas: 1, selects: 0, contentEditable: 0, canvases: 0, buttons: 1 } } });
+    const r3 = createSupportReport();
+    r3.record('unsupported', 'refused', 'unsupported-question', shape);
+    const c3 = [];
+    const s3 = createSupportSender({ fetchImpl: async (u, o) => { c3.push(JSON.parse(o.body)); return { ok: true }; }, env, appVersion: '2026.11.27' });
+    assert.equal(await s3.sendRun(r3), 1);
+    assert.deepEqual(c3[0], { task_type: 'unsupported', reason: 'unsupported-question', app_version: '2026.11.27', schema: 2, branch: 'generic-slide', game_mode: 'lesson', question_type: 9, component_count: 1, components: ['LONG_ANSWER_COMPONENT'], controls: { inputs: 0, textareas: 1, selects: 0, editable: 0, canvases: 0, buttons: 1 } });
+    assert.ok(JSON.stringify(c3[0]).length < 1024);
+    // Without a valid shape it falls back to the four-field schema 1 report.
+    const r4 = createSupportReport();
+    r4.record('unsupported', 'refused', 'unsupported-question');
+    const c4 = [];
+    await createSupportSender({ fetchImpl: async (u, o) => { c4.push(JSON.parse(o.body)); return { ok: true }; }, env, appVersion: '2026.11.27' }).sendRun(r4);
+    assert.deepEqual(c4, [{ task_type: 'unsupported', reason: 'unsupported-question', app_version: '2026.11.27', schema: 1 }]);
+    assert.deepEqual(buildPayload('unsupported', 'unsupported-question', '2026.11.27', { branch: 'free text' }).schema, 1);
     console.log('support-sender-test passed');
 })().catch(e => { console.error(e); process.exitCode = 1; });

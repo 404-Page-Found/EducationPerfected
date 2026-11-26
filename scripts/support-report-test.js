@@ -1,7 +1,7 @@
 // Fixture coverage for lib/support-report.js: tallies, reason categories only,
 // no free text leakage, and a copyable block. No browser, no network.
 const assert = require('node:assert/strict');
-const { createSupportReport, REASONS, TASK_TYPES } = require('../lib/support-report');
+const { createSupportReport, REASONS, TASK_TYPES, describeUnsupported, isValidDetail, BRANCHES } = require('../lib/support-report');
 
 const empty = createSupportReport();
 assert.ok(empty.isEmpty());
@@ -34,4 +34,31 @@ assert.match(leakyText, /Run ended: other/);
 
 assert.throws(() => report.record('text', 'maybe'));
 assert.ok(REASONS.has('other'));
+
+// Unsupported shape: branch from a fixed list, never the reason text.
+const generic = describeUnsupported({
+    kind: 'unsupported',
+    reason: 'lesson slide with an unsupported question type (not text, choice, or audio)',
+    diagnostic: { modelReadable: true, gameMode: 3, questionType: 9, componentCount: 2, componentTypes: ['FILE_UPLOADER_COMPONENT', 'My secret hunter2'], controls: { inputs: 1, textareas: 0, selects: 0, contentEditable: 0, canvases: 0, buttons: 3 } },
+});
+assert.deepEqual(generic, { branch: 'generic-slide', game_mode: 'lesson', question_type: 9, component_count: 2, components: ['FILE_UPLOADER_COMPONENT', 'UNLISTED_COMPONENT'], controls: { inputs: 1, textareas: 0, selects: 0, editable: 0, canvases: 0, buttons: 3 } });
+const branchOf = d => describeUnsupported(d).branch;
+assert.equal(branchOf({ assessment: true, reason: 'x' }), 'assessment');
+assert.equal(branchOf({ dash: true, reason: 'Dash timed sprint round: other answer-bearing components' }), 'dash');
+assert.equal(branchOf({ reason: 'Choice answering requires confirmed Smart Lesson practice mode; unknown modes (gameMode 7) are not supported' }), 'unknown-game-mode');
+assert.equal(branchOf({ reason: "choice question detected, but EP's answer state could not be read (AngularJS scope unavailable)" }), 'scope-unreadable');
+assert.equal(branchOf({ reason: 'Question detection failed: boom' }), 'detection-error');
+assert.equal(branchOf({ reason: 'something new', diagnostic: { guard: 'start' } }), 'guard-refusal');
+assert.equal(branchOf({ reason: 'something new the user typed: hunter2' }), 'other');
+assert.equal(branchOf(null), 'other');
+for (const d of [{}, { reason: 5 }, { diagnostic: 'x' }, { diagnostic: { componentTypes: 'nope', controls: [] } }]) assert.ok(isValidDetail(describeUnsupported(d)));
+assert.ok(isValidDetail(generic) && BRANCHES.has(generic.branch));
+assert.ok(!isValidDetail({ ...generic, branch: 'free text' }) && !isValidDetail({ ...generic, extra: 1 }));
+const shaped = createSupportReport();
+shaped.record('unsupported', 'refused', 'unsupported-question', { ...generic, branch: 'hunter2' });
+assert.equal(shaped.details().length, 0, 'invalid detail is dropped');
+shaped.record('unsupported', 'refused', 'unsupported-question', generic);
+assert.deepEqual(shaped.details(), [{ kind: 'unsupported', reason: 'unsupported-question', detail: generic }]);
+assert.match(shaped.render('stopped'), /unsupported detail: branch generic-slide, game mode lesson, question type 9, components FILE_UPLOADER_COMPONENT, UNLISTED_COMPONENT/);
+assert.ok(!shaped.render('stopped').includes('hunter2'));
 console.log('support-report-test passed');

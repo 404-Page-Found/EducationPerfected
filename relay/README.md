@@ -4,7 +4,7 @@ A small Cloudflare Worker (free tier) that turns anonymous app reports into publ
 
 ## What it accepts
 
-`POST` with a JSON body under 512 bytes and exactly four fields: `task_type`, `reason` (both from fixed lists in `worker.mjs`), `app_version` (like `2026.11.26`) and `schema` (`1`). Anything else is rejected with an empty response.
+`POST` with a JSON body under 1024 bytes and exactly four fields (schema `1`, or ten fields for a schema `2` unsupported-question report, which adds `branch`, `game_mode`, `question_type`, `component_count`, `components` and `controls` from the fixed lists in `worker.mjs`; the relay files one issue per branch and lists the shapes it has seen): `task_type`, `reason` (both from fixed lists in `worker.mjs`), `app_version` (like `2026.11.26`) and `schema` (`1`). Anything else is rejected with an empty response.
 
 ## What it does
 
