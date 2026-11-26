@@ -15,9 +15,9 @@ export const REASONS = [
     'pre-submit-guard', 'futility-guard', 'other',
 ];
 export const SCHEMA = 1;
-// Schema 2 is only for an unsupported-question refusal. It adds the shape of
-// the round, all from the fixed lists below.
-export const SCHEMA_DETAIL = 2;
+// An unsupported-question refusal may also carry the shape of the round (still
+// schema 1), all from the fixed lists below. Four-field reports from older
+// builds stay valid.
 export const BRANCHES = [
     'assessment', 'dash', 'unknown-game-mode', 'scope-unreadable', 'no-identity', 'translation-mode',
     'accompanying-component', 'foreign-controls', 'multiple-components', 'renderer-association',
@@ -88,10 +88,10 @@ export function validate(text) {
     try { data = JSON.parse(text); } catch { return null; }
     if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
     const keys = Object.keys(data).sort((a, b) => a.localeCompare(b)).join(',');
-    const detailed = data.schema === SCHEMA_DETAIL;
+    const detailed = keys === FIELDS_DETAIL.join(',');
     if (keys !== (detailed ? FIELDS_DETAIL : FIELDS).join(',')) return null;
     if (!TASK_TYPES.includes(data.task_type) || !REASONS.includes(data.reason)) return null;
-    if (data.schema !== SCHEMA && !detailed) return null;
+    if (data.schema !== SCHEMA) return null;
     if (typeof data.app_version !== 'string' || !VERSION_RE.test(data.app_version)) return null;
     const report = { task_type: data.task_type, reason: data.reason, app_version: data.app_version };
     if (detailed) {
@@ -102,7 +102,7 @@ export function validate(text) {
     return report;
 }
 
-// One issue per (task type, reason), and for a detailed report per refusal
+// One issue per (task type, reason), and for a report with the round's shape per refusal
 // branch too, so each branch gets its own issue.
 export const pairKey = report => {
     const base = `pair:${report.task_type}:${report.reason}`;
@@ -164,7 +164,8 @@ async function takeWrite(env) {
     return (await res.text()) === 'yes';
 }
 
-// Tallies a detailed report's shape on the record. True when it is a shape not seen before.
+// Tallies a detailed report's shape on the record. True only when it adds a new entry to rec.shapes;
+// a shape past the limit is counted in rec.otherShapes and returns false.
 function countShape(rec, detail) {
     if (!detail) return false;
     rec.shapes = rec.shapes || {};

@@ -128,9 +128,9 @@ const byName = (a, b) => a.localeCompare(b);
     assert.equal(calls.length - n0, 1);
     assert.equal(JSON.parse(capped.durable.get('pair:choice:no-handler')).count, 1);
 
-    // Schema 2: the shape of an unsupported round. One issue per refusal branch, shapes listed in the body.
+    // Detailed report: the shape of an unsupported round. One issue per refusal branch, shapes listed in the body.
     const detail = (over = {}) => JSON.stringify({
-        task_type: 'unsupported', reason: 'unsupported-question', app_version: '2026.11.27', schema: 2,
+        task_type: 'unsupported', reason: 'unsupported-question', app_version: '2026.11.27', schema: 1,
         branch: 'generic-slide', game_mode: 'lesson', question_type: 9, component_count: 1,
         components: ['FILE_UPLOADER_COMPONENT'], controls: { inputs: 1, textareas: 0, selects: 0, editable: 0, canvases: 0, buttons: 2 }, ...over,
     });

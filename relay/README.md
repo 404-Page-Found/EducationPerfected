@@ -4,11 +4,11 @@ A small Cloudflare Worker (free tier) that turns anonymous app reports into publ
 
 ## What it accepts
 
-`POST` with a JSON body of at most 1024 bytes and exactly four fields (schema `1`, or ten fields for a schema `2` unsupported-question report, which adds `branch`, `game_mode`, `question_type`, `component_count`, `components` and `controls` from the fixed lists in `worker.mjs`; the relay files one issue per branch and lists the shapes it has seen): `task_type`, `reason` (both from fixed lists in `worker.mjs`), `app_version` (like `2026.11.26`) and `schema` (`1`, or `2` for the detailed report). Anything else is rejected with an empty response.
+`POST` with a JSON body of at most 1024 bytes and exactly four fields (four fields, or ten for an unsupported-question report, which adds `branch`, `game_mode`, `question_type`, `component_count`, `components` and `controls` from the fixed lists in `worker.mjs`; the relay files one issue per branch and lists the shapes it has seen): `task_type`, `reason` (both from fixed lists in `worker.mjs`), `app_version` (like `2026.11.26`) and `schema` (`1`). Anything else is rejected with an empty response.
 
 ## What it does
 
-- One issue per `(task_type, reason)` for schema 1, and per `(task_type, reason, branch)` for a schema 2 report: the first report creates it (label `task-support`), later reports only raise a counter. Each pair is handled by its own Durable Object, one report at a time, so two reports arriving together cannot file two issues. The issue body is refreshed at 10, 100 and 1000 reports.
+- One issue per `(task_type, reason)` for a four-field report, and per `(task_type, reason, branch)` for a report that also carries the round's shape: the first report creates it (label `task-support`), later reports only raise a counter. Each pair is handled by its own Durable Object, one report at a time, so two reports arriving together cannot file two issues. The issue body is refreshed at 10, 100 and 1000 reports.
 - A report from a newer app version than any seen before checks the issue and reopens it if it was closed.
 - At most 30 GitHub writes a day (`DAILY_WRITE_CAP`), counted in one Durable Object. Past that, reports are still counted.
 - `DISABLED` set to any non-empty value makes the relay do nothing.
