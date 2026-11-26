@@ -13,6 +13,13 @@ assert.equal((html.match(/<h1\b/g) || []).length, 1);
 assert.match(html, /Content-Security-Policy/);
 assert.match(html, /default-src 'none'/);
 assert.match(html, /script-src 'self'/, "only first-party scripts are allowed");
+// The only permitted connection is the public latest-release lookup that
+// keeps the Linux package links current without a per-release page edit.
+assert.match(
+  html,
+  /connect-src https:\/\/api\.github\.com/,
+  "Linux links resolve the latest release at load time",
+);
 assert.doesNotMatch(html, /<(?:iframe|form|object|embed)\b/i);
 // The hero download detector is the only script, loaded from a local file.
 assert.match(html, /<script src="assets\/download\.js" defer><\/script>/);
@@ -83,15 +90,29 @@ assert.doesNotMatch(html, /Single installer for 64-bit Windows/);
 assert.match(html, /id="hero-download" href="#download"/, "hero button falls back to the download section");
 const stable = /releases\/latest\/download\/(educationperfected-(?:windows-x64-setup\.exe|macos-(?:arm64|x64)\.pkg))"/g;
 assert.deepEqual([...html.matchAll(stable)].map((m) => m[1]).sort((a, b) => a.localeCompare(b)), ["educationperfected-macos-arm64.pkg", "educationperfected-macos-x64.pkg", "educationperfected-windows-x64-setup.exe"], "stable-name direct links for Windows and macOS");
+// The pinned Linux URLs are the no-JS / lookup-failure fallback; the page
+// script rewrites them to the latest published release at load time.
 const pinned = [...html.matchAll(/releases\/download\/(v[\d.]+)\/(educationperfected[^"]+)"/g)];
 assert.equal(pinned.length, 4, "four Linux package links");
 for (const [, tag, file] of pinned) {
   assert.ok(file.includes(tag.slice(1)), `Linux file matches its tag: ${file}`);
 }
 assert.equal(new Set(pinned.map((m) => m[1])).size, 1, "Linux links share one release tag");
-// The hero download detector mirrors the page links and pins the same tag.
+for (const id of ["linux-deb-x64", "linux-deb-arm64", "linux-rpm-x64", "linux-rpm-arm64"]) {
+  assert.match(html, new RegExp(`id="${id}"`), `Linux card ${id} is updatable`);
+}
+// The hero download detector mirrors the page links, pins the same fallback
+// tag and resolves the latest release through GitHub's public API.
 const heroScript = fs.readFileSync(path.join(root, "docs/assets/download.js"), "utf8");
 assert.match(heroScript, /getElementById\("hero-download"\)/);
+assert.match(
+  heroScript,
+  /api\.github\.com\/repos\/404-Page-Found\/EducationPerfected\/releases\/latest/,
+  "hero script looks up the latest release tag",
+);
+for (const id of ["linux-deb-x64", "linux-deb-arm64", "linux-rpm-x64", "linux-rpm-arm64"]) {
+  assert.ok(heroScript.includes(`"${id}"`), `hero script updates ${id}`);
+}
 for (const file of [
   "educationperfected-windows-x64-setup.exe",
   "educationperfected-macos-arm64.pkg",

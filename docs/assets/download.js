@@ -9,29 +9,75 @@
   if (!link || !label) return;
 
   var RELEASES = "https://github.com/404-Page-Found/EducationPerfected/releases";
+  var LATEST_RELEASE_API =
+    "https://api.github.com/repos/404-Page-Found/EducationPerfected/releases/latest";
   var WINDOWS_X64 =
     RELEASES + "/latest/download/educationperfected-windows-x64-setup.exe";
   var MACOS_ARM64 =
     RELEASES + "/latest/download/educationperfected-macos-arm64.pkg";
   var MACOS_X64 =
     RELEASES + "/latest/download/educationperfected-macos-x64.pkg";
-  // Linux filenames embed the version, so these stay pinned to one release
-  // tag and are bumped with each release (see release/README.md).
+  // Linux filenames embed the version. The pinned tag is only the fallback
+  // for when the latest-release lookup below fails; the page resolves the
+  // current release at load time, so releases no longer bump this pin.
   var LINUX_TAG = "v2026.11.22";
-  var LINUX_DEB_X64 =
-    RELEASES +
-    "/download/" +
-    LINUX_TAG +
-    "/educationperfected_" +
-    LINUX_TAG.slice(1) +
-    "_amd64.deb";
-  var LINUX_DEB_ARM64 =
-    RELEASES +
-    "/download/" +
-    LINUX_TAG +
-    "/educationperfected_" +
-    LINUX_TAG.slice(1) +
-    "_arm64.deb";
+
+  function linuxPackages(tag) {
+    var version = tag.slice(1);
+    return {
+      "linux-deb-x64": "educationperfected_" + version + "_amd64.deb",
+      "linux-deb-arm64": "educationperfected_" + version + "_arm64.deb",
+      "linux-rpm-x64": "educationperfected-" + version + "-1.x86_64.rpm",
+      "linux-rpm-arm64": "educationperfected-" + version + "-1.aarch64.rpm",
+    };
+  }
+
+  function linuxUrl(tag, file) {
+    return RELEASES + "/download/" + tag + "/" + file;
+  }
+
+  // Resolves the newest published release tag through GitHub's public API.
+  // Any failure keeps the pinned fallback links, which still download.
+  function fetchLatestTag(done) {
+    if (!window.fetch) return done(null);
+    fetch(LATEST_RELEASE_API, {
+      headers: { Accept: "application/vnd.github+json" },
+    }).then(
+      function (response) {
+        if (!response.ok) return done(null);
+        response.json().then(
+          function (data) {
+            var tag = data && data.tag_name;
+            if (typeof tag === "string" && /^v\d+\.\d+\.\d+$/.test(tag)) {
+              return done(tag);
+            }
+            done(null);
+          },
+          function () {
+            done(null);
+          },
+        );
+      },
+      function () {
+        done(null);
+      },
+    );
+  }
+
+  // Points the Linux package cards at the resolved release: the download
+  // button and the filename shown above it.
+  function updateLinuxCards(tag) {
+    var packages = linuxPackages(tag);
+    for (var id in packages) {
+      var anchor = document.getElementById(id);
+      if (!anchor) continue;
+      var file = packages[id];
+      anchor.href = linuxUrl(tag, file);
+      var card = anchor.parentNode;
+      var code = card ? card.querySelector("code") : null;
+      if (code) code.textContent = file;
+    }
+  }
 
   function detectOS() {
     var platform =
@@ -92,6 +138,23 @@
     label.textContent = text;
   }
 
+  var linuxTag = LINUX_TAG; // fallback until the latest-release lookup lands
+
+  function applyLinuxHero(arm64) {
+    var packages = linuxPackages(linuxTag);
+    if (arm64 === true) {
+      apply(
+        linuxUrl(linuxTag, packages["linux-deb-arm64"]),
+        "Download for Linux (.deb, ARM64)",
+      );
+    } else {
+      apply(
+        linuxUrl(linuxTag, packages["linux-deb-x64"]),
+        "Download for Linux (.deb, x64)",
+      );
+    }
+  }
+
   var os = detectOS();
   if (os === "windows") {
     apply(WINDOWS_X64, "Download for Windows");
@@ -103,9 +166,14 @@
       else apply(MACOS_X64, "Download for macOS (Intel)");
     });
   } else if (os === "linux") {
-    detectArm64(function (arm64) {
-      if (arm64 === true) apply(LINUX_DEB_ARM64, "Download for Linux (.deb, ARM64)");
-      else apply(LINUX_DEB_X64, "Download for Linux (.deb, x64)");
-    });
+    detectArm64(applyLinuxHero);
   }
+
+  // Fresh Linux links for everyone, whatever OS the hero detected.
+  fetchLatestTag(function (tag) {
+    if (!tag || tag === linuxTag) return;
+    linuxTag = tag;
+    updateLinuxCards(tag);
+    if (os === "linux") detectArm64(applyLinuxHero);
+  });
 })();
