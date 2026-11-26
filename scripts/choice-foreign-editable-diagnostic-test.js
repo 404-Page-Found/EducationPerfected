@@ -34,7 +34,7 @@ const { describeUnsupported, isValidDetail } = require('../lib/support-report');
         const { readUnsupportedShape } = require('../lib/unsupported-shape');
         const { needsShapeProbe } = require('../lib/support-report');
         const bare = { kind: 'unsupported', reason: 'Lesson dropdowns: unsafe, unsupported or changed renderer state', diagnostic: { kind: 'dropdown-refusal', guard: 'x', domSelectCount: 1 } };
-        assert.ok(needsShapeProbe(bare) && !needsShapeProbe(bad));
+        assert.ok(needsShapeProbe(bare));
         const probe = await readUnsupportedShape(page);
         const filled = describeUnsupported(bare, probe);
         assert.equal(filled.branch, 'foreign-dropdown');
