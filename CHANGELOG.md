@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- A choice or multi-select slide refused for editable controls outside the choice component now records its content-free shape (game mode, question type, component codes, control counts) in the support report, and relay issues list the refusal branch on each shape line. Before this, those refusals reported every field as unknown.
+- A choice or multi-select slide refused for editable controls outside the choice component now records its content-free shape (game mode, question type, component codes, control counts) in the support report, and relay issues list the refusal branch on each shape line.
 
 - Anonymous support reports for an unsupported question now carry its content-free shape (still schema 1; older builds' four-field reports stay valid), so an issue says what to build instead of only that something was refused: the refusal branch (assessment, Dash, unknown game mode, unreadable state, extra components, and so on), game mode, EP question type number, component codes (unlisted ones are redacted) and control counts. All values come from fixed lists or small integers; no question text, answers, URLs or identifiers. Other reports stay at four fields. The relay files one issue per refusal branch and lists the shapes it has seen. The local console diagnostic is unchanged and the report block now also prints the branch and components. The relay is redeployed with this change.
 
