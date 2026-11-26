@@ -164,7 +164,8 @@ async function takeWrite(env) {
     return (await res.text()) === 'yes';
 }
 
-// Tallies a detailed report's shape on the record. True when it is a shape not seen before.
+// Tallies a detailed report's shape on the record. True only when it adds a new entry to rec.shapes;
+// a shape past the limit is counted in rec.otherShapes and returns false.
 function countShape(rec, detail) {
     if (!detail) return false;
     rec.shapes = rec.shapes || {};
