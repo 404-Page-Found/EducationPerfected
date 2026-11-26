@@ -17,6 +17,20 @@ DISABLED = ""
 binding = "REPORTS"
 id = "REPLACE_WITH_KV_NAMESPACE_ID"
 
+# One Durable Object per report pair, and one for the daily write cap, so
+# concurrent reports are handled one at a time. KV is only read once to pick up old records.
+[[durable_objects.bindings]]
+name = "PAIRS"
+class_name = "Pair"
+
+[[durable_objects.bindings]]
+name = "CAP"
+class_name = "Cap"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Pair", "Cap"]
+
 # Rate limit per connection, evaluated before any other work. The key is not stored.
 [[ratelimits]]
 name = "RATE_LIMITER"

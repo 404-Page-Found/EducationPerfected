@@ -72,18 +72,18 @@ async function github(env, path, method, payload) {
     return res.json();
 }
 
+// Reports for one (task type, reason) pair are handled one at a time inside a
+// Durable Object, so two reports arriving together cannot both file an issue.
+// The daily write cap lives in a single Durable Object for the same reason.
 async function takeWrite(env) {
-    const day = new Date().toISOString().slice(0, 10);
-    const key = `cap:${day}`;
-    const used = Number(await env.REPORTS.get(key)) || 0;
-    if (used >= (Number(env.DAILY_WRITE_CAP) || DEFAULT_DAILY_CAP)) return false;
-    await env.REPORTS.put(key, String(used + 1), { expirationTtl: 172800 });
-    return true;
+    const res = await env.CAP.get(env.CAP.idFromName('cap')).fetch(new Request('https://cap.internal/take', { method: 'POST' }));
+    return (await res.text()) === 'yes';
 }
 
-async function record(env, report) {
+export async function record(storage, env, report) {
     const key = `pair:${report.task_type}:${report.reason}`;
-    const stored = await env.REPORTS.get(key, 'json');
+    // First run after the move from KV: pick up the record the old code left there.
+    const stored = (await storage.get('rec')) || (await env.REPORTS.get(key, 'json'));
     const rec = stored || { issue: null, count: 0, maxVersion: report.app_version };
     const newer = stored && isNewer(report.app_version, rec.maxVersion);
     rec.count += 1;
@@ -103,7 +103,51 @@ async function record(env, report) {
             await github(env, `/issues/${rec.issue}`, 'PATCH', { body: bodyFor(report, rec) });
         }
     } catch { /* counted anyway; GitHub is retried on a later report */ }
-    await env.REPORTS.put(key, JSON.stringify(rec));
+    await storage.put('rec', rec);
+}
+
+export class Pair {
+    constructor(state, env) {
+        this.state = state;
+        this.env = env;
+        this.queue = Promise.resolve();
+    }
+
+    // Outbound fetches let other requests in, so the queue is what makes this one-at-a-time.
+    fetch(request) {
+        const run = this.queue.then(async () => {
+            await record(this.state.storage, this.env, await request.json());
+            return empty(204);
+        });
+        this.queue = run.catch(() => {});
+        return run;
+    }
+}
+
+export class Cap {
+    constructor(state, env) {
+        this.state = state;
+        this.env = env;
+        this.queue = Promise.resolve();
+    }
+
+    // The first take of a day also reads KV, which lets other requests in, so takes are queued.
+    fetch() {
+        const run = this.queue.then(() => this.take());
+        this.queue = run.catch(() => {});
+        return run;
+    }
+
+    async take() {
+        const key = `cap:${new Date().toISOString().slice(0, 10)}`;
+        const used = (await this.state.storage.get(key)) ?? (Number(await this.env.REPORTS.get(key)) || 0);
+        if (used >= (Number(this.env.DAILY_WRITE_CAP) || DEFAULT_DAILY_CAP)) {
+            await this.state.storage.put(key, used);
+            return new Response('no');
+        }
+        await this.state.storage.put(key, used + 1);
+        return new Response('yes');
+    }
 }
 
 export default {
@@ -118,7 +162,7 @@ export default {
         }
         const report = validate(await request.text());
         if (!report) return empty(400);
-        await record(env, report);
-        return empty(204);
+        const key = `pair:${report.task_type}:${report.reason}`;
+        return env.PAIRS.get(env.PAIRS.idFromName(key)).fetch(new Request('https://pair.internal/', { method: 'POST', body: JSON.stringify(report) }));
     },
 };

@@ -6,16 +6,38 @@ const { REPORTABLE_REASONS } = require('../lib/support-sender');
 const byName = (a, b) => a.localeCompare(b);
 
 (async () => {
-    const { default: worker, TASK_TYPES, REASONS, validate } = await import('../relay/worker.mjs');
+    const { default: worker, Pair, Cap, TASK_TYPES, REASONS, validate } = await import('../relay/worker.mjs');
     // Relay allow-lists stay in step with the app.
     assert.deepEqual([...TASK_TYPES].filter(t => t !== 'unknown').sort(byName), [...APP_TYPES].sort(byName));
     assert.deepEqual([...REASONS].sort(byName), [...REPORTABLE_REASONS].sort(byName));
     assert.ok([...APP_REASONS].includes('other'));
 
+    // In-memory stand-ins for KV (`store`) and the two Durable Object namespaces (`durable`, kept
+    // separate so a broken KV fallback cannot pass). Records are JSON under the pair name.
     function makeEnv(extra = {}) {
         const store = new Map();
-        return {
+        const durable = new Map();
+        const namespace = make => {
+            const instances = new Map();
+            return {
+                idFromName: name => name,
+                get(name) {
+                    if (!instances.has(name)) {
+                        const slot = k => (k === 'rec' ? name : `${name}/${k}`);
+                        const state = { storage: {
+                            async get(k) { return durable.has(slot(k)) ? JSON.parse(durable.get(slot(k))) : undefined; },
+                            async put(k, v) { durable.set(slot(k), JSON.stringify(v)); },
+                        } };
+                        instances.set(name, make(state));
+                    }
+                    const instance = instances.get(name);
+                    return { fetch: request => instance.fetch(request) };
+                },
+            };
+        };
+        const env = {
             store,
+            durable,
             REPORTS: {
                 async get(key, type) {
                     if (!store.has(key)) return null;
@@ -26,6 +48,9 @@ const byName = (a, b) => a.localeCompare(b);
             },
             REPO: 'owner/repo', GITHUB_TOKEN: 'tok', DAILY_WRITE_CAP: '30', ...extra,
         };
+        env.PAIRS = namespace(state => new Pair(state, env));
+        env.CAP = namespace(state => new Cap(state, env));
+        return env;
     }
     const calls = [];
     const issues = new Map();
@@ -34,7 +59,7 @@ const byName = (a, b) => a.localeCompare(b);
         calls.push({ url, options });
         const method = options.method || 'GET';
         const m = url.match(/\/issues(?:\/(\d+))?$/);
-        if (method === 'POST') { const n = nextIssue++; issues.set(n, { state: 'open', ...JSON.parse(options.body) }); return { ok: true, json: async () => ({ number: n }) }; }
+        if (method === 'POST') { await new Promise(r => setTimeout(r, 5)); const n = nextIssue++; issues.set(n, { state: 'open', ...JSON.parse(options.body) }); return { ok: true, json: async () => ({ number: n }) }; }
         const n = Number(m[1]);
         if (method === 'PATCH') { Object.assign(issues.get(n), JSON.parse(options.body)); return { ok: true, json: async () => issues.get(n) }; }
         return { ok: true, json: async () => issues.get(n) };
@@ -50,7 +75,7 @@ const byName = (a, b) => a.localeCompare(b);
     statuses.forEach((status, i) => assert.ok([400, 413].includes(status), `rejected ${bad[i].slice(0, 30)}`));
     assert.equal((await worker.fetch(new Request('https://relay.test/', { method: 'GET' }), env)).status, 405);
     assert.equal(calls.length, 0);
-    assert.equal(env.store.size, 0);
+    assert.equal(env.store.size + env.durable.size, 0);
 
     // First report creates one issue with enum-only content, then counts.
     assert.equal((await send(env, good())).status, 204);
@@ -65,7 +90,7 @@ const byName = (a, b) => a.localeCompare(b);
     assert.match(issues.get(1).body, /Reports so far: 10/);
 
     // No IP or header data in any outgoing call or KV value.
-    const everything = JSON.stringify(calls.map(c => ({ u: c.url, b: c.options.body }))) + JSON.stringify([...env.store.entries()]);
+    const everything = JSON.stringify(calls.map(c => ({ u: c.url, b: c.options.body }))) + JSON.stringify([...env.store.entries(), ...env.durable.entries()]);
     for (const leak of ['203.0.113.9', 'secret-agent']) assert.ok(!everything.includes(leak), `leaked ${leak}`);
     assert.deepEqual(Object.keys(calls[0].options.headers).sort(byName), ['Accept', 'Authorization', 'Content-Type', 'User-Agent', 'X-GitHub-Api-Version']);
 
@@ -77,13 +102,27 @@ const byName = (a, b) => a.localeCompare(b);
     await send(env, good({ app_version: '2026.12.1' }));
     assert.equal(issues.get(1).state, 'open');
 
+    // Two reports for a new pair arriving together file one issue and count both.
+    const race = makeEnv();
+    const r0 = calls.length;
+    await Promise.all([send(race, good({ task_type: 'typed' })), send(race, good({ task_type: 'typed' }))]);
+    assert.equal(calls.length - r0, 1, 'concurrent reports file one issue');
+    assert.equal(JSON.parse(race.durable.get('pair:typed:no-handler')).count, 2);
+
+    // A record left in KV by the old code is picked up on the first report.
+    const migrated = makeEnv();
+    migrated.store.set('pair:text:no-handler', JSON.stringify({ issue: 7, count: 4, maxVersion: '2026.11.22' }));
+    await send(migrated, good({ task_type: 'text', app_version: '2026.11.22' }));
+    assert.equal(JSON.parse(migrated.durable.get('pair:text:no-handler')).count, 5);
+    assert.equal(calls.length, r0 + 1, 'migrated record has an issue, so no new one is filed');
+
     // Daily cap: reports are counted but not filed.
     const capped = makeEnv({ DAILY_WRITE_CAP: '1' });
     const n0 = calls.length;
     await send(capped, good({ task_type: 'gaps' }));
     await send(capped, good({ task_type: 'choice' }));
     assert.equal(calls.length - n0, 1);
-    assert.equal(JSON.parse(capped.store.get('pair:choice:no-handler')).count, 1);
+    assert.equal(JSON.parse(capped.durable.get('pair:choice:no-handler')).count, 1);
 
     // Kill switch, rate limit, GitHub failure.
     const n1 = calls.length;
@@ -91,12 +130,12 @@ const byName = (a, b) => a.localeCompare(b);
     assert.equal(calls.length, n1);
     const limited = makeEnv({ RATE_LIMITER: { limit: async () => ({ success: false }) } });
     assert.equal((await send(limited, good())).status, 429);
-    assert.equal(limited.store.size, 0);
+    assert.equal(limited.store.size + limited.durable.size, 0);
     const savedFetch = globalThis.fetch;
     globalThis.fetch = async () => { throw new Error('down'); };
     const failing = makeEnv();
     assert.equal((await send(failing, good())).status, 204);
-    assert.equal(JSON.parse(failing.store.get('pair:audio:no-handler')).count, 1);
+    assert.equal(JSON.parse(failing.durable.get('pair:audio:no-handler')).count, 1);
     globalThis.fetch = savedFetch;
 
     assert.ok(validate(good()));
