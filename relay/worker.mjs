@@ -43,7 +43,16 @@ const MAX_COMPONENTS = 8;
 const MAX_COUNT = 99;
 const MAX_SHAPES = 20;
 const FIELDS = ['app_version', 'reason', 'schema', 'task_type'];
-const FIELDS_DETAIL = [...FIELDS, 'branch', 'component_count', 'components', 'controls', 'game_mode', 'question_type'].sort((a, b) => a.localeCompare(b));
+const FIELDS_DETAIL_BASE = [...FIELDS, 'branch', 'component_count', 'components', 'controls', 'game_mode', 'question_type'];
+// Older clients send no guard; newer ones add it. Both key sets are accepted.
+const FIELDS_DETAIL = FIELDS_DETAIL_BASE.slice().sort((a, b) => a.localeCompare(b));
+const FIELDS_DETAIL_GUARD = [...FIELDS_DETAIL_BASE, 'guard', 'guard_counts'].sort((a, b) => a.localeCompare(b));
+const GUARD_RE = /^[a-z][a-z0-9-]{0,39}$/;
+const COUNT_KEY_RE = /^[A-Za-z][A-Za-z0-9.]{0,39}$/;
+const MAX_GUARD_COUNTS = 12;
+const validCounts = c => !!c && typeof c === 'object' && !Array.isArray(c) && Object.keys(c).length <= MAX_GUARD_COUNTS
+    && Object.keys(c).every(k => COUNT_KEY_RE.test(k) && Number.isSafeInteger(c[k]) && c[k] >= 0 && c[k] <= MAX_COUNT);
+const countsText = c => { const e = Object.entries(c || {}).sort(([a], [b]) => a.localeCompare(b)); return e.length ? ` (${e.map(([k, v]) => `${k} ${v}`).join(', ')})` : ''; };
 const VERSION_RE = /^20\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])$/;
 const MAX_BODY_BYTES = 1024;
 const THRESHOLDS = new Set([10, 100, 1000]);
@@ -73,6 +82,8 @@ function validateDetail(data) {
     if (!controls || typeof controls !== 'object' || Array.isArray(controls)) return null;
     if (Object.keys(controls).sort((a, b) => a.localeCompare(b)).join(',') !== CONTROL_KEYS.join(',')) return null;
     if (!CONTROL_KEYS.every(k => okCount(controls[k]))) return null;
+    if ('guard_counts' in data && !validCounts(data.guard_counts)) return null;
+    if ('guard' in data && data.guard !== 'unknown' && !(typeof data.guard === 'string' && GUARD_RE.test(data.guard))) return null;
     return {
         branch: data.branch,
         game_mode: data.game_mode,
@@ -80,6 +91,8 @@ function validateDetail(data) {
         component_count: data.component_count,
         components: [...data.components],
         controls: Object.fromEntries(CONTROL_KEYS.map(k => [k, controls[k]])),
+        guard: 'guard' in data ? data.guard : 'unknown',
+        guard_counts: 'guard_counts' in data ? Object.fromEntries(Object.entries(data.guard_counts)) : {},
     };
 }
 
@@ -89,8 +102,8 @@ export function validate(text) {
     try { data = JSON.parse(text); } catch { return null; }
     if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
     const keys = Object.keys(data).sort((a, b) => a.localeCompare(b)).join(',');
-    const detailed = keys === FIELDS_DETAIL.join(',');
-    if (keys !== (detailed ? FIELDS_DETAIL : FIELDS).join(',')) return null;
+    const detailed = keys === FIELDS_DETAIL.join(',') || keys === FIELDS_DETAIL_GUARD.join(',');
+    if (!detailed && keys !== FIELDS.join(',')) return null;
     if (!TASK_TYPES.includes(data.task_type) || !REASONS.includes(data.reason)) return null;
     if (data.schema !== SCHEMA) return null;
     if (typeof data.app_version !== 'string' || !VERSION_RE.test(data.app_version)) return null;
@@ -109,7 +122,7 @@ export const pairKey = report => {
     const base = `pair:${report.task_type}:${report.reason}`;
     return report.detail ? `${base}:${report.detail.branch}` : base;
 };
-const shapeKey = d => [d.game_mode, d.question_type, d.component_count, d.components.join('+'), CONTROL_KEYS.map(k => d.controls[k]).join('/')].join('|');
+const shapeKey = d => [d.game_mode, d.question_type, d.component_count, d.components.join('+'), d.guard || 'unknown', JSON.stringify(d.guard_counts || {}), CONTROL_KEYS.map(k => d.controls[k]).join('/')].join('|');
 
 function titleFor({ task_type, reason, detail }) {
     const suffix = detail ? `, ${detail.branch}` : '';
@@ -118,12 +131,12 @@ function titleFor({ task_type, reason, detail }) {
 function shapeLine(s) {
     const controls = CONTROL_KEYS.map(k => `${k} ${known(s.controls[k])}`).join(', ');
     const components = s.components.join(', ') || 'none';
-    return `- x${s.count}: branch ${s.branch}, game mode ${s.game_mode}, question type ${known(s.question_type)}, ${known(s.component_count)} components (${components}), controls ${controls}`;
+    return `- x${s.count}: branch ${s.branch}, guard ${s.guard || 'unknown'}${countsText(s.guard_counts)}, game mode ${s.game_mode}, question type ${known(s.question_type)}, ${known(s.component_count)} components (${components}), controls ${controls}`;
 }
 function shapeLines(record) {
     const shapes = Object.values(record.shapes || {}).sort((a, b) => b.count - a.count);
     if (!shapes.length) return [];
-    const lines = ['', 'Shapes seen (branch, game mode, EP question type, component count, component codes, control counts):', ...shapes.map(shapeLine)];
+    const lines = ['', 'Shapes seen (branch, guard, game mode, EP question type, component count, component codes, control counts):', ...shapes.map(shapeLine)];
     if (record.otherShapes) lines.push(`- plus ${record.otherShapes} reports with other shapes, not listed (limit ${MAX_SHAPES} shapes)`);
     return lines;
 }
@@ -136,7 +149,7 @@ function bodyFor({ task_type, reason, detail }, record) {
         ...shapeLines(record),
         '',
         detail
-            ? 'Filed automatically from anonymous reports. Each report holds a task type, a reason category, an app version, a schema number and the refusal branch, game mode, question type, component codes and control counts of the round, nothing else.'
+            ? 'Filed automatically from anonymous reports. Each report holds a task type, a reason category, an app version, a schema number and the refusal branch and guard name, game mode, question type, component codes and control counts of the round, nothing else.'
             : 'Filed automatically from anonymous reports. Each report holds a task type, a reason category, an app version and a schema number, nothing else.',
     ].join('\n');
 }
