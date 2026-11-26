@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Collapsing the desktop sidebar now keeps a 64px quick rail instead of only the expand button: a status dot with a short label (green running, amber while a change applies, red after an error, gray when idle or done), Stop (a blue Start when stopped) and Refresh words as icon buttons with tooltips, and the app logo with the version pinned at the bottom. The expand toggle stays at the top; collapsing is still session-only. Start and Refresh stay disabled once the browser session has closed, where they could not act, and Refresh words is now disabled during a run, which always rejected the action, and a rail action failure shows a small alert icon whose tooltip carries the message, since the pane's own message line hides when collapsed.
+
 - Anonymous support reports are now on by default and go to the project's relay, which files one GitHub issue per task type and reason. Only task type, reason, app version and schema are sent. Turn off with `reports off`, the desktop switch, `supportReports: false` or `EP_SUPPORT_REPORTS=off`.
 
 - Anonymous support reports can now be turned on or off from the CLI (`reports`, `reports on`, `reports off`, when stopped) and from a desktop switch. The choice is saved as `supportReports` in `config.json`; `EP_SUPPORT_REPORTS=off` still wins. No relay is configured yet, so nothing is sent.

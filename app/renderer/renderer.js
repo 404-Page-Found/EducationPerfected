@@ -21,8 +21,9 @@ const pendingSettings = new Set();
 
 // --- Wiring ---
 
-// Master-pane collapse: hide the pane down to a rail, keep the toggle as its
-// only control. Session-only; the pane starts expanded on every launch.
+// Master-pane collapse: hide the pane down to a quick rail. The toggle stays
+// at the top; the rail below carries status, stop/start, refresh, the logo and
+// the version. Session-only; the pane starts expanded on every launch.
 $('pane-toggle').addEventListener('click', () => {
     const pane = $('app');
     const collapsed = pane.classList.toggle('collapsed');
@@ -100,6 +101,7 @@ function show(name) {
 function render(state) {
     latest = state;
     $('version').textContent = state.version ? `v${state.version}` : '';
+    renderRail(state);
     // The embedded browser view takes over the pane once a session is opening;
     // the placeholder covers it before that and after it closes.
     $('browser-placeholder').hidden = state.session === 'starting' || state.session === 'ready';
@@ -128,6 +130,34 @@ function render(state) {
     renderMain(state);
 }
 
+// Collapsed quick rail: the same status, start/stop and refresh state as the
+// main screen, compressed to a status dot with a short label and icon buttons.
+function renderRail(state) {
+    const status = state.status;
+    const s = status ? status.state : 'idle';
+    const busy = !status || s === 'stopping' || s === 'closing' || s === 'updating';
+    let tone = '';
+    if (s === 'running') tone = 'running';
+    else if (s === 'stopping' || s === 'closing' || s === 'updating') tone = 'busy';
+    else if (s === 'error') tone = 'error';
+    $('rail-status-dot').className = 'rail-dot' + (tone ? ` ${tone}` : '');
+    $('rail-status-label').className = tone;
+    $('rail-status-label').textContent = {
+        running: 'RUN', stopping: 'WAIT', closing: 'WAIT', updating: 'WAIT',
+        error: 'ERR', completed: 'DONE', stopped: 'IDLE', closed: 'IDLE',
+    }[s] || 'IDLE';
+    $('rail-status').title = status ? describeStatus(status).join('\n') : 'Connecting…';
+    // Once the session is closed, start() and refresh() silently no-op or
+    // reject, so lock both until the setup screen reopens the browser.
+    const locked = busy || s === 'closed';
+    $('rail-stop').hidden = s !== 'running';
+    $('rail-start').hidden = s === 'running';
+    $('rail-stop').disabled = busy;
+    $('rail-start').disabled = locked;
+    $('rail-refresh').disabled = locked || s === 'running';
+    $('rail-version').textContent = state.version ? `v${state.version}` : '';
+}
+
 function renderSetup(state) {
     const loginCard = $('setup-login-card');
     const doneCard = $('setup-done-card');
@@ -145,7 +175,7 @@ function renderMain(state) {
     const busy = !status || ['stopping', 'closing', 'updating'].includes(status.state);
     $('start').disabled = busy;
     $('stop').disabled = busy;
-    $('refresh-words').disabled = busy;
+    $('refresh-words').disabled = busy || status?.state === 'running';
     $('apply-mode').disabled = busy;
     const settingsBusy = busy || !['stopped', 'completed', 'error'].includes(status?.state);
     for (const [id, enabled] of [['accuracy', status?.accuracy?.enabled], ['delay', status?.pacing?.enabled], ['reports', status?.supportReports?.enabled]]) {
@@ -235,6 +265,13 @@ function showMessage(text, isError) {
     el.hidden = !text;
     el.textContent = text || '';
     el.classList.toggle('error', Boolean(isError));
+    // #action-message hides with the collapsed pane, so rail action failures
+    // also surface as a small alert icon whose tooltip carries the message.
+    const railMessage = $('rail-message');
+    const showInRail = Boolean(text && isError);
+    railMessage.hidden = !showInRail;
+    railMessage.title = showInRail ? text : '';
+    $('rail-message-text').textContent = showInRail ? text : '';
 }
 
 // --- Actions ---
@@ -251,6 +288,9 @@ async function run(action, value, okMessage) {
 $('start').addEventListener('click', () => run('start'));
 $('stop').addEventListener('click', () => run('stop'));
 $('refresh-words').addEventListener('click', () => run('refresh'));
+$('rail-start').addEventListener('click', () => run('start'));
+$('rail-stop').addEventListener('click', () => run('stop'));
+$('rail-refresh').addEventListener('click', () => run('refresh'));
 $('apply-mode').addEventListener('click', () => run('mode', $('mode').value));
 async function toggleSetting(id) {
     if (pendingSettings.has(id)) return;
