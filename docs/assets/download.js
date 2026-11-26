@@ -36,9 +36,32 @@
     return RELEASES + "/download/" + tag + "/" + file;
   }
 
+  // The resolved tag is cached briefly so repeat views don't spend the
+  // visitor's unauthenticated API quota (60 requests/hour per IP).
+  var TAG_CACHE_KEY = "ep-latest-release-tag";
+  var TAG_CACHE_MS = 60 * 60 * 1000;
+
+  function readCachedTag() {
+    try {
+      var entry = JSON.parse(window.localStorage.getItem(TAG_CACHE_KEY));
+      if (
+        entry &&
+        /^v\d+\.\d+\.\d+$/.test(entry.tag) &&
+        Date.now() - entry.at < TAG_CACHE_MS
+      ) {
+        return entry.tag;
+      }
+    } catch (error) {
+      // Storage can be unavailable (private mode); fall through to the API.
+    }
+    return null;
+  }
+
   // Resolves the newest published release tag through GitHub's public API.
   // Any failure keeps the pinned fallback links, which still download.
   function fetchLatestTag(done) {
+    var cached = readCachedTag();
+    if (cached) return done(cached);
     if (!window.fetch) return done(null);
     fetch(LATEST_RELEASE_API, {
       headers: { Accept: "application/vnd.github+json" },
@@ -48,10 +71,29 @@
         response.json().then(
           function (data) {
             var tag = data && data.tag_name;
-            if (typeof tag === "string" && /^v\d+\.\d+\.\d+$/.test(tag)) {
-              return done(tag);
+            if (typeof tag !== "string" || !/^v\d+\.\d+\.\d+$/.test(tag)) {
+              return done(null);
             }
-            done(null);
+            // A release can be published before its assets finish attaching;
+            // only accept the tag once all four Linux packages exist.
+            var packages = linuxPackages(tag);
+            var assets = Array.isArray(data.assets) ? data.assets : [];
+            var names = {};
+            for (var i = 0; i < assets.length; i++) {
+              names[assets[i] && assets[i].name] = true;
+            }
+            for (var id in packages) {
+              if (!names[packages[id]]) return done(null);
+            }
+            try {
+              window.localStorage.setItem(
+                TAG_CACHE_KEY,
+                JSON.stringify({ tag: tag, at: Date.now() }),
+              );
+            } catch (error) {
+              // Caching is best-effort; the resolved tag still applies.
+            }
+            done(tag);
           },
           function () {
             done(null);

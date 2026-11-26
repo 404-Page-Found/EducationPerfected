@@ -17,8 +17,8 @@ assert.match(html, /script-src 'self'/, "only first-party scripts are allowed");
 // keeps the Linux package links current without a per-release page edit.
 assert.match(
   html,
-  /connect-src https:\/\/api\.github\.com/,
-  "Linux links resolve the latest release at load time",
+  /connect-src https:\/\/api\.github\.com;/,
+  "Linux links resolve the latest release at load time, and no other connection is allowed",
 );
 assert.doesNotMatch(html, /<(?:iframe|form|object|embed)\b/i);
 // The hero download detector is the only script, loaded from a local file.
@@ -110,9 +110,14 @@ assert.match(
   /api\.github\.com\/repos\/404-Page-Found\/EducationPerfected\/releases\/latest/,
   "hero script looks up the latest release tag",
 );
-for (const id of ["linux-deb-x64", "linux-deb-arm64", "linux-rpm-x64", "linux-rpm-arm64"]) {
-  assert.ok(heroScript.includes(`"${id}"`), `hero script updates ${id}`);
-}
+// Each card id maps to its package filename pattern in the hero script.
+assert.match(heroScript, /"linux-deb-x64": "educationperfected_" \+ version \+ "_amd64\.deb"/);
+assert.match(heroScript, /"linux-deb-arm64": "educationperfected_" \+ version \+ "_arm64\.deb"/);
+assert.match(heroScript, /"linux-rpm-x64": "educationperfected-" \+ version \+ "-1\.x86_64\.rpm"/);
+assert.match(heroScript, /"linux-rpm-arm64": "educationperfected-" \+ version \+ "-1\.aarch64\.rpm"/);
+// The tag is only accepted once the release carries all four packages, so a
+// release published mid-asset-upload cannot send visitors to 404 links.
+assert.match(heroScript, /if \(!names\[packages\[id\]\]\) return done\(null\)/);
 for (const file of [
   "educationperfected-windows-x64-setup.exe",
   "educationperfected-macos-arm64.pkg",
