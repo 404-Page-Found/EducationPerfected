@@ -80,7 +80,7 @@ assert.equal(platforms.length, 3);
 const installerCounts = [1, 2, 4];
 for (const [i, os] of ["Windows", "macOS", "Linux"].entries()) {
   assert.match(platforms[i], new RegExp(`<h3>${os}</h3>`));
-  if (os === "Linux") assert.match(platforms[i], /releases\/latest"/, "Linux links fall back to the latest release page");
+  if (os === "Linux") assert.equal((platforms[i].match(/href="https:\/\/github\.com\/404-Page-Found\/EducationPerfected\/releases\/latest"/g) || []).length, 4, "all four Linux links fall back to the latest release page");
   else assert.match(platforms[i], /releases\/latest\/download\/educationperfected[^"]*\.(?:exe|pkg)"/, "direct installer download");
   const boxes = platforms[i].match(/<div class="installer">/g) || [];
   assert.equal(boxes.length, installerCounts[i], `${os} has ${installerCounts[i]} installer container(s)`);
