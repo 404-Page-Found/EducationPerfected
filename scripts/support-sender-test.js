@@ -4,7 +4,7 @@ const { createSupportReport } = require('../lib/support-report');
 const { createSupportSender, buildPayload, isEnabled, RELAY_URL } = require('../lib/support-sender');
 
 (async () => {
-    assert.equal(RELAY_URL, 'https://ep-support-relay.lucas20220605.workers.dev');
+    assert.equal(RELAY_URL, 'https://ep-support-relay.404-page-found.workers.dev');
     assert.equal(isEnabled({ env: {}, config: {} }), true, 'on by default with the built-in relay');
     assert.equal(isEnabled({ env: { EP_TEST_BOOT: '1' }, config: {} }), false, 'test boots never use the built-in relay');
     const report = createSupportReport();
