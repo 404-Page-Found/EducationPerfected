@@ -900,6 +900,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
             // ===== Auto-answer code starts here ===== //
             let TOGGLE = false;  // user intent: the loop should be answering right now
+            let capturingAssessment = false;  // an Alt+I capture is in flight
             let RUNNING = null;  // promise handle of the run currently executing, or null
             let preserveSelectionModal = false; // do not erase an unclassified selection dialog
             let CLEANUP = null;  // promise of the most recent run's post-run modal cleanup
@@ -2946,8 +2947,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 // Held under the shared control lock so no run can start while
                 // the capture is pending. Written under the app data root.
                 const dir = require('node:path').join(require('node:os').homedir(), '.educationperfected', 'assessment-captures');
+                if (capturingAssessment) return;
                 let captured = null;
-                try { captured = await controls.exclusive(() => captureAssessment(page, { dir })); }
+                try { captured = await controls.exclusive(async () => { capturingAssessment = true; try { return await captureAssessment(page, { dir }); } finally { capturingAssessment = false; } }); }
                 catch { await notifyControl('Stop the run before an Assessment capture.'); return; }
                 if (captured?.guard === 'captured') {
                     const where = captured.file ? ' Saved to ' + captured.file + '.' : captured.fileError ? ' The capture file could not be written (' + captured.fileError + ').' : '';

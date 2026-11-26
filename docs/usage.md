@@ -114,7 +114,7 @@ Upon starting, the program opens the browser and gets EP ready (including loggin
 - **Refresh Words -> <kbd>Opt/Alt</kbd> + <kbd>R</kbd>:** on a task-starter page with the word list. Confirms with a toast, including how many entries were scraped (and a warning if the two word lists didn't line up).
 - **Mode Toggle -> <kbd>Opt/Alt</kbd> + <kbd>A</kbd>:** works at any time, even while auto-answering. Confirms which mode is now active.
 - **Start Answering -> <kbd>Opt/Alt</kbd> + <kbd>S</kbd>:** on a running task's page. Press it again to stop.
-- **Assessment capture -> <kbd>Opt/Alt</kbd> + <kbd>I</kbd> (temporary):** one read-only capture of an Assessment page (same file and `EP_ASSESSMENT_INSPECT` line as `inspect-assessment`, saved in `assessment-captures/` under `~/.educationperfected`). Needs the run stopped; never answers anything. Will be removed after the Assessment inspection.
+- **Assessment capture -> <kbd>Opt/Alt</kbd> + <kbd>I</kbd> (temporary):** one read-only capture of an Assessment page (same file format and `EP_ASSESSMENT_INSPECT` line as `inspect-assessment`, saved in `assessment-captures/` under `~/.educationperfected`). Needs the run stopped; never answers anything. Will be removed after the Assessment inspection.
 
 *NOTE: key combinations must be pressed in sequence: PRESS Alt, PRESS & RELEASE the letter key, RELEASE Alt. If you release Alt before the letter key, the combination isn't detected. (On macOS, Option + R/A/S types `®`, `å` or `ß`; those combinations are accepted too.)*
 
