@@ -41,7 +41,7 @@ const generic = describeUnsupported({
     reason: 'lesson slide with an unsupported question type (not text, choice, or audio)',
     diagnostic: { modelReadable: true, gameMode: 3, questionType: 9, componentCount: 2, componentTypes: ['FILE_UPLOADER_COMPONENT', 'My secret hunter2'], controls: { inputs: 1, textareas: 0, selects: 0, contentEditable: 0, canvases: 0, buttons: 3 } },
 });
-assert.deepEqual(generic, { branch: 'generic-slide', game_mode: 'lesson', question_type: 9, component_count: 2, components: ['FILE_UPLOADER_COMPONENT', 'UNLISTED_COMPONENT'], controls: { inputs: 1, textareas: 0, selects: 0, editable: 0, canvases: 0, buttons: 3 } });
+assert.deepEqual(generic, { branch: 'generic-slide', game_mode: 'lesson', question_type: 9, component_count: 2, components: ['FILE_UPLOADER_COMPONENT', 'UNLISTED_COMPONENT'], controls: { inputs: 1, textareas: 0, selects: 0, editable: 0, canvases: 0, buttons: 3 }, guard: 'unknown', guard_counts: {} });
 const branchOf = d => describeUnsupported(d).branch;
 assert.equal(branchOf({ assessment: true, reason: 'x' }), 'assessment');
 assert.equal(branchOf({ dash: true, reason: 'Dash timed sprint round: other answer-bearing components' }), 'dash');
@@ -91,6 +91,23 @@ shaped.record('unsupported', 'refused', 'unsupported-question', { ...generic, br
 assert.equal(shaped.details().length, 0, 'invalid detail is dropped');
 shaped.record('unsupported', 'refused', 'unsupported-question', generic);
 assert.deepEqual(shaped.details(), [{ kind: 'unsupported', reason: 'unsupported-question', detail: generic }]);
-assert.match(shaped.render('stopped'), /unsupported detail: branch generic-slide, game mode lesson, question type 9, components FILE_UPLOADER_COMPONENT, UNLISTED_COMPONENT/);
+assert.match(shaped.render('stopped'), /unsupported detail: branch generic-slide, game mode lesson, question type 9, components FILE_UPLOADER_COMPONENT, UNLISTED_COMPONENT, guard unknown/);
 assert.ok(!shaped.render('stopped').includes('hunter2'));
 console.log('support-report-test passed');
+
+// The refusing guard's fixed identifier rides along; anything else is 'unknown'.
+assert.equal(describeUnsupported({ reason: 'Lesson dropdowns: x', diagnostic: { guard: 'definitions-select-count' } }).guard, 'definitions-select-count');
+for (const bad of ['My secret hunter2', 'Has Caps', 'a'.repeat(41), '', 5, null]) assert.equal(describeUnsupported({ reason: 'x', diagnostic: { guard: bad } }).guard, 'unknown');
+assert.ok(isValidDetail(describeUnsupported({ diagnostic: { guard: 'mixed-definition-marking' } })));
+assert.ok(!isValidDetail({ ...generic, guard: 'free text with spaces' }));
+
+// Counts the guard computed ride along: numeric fields only, bounded, nothing textual.
+const withCounts = describeUnsupported({ reason: 'Lesson dropdowns: x', diagnostic: { guard: 'definitions-select-count', domSelectCount: 3, definitionCount: 8, gameMode: 3, extras: [{ tag: 'input' }], note: 'hunter2', definitions: { total: 8, byType: { dropdown: 3, numberBox: 5 } }, 'bad key': 4, huge: 5000, neg: -1 } });
+assert.deepEqual(withCounts.guard_counts, { 'definitions.byType.dropdown': 3, 'definitions.byType.numberBox': 5, 'definitions.total': 8, definitionCount: 8, domSelectCount: 3, huge: 99 });
+assert.ok(isValidDetail(withCounts));
+assert.ok(!isValidDetail({ ...withCounts, guard_counts: { a: 'hunter2' } }));
+const many = describeUnsupported({ diagnostic: Object.fromEntries(Array.from({ length: 30 }, (_, i) => ['c' + i, i])) });
+assert.equal(Object.keys(many.guard_counts).length, 12);
+const rec = createSupportReport();
+rec.record('unsupported', 'refused', 'unsupported-question', withCounts);
+assert.match(rec.render('stopped'), /guard definitions-select-count \(definitionCount 8, definitions\.byType\.dropdown 3, /);

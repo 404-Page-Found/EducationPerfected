@@ -60,7 +60,7 @@ const { createSupportSender, buildPayload, isEnabled, RELAY_URL } = require('../
     const c3 = [];
     const s3 = createSupportSender({ fetchImpl: async (u, o) => { c3.push(JSON.parse(o.body)); return { ok: true }; }, env, appVersion: '2026.11.27' });
     assert.equal(await s3.sendRun(r3), 1);
-    assert.deepEqual(c3[0], { task_type: 'unsupported', reason: 'unsupported-question', app_version: '2026.11.27', schema: 1, branch: 'generic-slide', game_mode: 'lesson', question_type: 9, component_count: 1, components: ['LONG_ANSWER_COMPONENT'], controls: { inputs: 0, textareas: 1, selects: 0, editable: 0, canvases: 0, buttons: 1 } });
+    assert.deepEqual(c3[0], { task_type: 'unsupported', reason: 'unsupported-question', app_version: '2026.11.27', schema: 1, branch: 'generic-slide', game_mode: 'lesson', question_type: 9, component_count: 1, components: ['LONG_ANSWER_COMPONENT'], controls: { inputs: 0, textareas: 1, selects: 0, editable: 0, canvases: 0, buttons: 1 }, guard: 'unknown', guard_counts: {} });
     assert.ok(JSON.stringify(c3[0]).length < 1024);
     // A second branch in the same session still sends.
     r3.record('unsupported', 'refused', 'unsupported-question', { ...shape, branch: 'dash' });
