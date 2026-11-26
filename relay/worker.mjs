@@ -117,12 +117,12 @@ function titleFor({ task_type, reason, detail }) {
 function shapeLine(s) {
     const controls = CONTROL_KEYS.map(k => `${k} ${known(s.controls[k])}`).join(', ');
     const components = s.components.join(', ') || 'none';
-    return `- x${s.count}: game mode ${s.game_mode}, question type ${known(s.question_type)}, ${known(s.component_count)} components (${components}), controls ${controls}`;
+    return `- x${s.count}: branch ${s.branch}, game mode ${s.game_mode}, question type ${known(s.question_type)}, ${known(s.component_count)} components (${components}), controls ${controls}`;
 }
 function shapeLines(record) {
     const shapes = Object.values(record.shapes || {}).sort((a, b) => b.count - a.count);
     if (!shapes.length) return [];
-    const lines = ['', 'Shapes seen (game mode, EP question type, component count, component codes, control counts):', ...shapes.map(shapeLine)];
+    const lines = ['', 'Shapes seen (branch, game mode, EP question type, component count, component codes, control counts):', ...shapes.map(shapeLine)];
     if (record.otherShapes) lines.push(`- plus ${record.otherShapes} reports with other shapes, not listed (limit ${MAX_SHAPES} shapes)`);
     return lines;
 }

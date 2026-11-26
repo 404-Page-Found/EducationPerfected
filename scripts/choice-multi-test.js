@@ -192,6 +192,12 @@ async function setup(page, origin) {
             const bad = await detectQuestion(page);
             assert.equal(bad.kind, 'unsupported', mix);
             assert.match(bad.reason, /other answer-bearing|editable controls outside/, mix + bad.reason);
+            if (mix === 'foreign-editable') {
+                assert.equal(bad.diagnostic?.guard, 'foreign-editable');
+                assert.equal(bad.diagnostic.gameMode, 3);
+                assert.ok(bad.diagnostic.componentCount >= 1 && bad.diagnostic.componentTypes.length >= 1, 'component shape recorded');
+                assert.ok(bad.diagnostic.controls.textareas >= 1, 'foreign textarea counted');
+            }
             assert.deepEqual(await page.evaluate(()=>[multiFixture.clicks.length,multiFixture.submits]),[0,0],mix);
         }
         // An unlisted/display-type co-component must not false-refuse.
