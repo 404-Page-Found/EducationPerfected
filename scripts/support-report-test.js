@@ -57,14 +57,30 @@ assert.equal(describeUnsupported({ reason: 'x' }).question_type, -1, 'unreadable
 assert.equal(describeUnsupported({ reason: 'x' }).game_mode, 'unknown');
 assert.ok(!isValidDetail({ ...generic, components: ['My secret hunter2'] }) && !isValidDetail({ ...generic, controls: { ...generic.controls, inputs: 'lots' } }));
 assert.equal(branchOf({ reason: 'choice option metadata is missing or unreadable; no answer was selected' }), 'missing-metadata');
-assert.equal(branchOf({ reason: 'Multi-select with lesson inputs: unsafe, unsupported or changed renderer state' }), 'foreign-controls');
+assert.equal(branchOf({ reason: 'Multi-select with lesson inputs: unsafe, unsupported or changed renderer state' }), 'foreign-slide-surfaces');
+assert.equal(branchOf({ reason: 'Lesson dropdowns: unsafe, unsupported or changed renderer state' }), 'foreign-dropdown');
+assert.equal(branchOf({ reason: 'Lesson dropdowns with number boxes: unsafe, unsupported or changed renderer state' }), 'foreign-dropdown');
+assert.equal(branchOf({ reason: 'Lesson textboxes: unsafe, unsupported or changed renderer state' }), 'foreign-textbox');
+assert.equal(branchOf({ reason: 'Lesson number boxes: unsafe, unsupported or changed renderer state' }), 'foreign-textbox');
+assert.equal(branchOf({ reason: 'question has editable controls outside the multi-select component; answering would submit them blank' }), 'foreign-multiselect');
+assert.equal(branchOf({ reason: 'question has editable controls outside the editor; answering would submit them blank' }), 'foreign-formula');
+assert.equal(branchOf({ reason: 'some other editable controls refusal' }), 'foreign-controls');
+{
+    const probe = { gameMode: 3, questionType: 9, componentCount: 1, componentTypes: ['DROPDOWN_COMPONENT'], controls: { inputs: 2, textareas: 0, selects: 4, contentEditable: 0, canvases: 0, buttons: 3 } };
+    const d = describeUnsupported({ reason: 'Lesson dropdowns: unsafe, unsupported or changed renderer state', diagnostic: { guard: 'x', domSelectCount: 4 } }, probe);
+    assert.deepEqual([d.branch, d.game_mode, d.question_type, d.component_count, d.components, d.controls.selects], ['foreign-dropdown', 'lesson', 9, 1, ['DROPDOWN_COMPONENT'], 4]);
+    assert.ok(isValidDetail(d));
+    const own = describeUnsupported({ reason: 'x', diagnostic: { gameMode: 1, questionType: 2 } }, probe);
+    assert.deepEqual([own.game_mode, own.question_type, own.components], ['classic', 2, ['DROPDOWN_COMPONENT']], 'own fields win, gaps filled');
+    assert.ok(isValidDetail(describeUnsupported({ reason: 'x' }, { gameMode: 'evil', componentTypes: ['SECRET'], controls: { inputs: 'a' } })));
+}
 const sample = {
     'no-identity': 'lesson text question without a stable identity (contentID/questionIndex missing from EP\'s question state)',
     'translation-mode': 'speaker slide with an unexpected translationMode (5); only Listening (2) and Dictation (3) were captured live',
     'accompanying-component': 'choice slide has other answer-bearing question components; answering one part would submit the rest blank',
     'multiple-components': 'multiple visible choice components; cannot safely associate answer state with one component',
     'renderer-association': 'formula choices lack a unique current renderer-to-option association; stopping instead of guessing',
-    'foreign-controls': 'choice slide has editable controls outside the choice component; answering would submit them blank',
+    'foreign-choice': 'choice slide has editable controls outside the choice component; answering would submit them blank',
     'missing-metadata': 'a correct-marked choice option has no usable text; stopping with incomplete answer metadata',
 };
 for (const [branch, reason] of Object.entries(sample)) assert.equal(branchOf({ reason }), branch, branch);

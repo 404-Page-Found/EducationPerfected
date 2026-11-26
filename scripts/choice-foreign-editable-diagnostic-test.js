@@ -23,13 +23,24 @@ const { describeUnsupported, isValidDetail } = require('../lib/support-report');
         assert.equal(bad.diagnostic.gameMode, 3);
         assert.ok(bad.diagnostic.controls.textareas >= 1);
         const shape = describeUnsupported(bad);
-        assert.equal(shape.branch, 'foreign-controls');
+        assert.equal(shape.branch, 'foreign-choice');
         assert.equal(shape.game_mode, 'lesson');
         assert.ok(shape.controls.textareas >= 1 && shape.controls.buttons >= 0);
         assert.ok(isValidDetail(shape));
         // Content-free: only fixed keys and counts, never page text.
         assert.deepEqual(Object.keys(shape).sort((a, b) => a.localeCompare(b)), ['branch', 'component_count', 'components', 'controls', 'game_mode', 'question_type']);
         assert.ok(!/SECRET-PAGE-TEXT/.test(JSON.stringify(bad.diagnostic)));
+        // The page probe fills the shape for a refusal site that carries none.
+        const { readUnsupportedShape } = require('../lib/unsupported-shape');
+        const { needsShapeProbe } = require('../lib/support-report');
+        const bare = { kind: 'unsupported', reason: 'Lesson dropdowns: unsafe, unsupported or changed renderer state', diagnostic: { kind: 'dropdown-refusal', guard: 'x', domSelectCount: 1 } };
+        assert.ok(needsShapeProbe(bare) && !needsShapeProbe(bad));
+        const probe = await readUnsupportedShape(page);
+        const filled = describeUnsupported(bare, probe);
+        assert.equal(filled.branch, 'foreign-dropdown');
+        assert.equal(filled.game_mode, 'lesson');
+        assert.ok(filled.controls.textareas >= 1 && filled.components.length >= 1 && isValidDetail(filled));
+        assert.ok(!/SECRET-PAGE-TEXT/.test(JSON.stringify(probe)));
         console.log('choice-foreign-editable-diagnostic-test passed');
     } finally { if (browser) await browser.close(); await new Promise(r => server.close(r)); }
 })().catch(e => { console.error(e); process.exit(1); });
