@@ -104,7 +104,7 @@ const SHELL = () => {
         // loop (the hotkey calls inspectAssessmentKey); Alt+S still refuses.
         const seen = () => session.output.split('\n').filter(l => l.startsWith('EP_ASSESSMENT_INSPECT ')).length;
         const before = seen();
-        await page.evaluate(() => window.inspectAssessmentKey());
+        await page.bringToFront(); await page.keyboard.down('Alt'); await page.keyboard.press('KeyI'); await page.keyboard.up('Alt');
         await wait(() => seen() > before);
         const hot = JSON.parse(session.output.split('\n').filter(l => l.startsWith('EP_ASSESSMENT_INSPECT ')).pop().slice('EP_ASSESSMENT_INSPECT '.length));
         assert.equal(hot.guard, 'captured');
@@ -113,8 +113,9 @@ const SHELL = () => {
         child.stdin.write('status\n');
         await wait(() => session.output.includes('"state":"stopped"'));
         fs.rmSync(hot.file, { force: true });
-        assert.deepEqual(await page.evaluate(() => window.inspectionCounts), { events: 0, calls: 0, getters: 0 });
-        assert.deepEqual(await page.evaluate(() => window.inspectionCounts), { events: 0, calls: 0, getters: 0 });
+        // Only the two real keydowns (Alt, I) from the key press itself; the capture adds none.
+        assert.deepEqual(await page.evaluate(() => window.inspectionCounts), { events: 2, calls: 0, getters: 0 });
+        await page.evaluate(() => { window.inspectionCounts.events = 0; });
 
         // Passive watch: writes a capture only when the page changes; never an event.
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ep-watch-'));

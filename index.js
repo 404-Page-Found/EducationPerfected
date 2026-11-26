@@ -900,7 +900,6 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
 
             // ===== Auto-answer code starts here ===== //
             let TOGGLE = false;  // user intent: the loop should be answering right now
-            let capturingAssessment = false;  // an Alt+S Assessment capture is in flight
             let RUNNING = null;  // promise handle of the run currently executing, or null
             let preserveSelectionModal = false; // do not erase an unclassified selection dialog
             let CLEANUP = null;  // promise of the most recent run's post-run modal cleanup
@@ -2944,15 +2943,12 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             // run is active. Never starts, answers or clicks anything. Remove
             // together with its docs once the Assessment inspection is done.
             async function inspectAssessmentHotkey() {
-                if (capturingAssessment) return;
-                if (!['stopped', 'error', 'completed'].includes(controls.status().state)) {
-                    await notifyControl('Stop the run before an Assessment capture.');
-                    return;
-                }
-                capturingAssessment = true;
+                // Held under the shared control lock so no run can start while
+                // the capture is pending. Written under the app data root.
+                const dir = require('node:path').join(require('node:os').homedir(), '.educationperfected', 'assessment-captures');
                 let captured = null;
-                try { captured = await captureAssessment(page); } catch { captured = null; }
-                finally { capturingAssessment = false; }
+                try { captured = await controls.exclusive(() => captureAssessment(page, { dir })); }
+                catch { await notifyControl('Stop the run before an Assessment capture.'); return; }
                 if (captured?.guard === 'captured') {
                     const where = captured.file ? ' Saved to ' + captured.file + '.' : captured.fileError ? ' The capture file could not be written (' + captured.fileError + ').' : '';
                     console.log('EP_ASSESSMENT_INSPECT ' + JSON.stringify(captured));
