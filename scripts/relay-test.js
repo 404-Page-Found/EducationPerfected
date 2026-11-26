@@ -138,7 +138,7 @@ const byName = (a, b) => a.localeCompare(b);
     const d0 = calls.length;
     assert.equal((await send(v2, detail())).status, 204);
     assert.equal(calls.length - d0, 1);
-    const detailIssue = JSON.parse(calls[calls.length - 1].options.body);
+    const detailIssue = JSON.parse(calls.at(-1).options.body);
     assert.equal(detailIssue.title, 'Task support: unsupported not handled (unsupported-question, generic-slide)');
     assert.match(detailIssue.body, /game mode lesson, question type 9, 1 components \(FILE_UPLOADER_COMPONENT\), controls buttons 2, canvases 0, editable 0, inputs 1, selects 0, textareas 0/);
     assert.ok(v2.durable.has('pair:unsupported:unsupported-question:generic-slide'));
@@ -152,15 +152,15 @@ const byName = (a, b) => a.localeCompare(b);
     assert.equal(calls.length - d0, 3, 'a different branch files its own issue');
     assert.equal(pairKey({ task_type: 'unsupported', reason: 'unsupported-question' }), 'pair:unsupported:unsupported-question', 'schema 1 key is unchanged');
     const badDetail = [
-        detail({ branch: 'free text' }), detail({ game_mode: 'mode 4' }), detail({ question_type: 'nine' }), detail({ question_type: 100 }),
-        detail({ components: ['What is the French for dog'] }), detail({ components: Array(9).fill('DEPTH_COMPONENT') }),
+        detail({ branch: 'free text' }), detail({ game_mode: 'mode 4' }), detail({ question_type: 'nine' }), detail({ question_type: 100 }), detail({ question_type: -2 }), detail({ question_type: null }),
+        detail({ components: ['What is the French for dog'] }), detail({ components: new Array(9).fill('DEPTH_COMPONENT') }),
         detail({ controls: { inputs: 1 } }), detail({ controls: { inputs: 1, textareas: 0, selects: 0, editable: 0, canvases: 0, buttons: 0, text: 1 } }),
         detail({ extra: 1 }), detail({ task_type: 'audio' }), detail({ reason: 'no-handler' }),
         JSON.stringify({ ...JSON.parse(detail()), branch: undefined }), detail({ components: 'FILE_UPLOADER_COMPONENT' }),
     ];
     for (const body of badDetail) assert.equal(validate(body), null, `rejected ${body.slice(0, 60)}`);
     assert.ok(validate(detail()));
-    assert.ok(new TextEncoder().encode(detail({ components: Array(8).fill('TYPE_SUBSCRIPT_SUPERSCRIPT_COMPONENT') })).length < 1024, 'largest report fits the cap');
+    assert.ok(new TextEncoder().encode(detail({ components: new Array(8).fill('TYPE_SUBSCRIPT_SUPERSCRIPT_COMPONENT') })).length < 1024, 'largest report fits the cap');
 
     // Kill switch, rate limit, GitHub failure.
     const n1 = calls.length;

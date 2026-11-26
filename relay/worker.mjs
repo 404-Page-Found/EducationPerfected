@@ -59,7 +59,9 @@ function isNewer(a, b) {
     return false;
 }
 
-const okCount = n => n === null || (Number.isSafeInteger(n) && n >= 0 && n <= MAX_COUNT);
+// -1 means unknown or unreadable.
+const okCount = n => Number.isSafeInteger(n) && n >= -1 && n <= MAX_COUNT;
+const known = n => (n < 0 ? 'unknown' : String(n));
 
 function validateDetail(data) {
     if (data.task_type !== 'unsupported' || data.reason !== 'unsupported-question') return null;
@@ -102,18 +104,25 @@ export function validate(text) {
 
 // One issue per (task type, reason), and for a detailed report per refusal
 // branch too, so each branch gets its own issue.
-export const pairKey = report => `pair:${report.task_type}:${report.reason}${report.detail ? `:${report.detail.branch}` : ''}`;
+export const pairKey = report => {
+    const base = `pair:${report.task_type}:${report.reason}`;
+    return report.detail ? `${base}:${report.detail.branch}` : base;
+};
 const shapeKey = d => [d.game_mode, d.question_type, d.component_count, d.components.join('+'), CONTROL_KEYS.map(k => d.controls[k]).join('/')].join('|');
 
-const titleFor = ({ task_type, reason, detail }) => `Task support: ${task_type} not handled (${reason}${detail ? `, ${detail.branch}` : ''})`;
+function titleFor({ task_type, reason, detail }) {
+    const suffix = detail ? `, ${detail.branch}` : '';
+    return `Task support: ${task_type} not handled (${reason}${suffix})`;
+}
+function shapeLine(s) {
+    const controls = CONTROL_KEYS.map(k => `${k} ${known(s.controls[k])}`).join(', ');
+    const components = s.components.join(', ') || 'none';
+    return `- x${s.count}: game mode ${s.game_mode}, question type ${known(s.question_type)}, ${known(s.component_count)} components (${components}), controls ${controls}`;
+}
 function shapeLines(record) {
-    const shapes = Object.entries(record.shapes || {}).sort(([, a], [, b]) => b.count - a.count);
+    const shapes = Object.values(record.shapes || {}).sort((a, b) => b.count - a.count);
     if (!shapes.length) return [];
-    return [
-        '',
-        'Shapes seen (game mode, EP question type, component count, component codes, control counts):',
-        ...shapes.map(([, s]) => `- x${s.count}: game mode ${s.game_mode}, question type ${s.question_type ?? 'unknown'}, ${s.component_count ?? 'unknown'} components (${s.components.join(', ') || 'none'}), controls ${CONTROL_KEYS.map(k => `${k} ${s.controls[k] ?? '?'}`).join(', ')}`),
-    ];
+    return ['', 'Shapes seen (game mode, EP question type, component count, component codes, control counts):', ...shapes.map(shapeLine)];
 }
 function bodyFor({ task_type, reason, detail }, record) {
     return [
@@ -121,7 +130,6 @@ function bodyFor({ task_type, reason, detail }, record) {
         '',
         `Reports so far: ${record.count}`,
         `Newest app version seen: ${record.maxVersion}`,
-        '',
         ...shapeLines(record),
         '',
         detail
@@ -154,6 +162,20 @@ async function takeWrite(env) {
     return (await res.text()) === 'yes';
 }
 
+// Tallies a detailed report's shape on the record. True when it is a shape not seen before.
+function countShape(rec, detail) {
+    if (!detail) return false;
+    rec.shapes = rec.shapes || {};
+    const key = shapeKey(detail);
+    if (rec.shapes[key]) {
+        rec.shapes[key].count += 1;
+        return false;
+    }
+    if (Object.keys(rec.shapes).length >= MAX_SHAPES) return false;
+    rec.shapes[key] = { ...detail, count: 1 };
+    return true;
+}
+
 export async function record(storage, env, report) {
     const key = pairKey(report);
     // First run after the move from KV: pick up the record the old code left there.
@@ -161,13 +183,7 @@ export async function record(storage, env, report) {
     const rec = stored || { issue: null, count: 0, maxVersion: report.app_version };
     const newer = stored && isNewer(report.app_version, rec.maxVersion);
     rec.count += 1;
-    let newShape = false;
-    if (report.detail) {
-        rec.shapes = rec.shapes || {};
-        const sk = shapeKey(report.detail);
-        if (rec.shapes[sk]) rec.shapes[sk].count += 1;
-        else if (Object.keys(rec.shapes).length < MAX_SHAPES) { rec.shapes[sk] = { ...report.detail, count: 1 }; newShape = true; }
-    }
+    const newShape = countShape(rec, report.detail);
     if (isNewer(report.app_version, rec.maxVersion)) rec.maxVersion = report.app_version;
     try {
         if (!rec.issue) {

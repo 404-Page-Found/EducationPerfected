@@ -53,6 +53,8 @@ assert.equal(branchOf({ reason: 'something new the user typed: hunter2' }), 'oth
 assert.equal(branchOf(null), 'other');
 for (const d of [{}, { reason: 5 }, { diagnostic: 'x' }, { diagnostic: { componentTypes: 'nope', controls: [] } }]) assert.ok(isValidDetail(describeUnsupported(d)));
 assert.ok(isValidDetail(generic) && BRANCHES.has(generic.branch));
+assert.equal(describeUnsupported({ reason: 'x' }).question_type, -1, 'unreadable is -1');
+assert.equal(describeUnsupported({ reason: 'x' }).game_mode, 'unknown');
 assert.ok(!isValidDetail({ ...generic, branch: 'free text' }) && !isValidDetail({ ...generic, extra: 1 }));
 const shaped = createSupportReport();
 shaped.record('unsupported', 'refused', 'unsupported-question', { ...generic, branch: 'hunter2' });
