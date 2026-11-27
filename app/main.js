@@ -275,18 +275,24 @@ function createElectronApp({ electron, session }) {
         app.whenReady().then(async () => {
             // Only our bundled webview attaches, with the locked preferences the
             // renderer declares: anything the page markup does not say is dropped.
-            if (electron.session && typeof electron.session.defaultSession?.on === 'function') {
-                electron.session.defaultSession.on('will-attach-webview', (event, webPreferences) => {
-                    delete webPreferences.preload;
-                    delete webPreferences.preloadURL;
-                    webPreferences.contextIsolation = true;
-                    webPreferences.sandbox = true;
-                    webPreferences.nodeIntegration = false;
-                    // The guest keeps answering while its window is unfocused:
-                    // Chromium must not throttle its timers or rAF in the
-                    // background (the always-focused page environment covers
-                    // what EP's scripts observe).
-                    webPreferences.backgroundThrottling = false;
+            // will-attach-webview is a WebContents event (Electron declares no
+            // Session-level one), so it is wired onto each embedder webContents
+            // as it is created; a Session-level listener would never fire.
+            if (typeof app.on === 'function') {
+                app.on('web-contents-created', (event, contents) => {
+                    if (!contents || typeof contents.getType !== 'function' || contents.getType() !== 'window') return;
+                    contents.on('will-attach-webview', (attachEvent, webPreferences) => {
+                        delete webPreferences.preload;
+                        delete webPreferences.preloadURL;
+                        webPreferences.contextIsolation = true;
+                        webPreferences.sandbox = true;
+                        webPreferences.nodeIntegration = false;
+                        // The guest keeps answering while its window is unfocused:
+                        // Chromium must not throttle its timers or rAF in the
+                        // background (the always-focused page environment covers
+                        // what EP's scripts observe).
+                        webPreferences.backgroundThrottling = false;
+                    });
                 });
             }
             applyBrowserUserAgent(electron);

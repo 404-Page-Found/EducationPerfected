@@ -104,6 +104,25 @@ async function main() {
     assert.ok(windows[0].file.endsWith(path.join('app', 'renderer', 'index.html')));
     console.log('ok window security preferences');
 
+    // The webview lock is wired onto each embedder webContents (the Electron
+    // event is webContents-level; a Session-level listener would never fire),
+    // and it locks the guest preferences and keeps the guest unthrottled.
+    const onWebContentsCreated = listeners.get('web-contents-created');
+    assert.equal(typeof onWebContentsCreated, 'function');
+    const attachListeners = new Map();
+    const embedder = {
+        getType: () => 'window',
+        on: (name, fn) => attachListeners.set(name, fn),
+    };
+    onWebContentsCreated({}, embedder);
+    onWebContentsCreated({}, { getType: () => 'webview', on: () => assert.fail('guest webContents must not be wired') });
+    const onWillAttach = attachListeners.get('will-attach-webview');
+    assert.equal(typeof onWillAttach, 'function');
+    const guestPrefs = { preload: 'evil.js', preloadURL: 'file:///evil.js', contextIsolation: false, sandbox: false, nodeIntegration: true, backgroundThrottling: true };
+    onWillAttach({}, guestPrefs);
+    assert.deepEqual(guestPrefs, { contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false });
+    console.log('ok webview attach lock and background throttling');
+
     // Closing the last window drains the session before quitting; app.quit()
     // waits even for a deferred close().
     let releaseClose;

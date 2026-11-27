@@ -66,4 +66,29 @@ async function restorePopupEmulation(page) {
     await page.evaluate(() => window.__restoreSelectMatches?.());
 }
 
-module.exports = { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restorePopupEmulation };
+// Records which focus recovery the handler runs on a page whose focus probes
+// are stubbed: the window raise and the CDP focus-emulation send are counted
+// through wrappers, proving the path taken instead of trusting the stub.
+function trackFocusRecovery(page) {
+    const calls = { bringToFront: 0, emulation: 0 };
+    const originalRaise = page.bringToFront.bind(page);
+    page.bringToFront = async () => { calls.bringToFront++; return originalRaise(); };
+    const originalSession = page.createCDPSession.bind(page);
+    page.createCDPSession = async () => {
+        const session = await originalSession();
+        const send = session.send.bind(session);
+        session.send = (method, params) => {
+            if (method === 'Emulation.setFocusEmulationEnabled' && params?.enabled === true) calls.emulation++;
+            return send(method, params);
+        };
+        return session;
+    };
+    return calls;
+}
+
+function untrackFocusRecovery(page) {
+    delete page.bringToFront;
+    delete page.createCDPSession;
+}
+
+module.exports = { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restorePopupEmulation, trackFocusRecovery, untrackFocusRecovery };

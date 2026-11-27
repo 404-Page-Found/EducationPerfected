@@ -9,7 +9,7 @@ const { installDropdownFixture } = require('./dropdown-fixture');
 const { detectQuestion } = require('../lib/detect-question');
 const { playDropdownRound } = require('../lib/dropdown-handler');
 const { createSubmitDropdownOnce } = require('../lib/dropdown-once');
-const { expectedPopupKeys, installPopupEmulation, restorePopupEmulation } = require('./dropdown-popup-test-helpers');
+const { expectedPopupKeys, installPopupEmulation, restorePopupEmulation, trackFocusRecovery, untrackFocusRecovery } = require('./dropdown-popup-test-helpers');
 const { installAlwaysFocused } = require('../lib/always-focused');
 
 (async () => {
@@ -43,36 +43,67 @@ const { installAlwaysFocused } = require('../lib/always-focused');
         assert.equal(typeof presentation.nativeHasFocus, 'boolean');
         assert.equal(typeof presentation.nativeVisibilityState, 'string');
 
-        // Window blur/pagehide and document visibilitychange listeners never
-        // register; element-level blur and ordinary document listeners do.
+        // Page-level focus-loss observation is blocked (listeners, on*
+        // handlers, window or document target), while element-level blur and
+        // ordinary listeners are untouched - including a capture-phase window
+        // listener watching element blurs.
         const delivery = await page.evaluate(() => {
-            const seen = { windowBlur: 0, windowPagehide: 0, docVisibility: 0, elementBlur: 0, docKeyup: 0, onblur: 0 };
+            const seen = {
+                windowBlur: 0, windowPagehide: 0, docVisibility: 0, windowVisibility: 0, windowWebkitVisibility: 0,
+                elementBlur: 0, windowCaptureElementBlur: 0, docKeyup: 0,
+                onblur: 0, onpagehide: 0, onvisibilitychange: 0,
+            };
             window.addEventListener('blur', () => { seen.windowBlur++; });
             window.addEventListener('pagehide', () => { seen.windowPagehide++; });
             document.addEventListener('visibilitychange', () => { seen.docVisibility++; });
+            window.addEventListener('visibilitychange', () => { seen.windowVisibility++; });
+            window.addEventListener('webkitvisibilitychange', () => { seen.windowWebkitVisibility++; });
             const input = document.createElement('input');
             document.body.appendChild(input);
             input.addEventListener('blur', () => { seen.elementBlur++; });
+            window.addEventListener('blur', event => { if (event.target === input) seen.windowCaptureElementBlur++; }, true);
             document.addEventListener('keyup', () => { seen.docKeyup++; });
             window.onblur = () => { seen.onblur++; };
+            window.onpagehide = () => { seen.onpagehide++; };
+            document.onvisibilitychange = () => { seen.onvisibilitychange++; };
             window.dispatchEvent(new Event('blur'));
             window.dispatchEvent(new Event('pagehide'));
-            document.dispatchEvent(new Event('visibilitychange'));
+            document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+            document.dispatchEvent(new Event('webkitvisibilitychange', { bubbles: true }));
             input.dispatchEvent(new Event('blur'));
             document.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
-            return { ...seen, onblurRead: window.onblur, onvisibilitychangeRead: document.onvisibilitychange };
+            return {
+                ...seen,
+                onblurRead: window.onblur,
+                onpagehideRead: window.onpagehide,
+                onvisibilitychangeRead: document.onvisibilitychange,
+            };
         });
-        assert.deepEqual({ windowBlur: delivery.windowBlur, windowPagehide: delivery.windowPagehide, docVisibility: delivery.docVisibility, elementBlur: delivery.elementBlur, docKeyup: delivery.docKeyup, onblur: delivery.onblur }, { windowBlur: 0, windowPagehide: 0, docVisibility: 0, elementBlur: 1, docKeyup: 1, onblur: 0 });
+        assert.deepEqual(
+            (({ onblurRead, onpagehideRead, onvisibilitychangeRead, ...rest }) => rest)(delivery),
+            {
+                windowBlur: 0, windowPagehide: 0, docVisibility: 0, windowVisibility: 0, windowWebkitVisibility: 0,
+                elementBlur: 1, windowCaptureElementBlur: 1, docKeyup: 1,
+                onblur: 0, onpagehide: 0, onvisibilitychange: 0,
+            });
         assert.equal(delivery.onblurRead, null);
+        assert.equal(delivery.onpagehideRead, null);
         assert.equal(delivery.onvisibilitychangeRead, null);
 
         // A re-install is inert: the guard survives it, the overrides still
-        // report focused, and the stash still holds the platform-native probes
-        // (a re-stash would have captured the already-overridden hasFocus).
+        // report focused, and the stash is the same frozen object holding the
+        // platform-native probes (a re-stash would bind the already-overridden
+        // own hasFocus, not the platform Document.prototype one).
+        await page.evaluate(() => { window.__stashBeforeReinstall = window.__epNativeFocus; });
         await installAlwaysFocused(page);
         assert.equal(await page.evaluate(() => window.__epAlwaysFocused), true);
         assert.equal(await page.evaluate(() => document.hasFocus()), true);
+        assert.equal(await page.evaluate(() => window.__epNativeFocus === window.__stashBeforeReinstall), true);
         assert.match(await page.evaluate(() => window.__epNativeFocus.hasFocus.toString()), /\[native code\]/);
+
+        // The stash does not yield to a plain assignment (non-writable).
+        await page.evaluate(() => { window.__epNativeFocus = { hasFocus: () => false }; });
+        assert.equal(await page.evaluate(() => window.__epNativeFocus === window.__stashBeforeReinstall), true);
 
         // The environment survives navigation via evaluateOnNewDocument.
         await page.goto(origin + '/learning/dashboard');
@@ -82,41 +113,33 @@ const { installAlwaysFocused } = require('../lib/always-focused');
         // document.hasFocus(): with the page looking focused but the native
         // probe reporting a loss that the raise repairs, the window is raised
         // exactly once and no emulation is sent.
-        const trackFocusRecovery = () => {
-            const calls = { bringToFront: 0, emulation: 0 };
-            const originalRaise = page.bringToFront.bind(page);
-            page.bringToFront = async () => { calls.bringToFront++; return originalRaise(); };
-            const originalSession = page.createCDPSession.bind(page);
-            page.createCDPSession = async () => {
-                const session = await originalSession();
-                const send = session.send.bind(session);
-                session.send = (method, params) => {
-                    if (method === 'Emulation.setFocusEmulationEnabled' && params?.enabled === true) calls.emulation++;
-                    return send(method, params);
-                };
-                return session;
-            };
-            return calls;
-        };
-        const untrackFocusRecovery = () => { delete page.bringToFront; delete page.createCDPSession; };
         const setup = async (count = 5) => {
             await page.goto(origin + '/lesson');
             await page.evaluate(installDropdownFixture, count);
         };
+        // The stash is non-writable, so the focus-loss simulations replace it
+        // by redefining the configurable property.
+        const stubNativeFocus = readsToFocus => page.evaluate(limit => {
+            let focusReads = 0;
+            Object.defineProperty(window, '__epNativeFocus', {
+                configurable: true,
+                value: { hasFocus: () => limit !== null && ++focusReads > limit, visibilityState: () => 'visible', hidden: () => false },
+            });
+        }, readsToFocus);
 
         await setup();
         await installPopupEmulation(page);
-        let focusCalls = trackFocusRecovery();
+        let focusCalls = trackFocusRecovery(page);
         // Trace install read consumes the first probe; the handler's first read
         // is still a loss, the raise repairs it, the second read holds.
-        await page.evaluate(() => { let focusReads = 0; window.__epNativeFocus = { hasFocus: () => ++focusReads > 2, visibilityState: () => 'visible', hidden: () => false }; });
+        await stubNativeFocus(2);
         let once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
         let result = await once(page);
         assert.deepEqual(result, { status: 'submitted-once' });
         assert.deepEqual(await page.evaluate(() => dropdownFixture.keys), expectedPopupKeys(5));
         assert.equal(focusCalls.bringToFront, 1);
         assert.equal(focusCalls.emulation, 0);
-        untrackFocusRecovery();
+        untrackFocusRecovery(page);
         await restorePopupEmulation(page);
 
         // A genuine loss the raise cannot repair still falls back to focus
@@ -124,8 +147,8 @@ const { installAlwaysFocused } = require('../lib/always-focused');
         // even though the page presents itself as focused throughout.
         await setup();
         await installPopupEmulation(page);
-        focusCalls = trackFocusRecovery();
-        await page.evaluate(() => { window.__epNativeFocus = { hasFocus: () => false, visibilityState: () => 'visible', hidden: () => false }; });
+        focusCalls = trackFocusRecovery(page);
+        await stubNativeFocus(null);
         once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
         result = await once(page);
         assert.equal(result.status, 'stopped');
@@ -134,7 +157,7 @@ const { installAlwaysFocused } = require('../lib/always-focused');
         assert.equal(await page.evaluate(() => document.hasFocus()), true);
         assert.equal(focusCalls.bringToFront, 1);
         assert.equal(focusCalls.emulation, 1);
-        untrackFocusRecovery();
+        untrackFocusRecovery(page);
         await restorePopupEmulation(page);
 
         console.log('Always-focused: page presents focused and visible, focus-loss signals blocked, real state stashed, F4 recovery probes the genuine focus.');
