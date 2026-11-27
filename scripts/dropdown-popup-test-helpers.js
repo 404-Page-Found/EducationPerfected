@@ -8,8 +8,8 @@ function expectedPopupChanges(count) {
     return Array.from({ length: count }, (_, index) => ({ id: 'dropdown-' + index, index: 2, trusted: false }));
 }
 
-async function installPopupEmulation(page, { commitDuringNavigation = false, closeOnArrow = false, closeOnArrowAt = null } = {}) {
-    await page.evaluate((commit, close, closeAt) => {
+async function installPopupEmulation(page, { commitDuringNavigation = false, closeOnArrow = false, closeOnArrowAt = null, openDelayMs = 0, neverOpen = false } = {}) {
+    await page.evaluate((commit, close, closeAt, delay, never) => {
         const selects = [...document.querySelectorAll('select')];
         const original = HTMLSelectElement.prototype.matches;
         let open = false;
@@ -23,7 +23,8 @@ async function installPopupEmulation(page, { commitDuringNavigation = false, clo
             select.addEventListener('keydown', event => {
                 const index = selects.indexOf(select);
                 if (event.key === 'F4') {
-                    open = true;
+                    if (never) { event.preventDefault(); return; }
+                    if (delay) setTimeout(() => { open = true; }, delay); else open = true;
                     provisional = select.selectedIndex;
                     event.preventDefault();
                 } else if (open && event.key === 'ArrowDown') {
@@ -44,7 +45,7 @@ async function installPopupEmulation(page, { commitDuringNavigation = false, clo
                 }
             }, true);
         }
-    }, commitDuringNavigation, closeOnArrow, closeOnArrowAt);
+    }, commitDuringNavigation, closeOnArrow, closeOnArrowAt, openDelayMs, neverOpen);
 }
 
 async function restorePopupEmulation(page) {

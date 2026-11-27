@@ -57,6 +57,23 @@ const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restoreP
         await restorePopupEmulation(page);
 
         await setup();
+        await installPopupEmulation(page, { openDelayMs: 600 });
+        once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
+        result = await once(page);
+        assert.deepEqual(result, { status: 'submitted-once' });
+        assert.deepEqual(await page.evaluate(() => dropdownFixture.keys), expectedPopupKeys(5));
+        await restorePopupEmulation(page);
+
+        await setup();
+        await installPopupEmulation(page, { neverOpen: true });
+        once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
+        result = await once(page);
+        assert.equal(result.status, 'stopped');
+        assert.equal(result.selectionDiagnostic.guard, 'popup-open-unverified');
+        assert.equal(result.selectionDiagnostic.keyDispatchesReturned, 1);
+        await restorePopupEmulation(page);
+
+        await setup();
         await installPopupEmulation(page, { commitDuringNavigation: true });
         once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
         result = await once(page);
