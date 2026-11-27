@@ -1,7 +1,7 @@
 // Fixture coverage for lib/support-report.js: tallies, reason categories only,
 // no free text leakage, and a copyable block. No browser, no network.
 const assert = require('node:assert/strict');
-const { createSupportReport, REASONS, TASK_TYPES, describeUnsupported, isValidDetail, BRANCHES } = require('../lib/support-report');
+const { createSupportReport, REASONS, TASK_TYPES, describeUnsupported, describeHandlerStop, isValidDetail, BRANCHES } = require('../lib/support-report');
 
 const empty = createSupportReport();
 assert.ok(empty.isEmpty());
@@ -111,3 +111,20 @@ assert.equal(Object.keys(many.guard_counts).length, 12);
 const rec = createSupportReport();
 rec.record('unsupported', 'refused', 'unsupported-question', withCounts);
 assert.match(rec.render('stopped'), /guard definitions-select-count \(definitionCount 8, definitions\.byType\.dropdown 3, /);
+
+// A handler stop carries its content-free reason, phase, guard and indexes.
+const stop = describeHandlerStop({ reason: 'unsafe-or-changed-state', selectionDiagnostic: { phase: 'submit-readiness', guard: 'submit-not-ready', submitState: 'disabled', dropdownIndex: 1, boxIndex: 2, keyDispatchesReturned: 3, note: 'chien' }, diagnostic: { text: 'hunter2' } }, null);
+assert.equal(stop.branch, 'handler-stop');
+assert.equal(stop.guard, 'submit-not-ready');
+assert.deepEqual(stop.guard_counts, { 'phase.submitReadiness': 1, 'submitState.disabled': 1, 'reason.unsafeOrChangedState': 1, dropdownIndex: 1, boxIndex: 2, keyDispatchesReturned: 3 });
+assert.ok(isValidDetail(stop));
+assert.equal(describeHandlerStop({ reason: 'What is the answer: chien!' }, null).guard, 'unknown');
+assert.deepEqual(describeHandlerStop({ reason: 'Free Text', selectionDiagnostic: { phase: 'Free text', guard: 'A B' } }, null).guard_counts, {});
+assert.equal(describeHandlerStop(null, null).guard, 'unknown');
+assert.equal(describeHandlerStop({ diagnostic: { guard: 'changed-before-submit', phase: 'submit' } }, null).guard, 'changed-before-submit');
+const stopRep = createSupportReport();
+stopRep.record('dropdown-numberbox', 'refused', 'handler-stopped', stop);
+assert.equal(stopRep.details().length, 1);
+assert.match(stopRep.render('stopped'), /branch handler-stop.*guard submit-not-ready \(/);
+assert.ok(!/chien|hunter2/.test(stopRep.render('stopped')));
+console.log('support-report handler-stop passed');

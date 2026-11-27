@@ -170,6 +170,12 @@ const byName = (a, b) => a.localeCompare(b);
     assert.deepEqual(validate(detail()).detail.guard_counts, {});
     for (const guard of ['Not A Guard!', 'What is the French for dog', 5, null, 'x'.repeat(41)]) assert.equal(validate(withGuard(guard)), null, `rejected guard ${String(guard).slice(0, 20)}`);
     for (const bad of [{ 'a b': 1 }, { a: 'text' }, { a: -1 }, { a: 100 }, { a: 1.5 }, [1], null, Object.fromEntries(Array.from({ length: 13 }, (_, i) => ['k' + i, 1]))]) assert.equal(validate(withGuard('ok-guard', bad)), null, 'rejected counts');
+    // A handler stop: any known task type, reason handler-stopped, branch handler-stop.
+    const stopBody = (over = {}) => detail({ task_type: 'dropdown-numberbox', reason: 'handler-stopped', branch: 'handler-stop', guard: 'changed-before-submit', guard_counts: { 'phase.submit': 1 }, ...over });
+    const stopOk = validate(stopBody());
+    assert.ok(stopOk && stopOk.detail.branch === 'handler-stop' && stopOk.task_type === 'dropdown-numberbox');
+    for (const over of [{ branch: 'other' }, { reason: 'no-handler' }, { task_type: 'unsupported' }, { task_type: 'unknown' }, { task_type: 'What is dog' }]) assert.equal(validate(stopBody(over)), null, 'rejected stop ' + JSON.stringify(over));
+    assert.equal(validate(detail({ branch: 'handler-stop' })), null, 'unsupported rounds cannot use the stop branch');
     assert.equal(validate(detail({ guard: 'ok-guard' })), null, 'guard needs its counts');
     const biggest = withGuard('a-long-guard-identifier-of-forty-chars-x', Object.fromEntries(Array.from({ length: 12 }, (_, i) => ['definitions.byType.k' + String(i).padStart(2, '0'), 99])));
     assert.ok(validate(biggest) && new TextEncoder().encode(biggest).length < 1024, 'largest guard report fits the cap');

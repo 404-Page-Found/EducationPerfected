@@ -24,7 +24,7 @@ const { createHumanDelay, summarizeRanges } = require('./lib/human-delay');
 const { createSelectChoiceOnce } = require('./lib/choice-select-once');
 const { readChoiceInPage } = require('./lib/choice-state');
 const { diagnostic } = require('./lib/diagnostics');
-const { createSupportReport, describeUnsupported, needsShapeProbe } = require('./lib/support-report');
+const { createSupportReport, describeUnsupported, describeHandlerStop, needsShapeProbe } = require('./lib/support-report');
 const { readUnsupportedShape } = require('./lib/unsupported-shape');
 const { createSupportSender } = require('./lib/support-sender');
 const { collectSelfMarkDiagnostics } = require('./lib/self-mark-diagnostics');
@@ -908,6 +908,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             let runReason = 'stopped';
             // Local-only task support report (tally of task types and outcomes, reason categories only).
             let supportReport = createSupportReport();
+            let lastStop = null; // content-free stop info from the latest stopped round handler
             const supportSender = createSupportSender({ config: savedConfig, appVersion: require('./package.json').version });
             // Issue #222: per-run accuracy controller (target randomized per run).
             // Null when disabled (perfect). Created fresh in answerLoop so every
@@ -2018,9 +2019,18 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     await alert(message);
                     return false;
                 }
+                lastStop = null;
                 const played = await handler.play(descriptor);
                 if (played) supportReport.record(descriptor.kind, 'answered');
-                else supportReport.record(descriptor.kind, TOGGLE ? 'refused' : 'skipped', TOGGLE ? 'handler-stopped' : 'stopped-by-user');
+                else if (!TOGGLE) supportReport.record(descriptor.kind, 'skipped', 'stopped-by-user');
+                else {
+                    // A stopped round handler leaves its content-free reason, phase and guard; probe the page's shape too.
+                    let stopDetail;
+                    if (lastStop) {
+                        try { stopDetail = describeHandlerStop(lastStop, await readUnsupportedShape(page)); } catch { stopDetail = describeHandlerStop(lastStop, null); }
+                    }
+                    supportReport.record(descriptor.kind, 'refused', 'handler-stopped', stopDetail);
+                }
                 return played;
             }
 
@@ -2191,6 +2201,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         return false;
                     }
                     if (result.status === 'stopped') {
+                        lastStop = { reason: result.reason, selectionDiagnostic: result.selectionDiagnostic, diagnostic: result.diagnostic };
                         if (again.kind === 'slide-surfaces' && result.selectionDiagnostic) {
                             const { phase, dropdownIndex, boxIndex, keyDispatchesReturned, guard, submitState } = result.selectionDiagnostic;
                             console.error('Slide-surfaces refusal diagnostic ' + JSON.stringify({ phase, dropdownIndex, ...(boxIndex !== undefined && boxIndex !== null ? { boxIndex } : {}), keyDispatchesReturned, guard, dropdownCount: again.dropdownCount, boxCount: again.boxCount, textBoxCount: again.textBoxCount, multiOptionCount: again.multiOptionCount, ...(submitState ? {submitState} : {}) }));
