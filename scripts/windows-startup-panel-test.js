@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),{accepted}=require('./windows-startup
 const nonce='a'.repeat(64),mode='source';
 const good={status:0,signal:null,stderr:'',stdout:`EP_OWNED_PIPE_NONCE=${nonce}\nEP_OWNED_PIPE_MODE=${mode}\nEP_OWNED_PIPE_RESULT=pass\n`};
 assert.equal(accepted(good,mode,nonce),true);
-for(const change of [{status:20},{signal:'SIGTERM'},{error:new Error()},{stderr:'private'},{stdout:good.stdout+'\n'},{stdout:good.stdout.replace('source','sea')},{stdout:good.stdout.replace(nonce,'b'.repeat(64))},{stdout:good.stdout.replace(/\n/g,'\r\n')}])assert.equal(accepted({...good,...change},mode,nonce),false);
+for(const change of [{status:20},{signal:'SIGTERM'},{error:new Error()},{stderr:'private'},{stdout:good.stdout+'\n'},{stdout:good.stdout.replace('source','sea')},{stdout:good.stdout.replace(nonce,'b'.repeat(64))},{stdout:good.stdout.replaceAll('\n','\r\n')}])assert.equal(accepted({...good,...change},mode,nonce),false);
 console.log('Owned pipe panel strict receipts: inert pass');
 // Load actual panel normally under scoped inert dependencies. No source execution API.
 const Module=require('node:module');

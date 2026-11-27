@@ -16,5 +16,5 @@ assert.throws(() => check((file, text) => file.endsWith('install-and-update.md')
 assert.throws(() => check((file, text) => file.endsWith('install-and-update.md')
     ? text.replace('#cli-credential-setup-source-build', '#missing-heading') : text), /missing-heading/);
 assert.throws(() => check((file, text) => path.resolve(file) === path.resolve(__dirname, '..', 'README.md')
-    ? text.replace(/\[[^\]]+\]\(docs\/usage.md\)/g, 'docs/usage.md') : text), /README links docs\/usage.md/);
+    ? text.replaceAll('](docs/usage.md)', '](docs/usage-removed.md)') : text), /README links docs\/usage.md/);
 console.log('Docs checker regressions: CRLF, scoped setup, anchors and link targets pass.');

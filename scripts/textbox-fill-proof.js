@@ -15,7 +15,7 @@ async function assertTextboxFillProof(page) {
         };
     });
     assert.deepEqual(proof, {
-        inputs: [...Array(4).fill('box-b'), ...Array(5).fill('box-a')].map(id => ({id, trusted:true})),
+        inputs: [...new Array(4).fill('box-b'), ...new Array(5).fill('box-a')].map(id => ({id, trusted:true})),
         answers: [['box-b','beta','beta',true], ['box-a','alpha','alpha',true]],
         submits:0,
         nexts:0,
