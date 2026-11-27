@@ -194,6 +194,10 @@ const byName = (a, b) => a.localeCompare(b);
     assert.ok(validate(biggest) && new TextEncoder().encode(biggest).length < 1024, 'largest guard report fits the cap');
     const vg = makeEnv();
     assert.equal((await send(vg, withGuard('definitions-select-count', counts))).status, 204);
+    // Guard counts key order does not split a shape: the same counts in another order tally together.
+    const reordered = Object.fromEntries(Object.entries(counts).reverse());
+    assert.equal((await send(vg, withGuard('definitions-select-count', reordered))).status, 204);
+    assert.match([...issues.values()].at(-1).body, /x2: branch generic-slide, guard definitions-select-count/);
     assert.match([...issues.values()].at(-1).body, /branch generic-slide, guard definitions-select-count \(definitionCount 8, definitions\.byType\.dropdown 3, domSelectCount 3\), game mode lesson/);
     assert.ok(new TextEncoder().encode(detail({ components: new Array(8).fill('TYPE_SUBSCRIPT_SUPERSCRIPT_COMPONENT') })).length < 1024, 'largest report fits the cap');
 

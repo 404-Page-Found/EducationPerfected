@@ -124,7 +124,7 @@ export const pairKey = report => {
     const base = `pair:${report.task_type}:${report.reason}`;
     return report.detail ? `${base}:${report.detail.branch}` : base;
 };
-const shapeKey = d => [d.game_mode, d.question_type, d.component_count, d.components.join('+'), d.guard || 'unknown', JSON.stringify(d.guard_counts || {}), CONTROL_KEYS.map(k => d.controls[k]).join('/')].join('|');
+const shapeKey = d => [d.game_mode, d.question_type, d.component_count, d.components.join('+'), d.guard || 'unknown', JSON.stringify(Object.fromEntries(Object.entries(d.guard_counts || {}).sort(([a], [b]) => a.localeCompare(b)))), CONTROL_KEYS.map(k => d.controls[k]).join('/')].join('|');
 
 function titleFor({ task_type, reason, detail }) {
     const suffix = detail ? `, ${detail.branch}` : '';
