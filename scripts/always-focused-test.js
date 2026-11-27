@@ -147,6 +147,65 @@ const { installAlwaysFocused } = require('../lib/always-focused');
         });
         assert.deepEqual(alias, { bodyBlur: 0, bodyPagehide: 0, blurRead: null, pagehideRead: null });
 
+        // Truthy non-boolean capture values coerce the DOM way: { capture: 1 }
+        // is the same registration slot as capture true, for add and remove.
+        const coercion = await page.evaluate(() => {
+            let calls = 0;
+            const input = document.createElement('input');
+            document.body.appendChild(input);
+            const handler = () => { calls++; };
+            window.addEventListener('blur', handler, { capture: 1 });
+            window.addEventListener('blur', handler, { capture: true });
+            input.dispatchEvent(new Event('blur'));
+            const afterAdds = calls;
+            window.removeEventListener('blur', handler, { capture: 1 });
+            input.dispatchEvent(new Event('blur'));
+            return { afterAdds, afterRemove: calls };
+        });
+        assert.deepEqual(coercion, { afterAdds: 1, afterRemove: 1 });
+
+        // An aborted signal removes the native wrapper and frees the slot: a
+        // later registration with the same callback and capture works, and an
+        // already-aborted signal makes registration a no-op.
+        const aborted = await page.evaluate(() => {
+            let calls = 0;
+            const input = document.createElement('input');
+            document.body.appendChild(input);
+            const handler = () => { calls++; };
+            const controller = new AbortController();
+            window.addEventListener('blur', handler, { capture: true, signal: controller.signal });
+            controller.abort();
+            window.addEventListener('blur', handler, { capture: true });
+            input.dispatchEvent(new Event('blur'));
+            const afterReregister = calls;
+            const dead = new AbortController();
+            dead.abort();
+            window.removeEventListener('blur', handler, { capture: true });
+            window.addEventListener('blur', handler, { capture: true, signal: dead.signal });
+            input.dispatchEvent(new Event('blur'));
+            return { afterReregister, afterAbortedAdd: calls };
+        });
+        assert.deepEqual(aborted, { afterReregister: 1, afterAbortedAdd: 1 });
+
+        // The content-attribute path compiles handlers without touching the
+        // accessors: setAttribute is intercepted, and attributes planted any
+        // other way (here setAttributeNode, standing in for parser-set ones)
+        // are stripped by observation, which deactivates the handler.
+        const attributePath = await page.evaluate(async () => {
+            window.__attrCalls = 0;
+            document.body.setAttribute('onpagehide', 'window.__attrCalls++');
+            const afterSetAttribute = document.body.getAttribute('onpagehide');
+            const attr = document.createAttribute('onpagehide');
+            attr.value = 'window.__attrCalls++';
+            document.body.setAttributeNode(attr);
+            const plantedBeforeStrip = document.body.getAttribute('onpagehide');
+            await new Promise(resolve => setTimeout(resolve, 0));
+            const plantedAfterStrip = document.body.getAttribute('onpagehide');
+            window.dispatchEvent(new Event('pagehide'));
+            return { afterSetAttribute, plantedBeforeStrip, plantedAfterStrip, calls: window.__attrCalls };
+        });
+        assert.deepEqual(attributePath, { afterSetAttribute: null, plantedBeforeStrip: 'window.__attrCalls++', plantedAfterStrip: null, calls: 0 });
+
         // A re-install is inert: the guard survives it, the overrides still
         // report focused, and the stash is the same frozen object holding the
         // platform-native probes (a re-stash would bind the already-overridden
