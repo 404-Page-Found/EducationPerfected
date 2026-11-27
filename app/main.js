@@ -282,6 +282,11 @@ function createElectronApp({ electron, session }) {
                     webPreferences.contextIsolation = true;
                     webPreferences.sandbox = true;
                     webPreferences.nodeIntegration = false;
+                    // The guest keeps answering while its window is unfocused:
+                    // Chromium must not throttle its timers or rAF in the
+                    // background (the always-focused page environment covers
+                    // what EP's scripts observe).
+                    webPreferences.backgroundThrottling = false;
                 });
             }
             applyBrowserUserAgent(electron);

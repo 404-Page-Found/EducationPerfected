@@ -611,7 +611,11 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             defaultViewport: null,
             handleSIGINT: false,
             handleSIGTERM: false,
-            handleSIGHUP: false
+            handleSIGHUP: false,
+            // An unfocused or occluded window must not be backgrounded or have
+            // its timers throttled: the run keeps answering while the user works
+            // in another window (the always-focused page environment below).
+            args: ['--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding']
         })
         : connectBrowser())
         .then(async browser => {
@@ -622,6 +626,11 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             const page = selectPage ? await selectPage(allPages, browser) : allPages[0];
             if (startupSignal) return shutdownStartup();
             if (!page) throw new Error('The browser opened no page to control.');
+            // The task page always presents itself as focused and visible to EP's
+            // scripts (see the module header), so EP's focus tracking never pauses
+            // or warns while the window is unfocused. The genuine state stays
+            // probeable through the stashed native getters for the F4 recovery.
+            await require('./lib/always-focused').installAlwaysFocused(page);
 
             /**
  * Finds the login button by its label text within the login form.
