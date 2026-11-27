@@ -1,4 +1,13 @@
-# EducationPerfected
+<div align="center">
+  <img src="docs/assets/logo.svg" alt="EducationPerfected icon" width="128" height="128">
+
+  # EducationPerfected
+
+  [![Version](https://img.shields.io/github/v/release/404-Page-Found/EducationPerfected?style=flat-square&labelColor=1f3a8a&color=2b6fe0&label=version)](https://github.com/404-Page-Found/EducationPerfected/releases)
+  [![Installs](https://img.shields.io/github/downloads/404-Page-Found/EducationPerfected/total?style=flat-square&labelColor=1f3a8a&color=2b6fe0&label=installs)](https://github.com/404-Page-Found/EducationPerfected/releases)
+  [![npm downloads](https://img.shields.io/npm/dt/educationperfected?style=flat-square&labelColor=1f3a8a&color=2b6fe0&label=npm)](https://www.npmjs.com/package/educationperfected)
+  [![Stars](https://img.shields.io/github/stars/404-Page-Found/EducationPerfected?style=flat-square&labelColor=1f3a8a&color=2b6fe0)](https://github.com/404-Page-Found/EducationPerfected/stargazers)
+</div>
 
 A continuation of [akioweh's archived project](https://github.com/akioweh/EducationPerfected), using Node.js and Puppeteer to automate supported Education Perfect language tasks. It is independent of Education Perfect and is not endorsed or supported by it.
 
