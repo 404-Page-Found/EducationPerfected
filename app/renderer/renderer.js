@@ -280,15 +280,21 @@ async function run(action, value, okMessage) {
     try {
         await api.action(action, value);
         if (okMessage) showMessage(okMessage, false);
+        return true;
     } catch (error) {
         showMessage(String(error && error.message ? error.message : error), true);
+        return false;
     }
 }
 
-$('start').addEventListener('click', () => run('start'));
+// Starting moves focus into the embedded browser: the run's key input is only
+// delivered while the guest holds focus, and the Start click itself leaves
+// focus on this pane (#397). Only after a successful start.
+const startRun = async () => { if (await run('start')) $('browser').focus(); };
+$('start').addEventListener('click', startRun);
 $('stop').addEventListener('click', () => run('stop'));
 $('refresh-words').addEventListener('click', () => run('refresh'));
-$('rail-start').addEventListener('click', () => run('start'));
+$('rail-start').addEventListener('click', startRun);
 $('rail-stop').addEventListener('click', () => run('stop'));
 $('rail-refresh').addEventListener('click', () => run('refresh'));
 $('apply-mode').addEventListener('click', () => run('mode', $('mode').value));
