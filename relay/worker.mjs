@@ -55,7 +55,6 @@ const validCounts = c => !!c && typeof c === 'object' && !Array.isArray(c) && Ob
 const countsText = c => { const e = Object.entries(c || {}).sort(([a], [b]) => a.localeCompare(b)); return e.length ? ` (${e.map(([k, v]) => `${k} ${v}`).join(', ')})` : ''; };
 const VERSION_RE = /^20\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])$/;
 const MAX_BODY_BYTES = 1024;
-const THRESHOLDS = new Set([10, 100, 1000]);
 const DEFAULT_DAILY_CAP = 30;
 const LABEL = 'task-support';
 
@@ -216,15 +215,15 @@ export async function record(storage, env, report) {
                 rec.issue = issue.number;
                 rec.dirty = false;
             }
-        } else if (newer) {
+        } else {
             const issue = await github(env, `/issues/${rec.issue}`, 'GET');
-            if ((issue.state === 'closed' || rec.dirty) && await takeWrite(env)) {
+            // Every report on an open issue refreshes its body, so a repeat report is
+            // visible there instead of only raising a counter nobody can see. A closed
+            // issue stays closed (and untouched) unless a newer app version reports it.
+            if ((issue.state === 'open' || newer) && await takeWrite(env)) {
                 await github(env, `/issues/${rec.issue}`, 'PATCH', { ...(issue.state === 'closed' ? { state: 'open' } : {}), body: bodyFor(report, rec) });
                 rec.dirty = false;
             }
-        } else if ((rec.dirty || THRESHOLDS.has(rec.count)) && await takeWrite(env)) {
-            await github(env, `/issues/${rec.issue}`, 'PATCH', { body: bodyFor(report, rec) });
-            rec.dirty = false;
         }
     } catch { /* counted anyway; GitHub is retried on a later report */ }
     await storage.put('rec', rec);

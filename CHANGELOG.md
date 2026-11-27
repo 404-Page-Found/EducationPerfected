@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Support relay: a repeat report for a known task pair now refreshes the pair's open GitHub issue on every report (report count, shapes seen, newest app version) instead of only at 10, 100 and 1000 reports, so a retest after a fix is visible on the issue. A closed issue stays closed and untouched until a newer app version reports the pair. Relay redeployed with this change.
+
 - Temporary Alt+I hotkey (Option+I on macOS): on an Assessment page it takes one read-only capture, saved under `~/.educationperfected/assessment-captures`, the same file format and `EP_ASSESSMENT_INSPECT` line as `inspect-assessment`, and never starts or answers anything. Alt+S is unchanged and still refuses Assessments. To be removed after the Assessment inspection. Synthetic coverage only.
 
 - Support reports for unsupported-question refusals now say which guard fired: the foreign-controls branch is split per refusal site (`foreign-choice`, `foreign-multiselect`, `foreign-dropdown`, `foreign-textbox`, `foreign-formula`, `foreign-slide-surfaces`; the old `foreign-controls` stays for any other editable-controls refusal). A refusal site that carries no shape of its own now gets a read-only page probe (game mode, question type, component codes, visible control counts, no text), so the shape is no longer all unknown. Still schema 1. The relay must be redeployed with the new branch list before this build sends.

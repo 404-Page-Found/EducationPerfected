@@ -87,10 +87,15 @@ const byName = (a, b) => a.localeCompare(b);
     const created = JSON.parse(calls[0].options.body);
     assert.equal(created.title, 'Task support: audio not handled (no-handler)');
     assert.deepEqual(created.labels, ['task-support']);
-    await Array.from({ length: 8 }).reduce(chain => chain.then(() => send(env, good())), Promise.resolve());
-    assert.equal(calls.length, 1, 'counting does not write to GitHub');
+    // Every repeat report refreshes the open issue's body (GET state, then PATCH),
+    // so a duplicate report is visible instead of only raising a hidden counter.
     await send(env, good());
-    assert.equal(calls.length, 2, 'threshold 10 refreshes the body');
+    assert.equal(calls.length, 3, 'a repeat report reads the issue and refreshes its body');
+    assert.equal(calls.at(-2).options.method || 'GET', 'GET');
+    assert.equal(calls.at(-1).options.method, 'PATCH');
+    assert.match(issues.get(1).body, /Reports so far: 2/);
+    await Array.from({ length: 8 }).reduce(chain => chain.then(() => send(env, good())), Promise.resolve());
+    assert.equal(calls.length, 19, 'every repeat refreshes the body');
     assert.match(issues.get(1).body, /Reports so far: 10/);
 
     // No IP or header data in any outgoing call or KV value.
@@ -98,27 +103,33 @@ const byName = (a, b) => a.localeCompare(b);
     for (const leak of ['203.0.113.9', 'secret-agent']) assert.ok(!everything.includes(leak), `leaked ${leak}`);
     assert.deepEqual(Object.keys(calls[0].options.headers).sort(byName), ['Accept', 'Authorization', 'Content-Type', 'User-Agent', 'X-GitHub-Api-Version']);
 
-    // Closed issue reopens on a newer app version only.
+    // Closed issue stays untouched on the same app version and reopens on a newer one.
     issues.get(1).state = 'closed';
+    const closedBody = issues.get(1).body;
     const before = calls.length;
     await send(env, good());
-    assert.equal(calls.length, before, 'same version does not reopen');
+    assert.equal(calls.length, before + 1, 'same version on a closed issue only reads its state');
+    assert.equal(issues.get(1).state, 'closed', 'same version does not reopen');
+    assert.equal(issues.get(1).body, closedBody, 'same version does not rewrite a closed issue');
     await send(env, good({ app_version: '2026.12.1' }));
     assert.equal(issues.get(1).state, 'open');
+    assert.match(issues.get(1).body, /Reports so far: 12/);
+    assert.match(issues.get(1).body, /Newest app version seen: 2026.12.1/);
 
     // Two reports for a new pair arriving together file one issue and count both.
     const race = makeEnv();
     const r0 = calls.length;
     await Promise.all([send(race, good({ task_type: 'typed' })), send(race, good({ task_type: 'typed' }))]);
-    assert.equal(calls.length - r0, 1, 'concurrent reports file one issue');
+    assert.equal(calls.length - r0, 3, 'concurrent reports file one issue, then refresh it');
     assert.equal(JSON.parse(race.durable.get('pair:typed:no-handler')).count, 2);
 
     // A record left in KV by the old code is picked up on the first report.
     const migrated = makeEnv();
     migrated.store.set('pair:text:no-handler', JSON.stringify({ issue: 7, count: 4, maxVersion: '2026.11.22' }));
+    issues.set(7, { state: 'open', body: '' });
     await send(migrated, good({ task_type: 'text', app_version: '2026.11.22' }));
     assert.equal(JSON.parse(migrated.durable.get('pair:text:no-handler')).count, 5);
-    assert.equal(calls.length, r0 + 1, 'migrated record has an issue, so no new one is filed');
+    assert.match(issues.get(7).body, /Reports so far: 5/, 'migrated record refreshes its existing issue');
 
     // Daily cap: reports are counted but not filed.
     const capped = makeEnv({ DAILY_WRITE_CAP: '1' });
@@ -143,13 +154,14 @@ const byName = (a, b) => a.localeCompare(b);
     assert.match(detailIssue.body, /branch generic-slide, guard unknown, game mode lesson, question type 9, 1 components \(FILE_UPLOADER_COMPONENT\), controls buttons 2, canvases 0, editable 0, inputs 1, selects 0, textareas 0/);
     assert.ok(v2.durable.has('pair:unsupported:unsupported-question:generic-slide'));
     assert.equal((await send(v2, detail())).status, 204);
-    assert.equal(calls.length - d0, 1, 'same shape only counts');
+    assert.equal(calls.length - d0, 3, 'same shape still refreshes the body');
+    assert.match([...issues.values()].at(-1).body, /Reports so far: 2/);
     await send(v2, detail({ question_type: 12 }));
-    assert.equal(calls.length - d0, 2, 'a new shape refreshes the body');
+    assert.equal(calls.length - d0, 5, 'a new shape refreshes the body');
     assert.match([...issues.values()].at(-1).body, /x2: branch generic-slide, guard unknown, game mode lesson, question type 9/);
     assert.match([...issues.values()].at(-1).body, /x1: branch generic-slide, guard unknown, game mode lesson, question type 12/);
     await send(v2, detail({ branch: 'dash' }));
-    assert.equal(calls.length - d0, 3, 'a different branch files its own issue');
+    assert.equal(calls.length - d0, 6, 'a different branch files its own issue');
     assert.equal(pairKey({ task_type: 'unsupported', reason: 'unsupported-question' }), 'pair:unsupported:unsupported-question', 'schema 1 key is unchanged');
     const badDetail = [
         detail({ branch: 'free text' }), detail({ game_mode: 'mode 4' }), detail({ question_type: 'nine' }), detail({ question_type: 100 }), detail({ question_type: -2 }), detail({ component_count: 1.5 }), detail({ controls: { inputs: 100, textareas: 0, selects: 0, editable: 0, canvases: 0, buttons: 0 } }), detail({ question_type: null }),
