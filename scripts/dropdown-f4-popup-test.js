@@ -7,7 +7,7 @@ const { playDropdownRound } = require('../lib/dropdown-handler');
 const { createSubmitDropdownOnce } = require('../lib/dropdown-once');
 const { readDropdownsInPage } = require('../lib/dropdown-state');
 const { observeDropdownInput } = require('../lib/dropdown-input-trace');
-const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restorePopupEmulation } = require('./dropdown-popup-test-helpers');
+const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restorePopupEmulation, trackFocusRecovery, untrackFocusRecovery } = require('./dropdown-popup-test-helpers');
 
 (async () => {
     const server = createServer();
@@ -94,27 +94,10 @@ const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restoreP
         // falls back to focus emulation, and only stops (with its own guard, before
         // any key dispatch) when focus still does not hold, as in this stub. The
         // tracking wrapper proves which recovery ran instead of trusting the stub.
-        const trackFocusRecovery = () => {
-            const calls = { bringToFront: 0, emulation: 0 };
-            const originalRaise = page.bringToFront.bind(page);
-            page.bringToFront = async () => { calls.bringToFront++; return originalRaise(); };
-            const originalSession = page.createCDPSession.bind(page);
-            page.createCDPSession = async () => {
-                const session = await originalSession();
-                const send = session.send.bind(session);
-                session.send = (method, params) => {
-                    if (method === 'Emulation.setFocusEmulationEnabled' && params?.enabled === true) calls.emulation++;
-                    return send(method, params);
-                };
-                return session;
-            };
-            return calls;
-        };
-        const untrackFocusRecovery = () => { delete page.bringToFront; delete page.createCDPSession; };
 
         await setup();
         await installPopupEmulation(page);
-        let focusCalls = trackFocusRecovery();
+        let focusCalls = trackFocusRecovery(page);
         await page.evaluate(() => { document.hasFocus = () => false; });
         once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
         result = await once(page);
@@ -126,7 +109,7 @@ const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restoreP
         assert.deepEqual(await page.evaluate(() => [dropdownFixture.keys.length, dropdownFixture.submits]), [0, 0]);
         assert.equal(focusCalls.bringToFront, 1);
         assert.equal(focusCalls.emulation, 1);
-        untrackFocusRecovery();
+        untrackFocusRecovery(page);
         await restorePopupEmulation(page);
 
         // When focus returns after the window is raised (here: the second hasFocus
@@ -134,7 +117,7 @@ const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restoreP
         // read consumes the first false.
         await setup();
         await installPopupEmulation(page);
-        focusCalls = trackFocusRecovery();
+        focusCalls = trackFocusRecovery(page);
         await page.evaluate(() => { let focusReads = 0; document.hasFocus = () => ++focusReads > 2; });
         once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
         result = await once(page);
@@ -142,14 +125,14 @@ const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restoreP
         assert.deepEqual(await page.evaluate(() => dropdownFixture.keys), expectedPopupKeys(5));
         assert.equal(focusCalls.bringToFront, 1);
         assert.equal(focusCalls.emulation, 0);
-        untrackFocusRecovery();
+        untrackFocusRecovery(page);
         await restorePopupEmulation(page);
 
         // When raising the window changes nothing, focus emulation must be sent and
         // the round then proceeds (here: focus holds from the third read on).
         await setup();
         await installPopupEmulation(page);
-        focusCalls = trackFocusRecovery();
+        focusCalls = trackFocusRecovery(page);
         await page.evaluate(() => { let focusReads = 0; document.hasFocus = () => ++focusReads > 3; });
         once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
         result = await once(page);
@@ -157,7 +140,7 @@ const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restoreP
         assert.deepEqual(await page.evaluate(() => dropdownFixture.keys), expectedPopupKeys(5));
         assert.equal(focusCalls.bringToFront, 1);
         assert.equal(focusCalls.emulation, 1);
-        untrackFocusRecovery();
+        untrackFocusRecovery(page);
         await restorePopupEmulation(page);
 
         await setup();

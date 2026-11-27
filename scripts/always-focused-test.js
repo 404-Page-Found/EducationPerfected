@@ -1,0 +1,284 @@
+// Always-focused page environment (lib/always-focused.js): the task page must
+// present itself as focused and visible to page scripts even when the window
+// is not, while EducationPerfected keeps reading the genuine platform state
+// through the stashed native probes (the dropdown F4 recovery depends on it).
+const assert = require('node:assert/strict');
+const puppeteer = require('puppeteer');
+const { createServer } = require('./mock-ep');
+const { installDropdownFixture } = require('./dropdown-fixture');
+const { detectQuestion } = require('../lib/detect-question');
+const { playDropdownRound } = require('../lib/dropdown-handler');
+const { createSubmitDropdownOnce } = require('../lib/dropdown-once');
+const { expectedPopupKeys, installPopupEmulation, restorePopupEmulation, trackFocusRecovery, untrackFocusRecovery } = require('./dropdown-popup-test-helpers');
+const { installAlwaysFocused } = require('../lib/always-focused');
+
+(async () => {
+    const server = createServer();
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    let browser;
+    try {
+        browser = await puppeteer.launch({ headless: true, executablePath: process.env.HANDLER_EXECUTABLE_PATH || undefined });
+        const page = await browser.newPage();
+        const origin = 'http://127.0.0.1:' + server.address().port;
+
+        await installAlwaysFocused(page);
+        await page.goto(origin + '/lesson');
+
+        // The page looks focused and visible to its own scripts, and the
+        // genuine platform state stays readable through the stashed probes.
+        const presentation = await page.evaluate(() => ({
+            hasFocus: document.hasFocus(),
+            visibilityState: document.visibilityState,
+            hidden: document.hidden,
+            webkitVisibilityState: document.webkitVisibilityState,
+            webkitHidden: document.webkitHidden,
+            nativeHasFocus: window.__epNativeFocus.hasFocus(),
+            nativeVisibilityState: window.__epNativeFocus.visibilityState(),
+        }));
+        assert.equal(presentation.hasFocus, true);
+        assert.equal(presentation.visibilityState, 'visible');
+        assert.equal(presentation.hidden, false);
+        assert.equal(presentation.webkitVisibilityState, 'visible');
+        assert.equal(presentation.webkitHidden, false);
+        assert.equal(typeof presentation.nativeHasFocus, 'boolean');
+        assert.equal(typeof presentation.nativeVisibilityState, 'string');
+
+        // Page-level focus-loss observation is blocked (listeners, on*
+        // handlers, window or document target), while element-level blur and
+        // ordinary listeners are untouched - including a capture-phase window
+        // listener watching element blurs.
+        const delivery = await page.evaluate(() => {
+            const seen = {
+                windowBlur: 0, windowPagehide: 0, docVisibility: 0, windowVisibility: 0, windowWebkitVisibility: 0,
+                elementBlur: 0, windowCaptureElementBlur: 0, docKeyup: 0,
+                onblur: 0, onpagehide: 0, onvisibilitychange: 0,
+            };
+            window.addEventListener('blur', () => { seen.windowBlur++; });
+            window.addEventListener('pagehide', () => { seen.windowPagehide++; });
+            document.addEventListener('visibilitychange', () => { seen.docVisibility++; });
+            window.addEventListener('visibilitychange', () => { seen.windowVisibility++; });
+            window.addEventListener('webkitvisibilitychange', () => { seen.windowWebkitVisibility++; });
+            const input = document.createElement('input');
+            document.body.appendChild(input);
+            input.addEventListener('blur', () => { seen.elementBlur++; });
+            window.addEventListener('blur', event => { if (event.target === input) seen.windowCaptureElementBlur++; }, true);
+            document.addEventListener('keyup', () => { seen.docKeyup++; });
+            window.onblur = () => { seen.onblur++; };
+            window.onpagehide = () => { seen.onpagehide++; };
+            document.onvisibilitychange = () => { seen.onvisibilitychange++; };
+            window.dispatchEvent(new Event('blur'));
+            window.dispatchEvent(new Event('pagehide'));
+            document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+            document.dispatchEvent(new Event('webkitvisibilitychange', { bubbles: true }));
+            input.dispatchEvent(new Event('blur'));
+            document.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
+            return {
+                ...seen,
+                onblurRead: window.onblur,
+                onpagehideRead: window.onpagehide,
+                onvisibilitychangeRead: document.onvisibilitychange,
+            };
+        });
+        assert.deepEqual(
+            (({ onblurRead, onpagehideRead, onvisibilitychangeRead, ...rest }) => rest)(delivery),
+            {
+                windowBlur: 0, windowPagehide: 0, docVisibility: 0, windowVisibility: 0, windowWebkitVisibility: 0,
+                elementBlur: 1, windowCaptureElementBlur: 1, docKeyup: 1,
+                onblur: 0, onpagehide: 0, onvisibilitychange: 0,
+            });
+        assert.equal(delivery.onblurRead, null);
+        assert.equal(delivery.onpagehideRead, null);
+        assert.equal(delivery.onvisibilitychangeRead, null);
+
+        // A { once: true } window blur listener counts accepted deliveries,
+        // not suppressed window blurs: a window blur must not consume it, the
+        // first element blur reaches it exactly once, and no second one does.
+        const onceDelivery = await page.evaluate(() => {
+            let calls = 0;
+            const input = document.createElement('input');
+            document.body.appendChild(input);
+            window.addEventListener('blur', () => { calls++; }, { once: true, capture: true });
+            window.dispatchEvent(new Event('blur'));
+            input.dispatchEvent(new Event('blur'));
+            input.dispatchEvent(new Event('blur'));
+            return calls;
+        });
+        assert.equal(onceDelivery, 1);
+
+        // Registration semantics survive the wrapper: a repeat registration of
+        // the same callback with the same capture value is a native no-op, and
+        // removal with that capture value detaches it. The same callback used
+        // for a non-wrapped type removes its own registration, not the wrapper.
+        const semantics = await page.evaluate(() => {
+            const out = { elementBlurs: 0, keyups: 0 };
+            const handler = event => { if (event.type === 'blur') out.elementBlurs++; else out.keyups++; };
+            const input = document.createElement('input');
+            document.body.appendChild(input);
+            window.addEventListener('blur', handler, true);
+            window.addEventListener('blur', handler, true);
+            document.addEventListener('keyup', handler);
+            input.dispatchEvent(new Event('blur'));
+            const afterRepeat = out.elementBlurs;
+            document.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
+            const keyupsBeforeRemove = out.keyups;
+            // Removing the keyup registration must not detach the blur wrapper
+            // (same callback), and must actually detach the keyup listener.
+            document.removeEventListener('keyup', handler);
+            document.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
+            const keyupsAfterRemove = out.keyups;
+            input.dispatchEvent(new Event('blur'));
+            const blursAfterKeyupRemove = out.elementBlurs;
+            window.removeEventListener('blur', handler, true);
+            input.dispatchEvent(new Event('blur'));
+            return { afterRepeat, keyupsBeforeRemove, keyupsAfterRemove, blursAfterKeyupRemove, afterRemove: out.elementBlurs };
+        });
+        assert.deepEqual(semantics, { afterRepeat: 1, keyupsBeforeRemove: 1, keyupsAfterRemove: 1, blursAfterKeyupRemove: 2, afterRemove: 2 });
+
+        // The body/frameset on* aliases write the window handler map directly,
+        // so they are swallowed on their prototypes: assignments do nothing,
+        // reads report no handler, and window focus-loss events stay unseen.
+        const alias = await page.evaluate(() => {
+            let bodyBlur = 0, bodyPagehide = 0;
+            document.body.onblur = () => { bodyBlur++; };
+            document.body.onpagehide = () => { bodyPagehide++; };
+            window.dispatchEvent(new Event('blur'));
+            window.dispatchEvent(new Event('pagehide'));
+            return { bodyBlur, bodyPagehide, blurRead: document.body.onblur, pagehideRead: document.body.onpagehide };
+        });
+        assert.deepEqual(alias, { bodyBlur: 0, bodyPagehide: 0, blurRead: null, pagehideRead: null });
+
+        // Truthy non-boolean capture values coerce the DOM way: { capture: 1 }
+        // is the same registration slot as capture true, for add and remove.
+        const coercion = await page.evaluate(() => {
+            let calls = 0;
+            const input = document.createElement('input');
+            document.body.appendChild(input);
+            const handler = () => { calls++; };
+            window.addEventListener('blur', handler, { capture: 1 });
+            window.addEventListener('blur', handler, { capture: true });
+            input.dispatchEvent(new Event('blur'));
+            const afterAdds = calls;
+            window.removeEventListener('blur', handler, { capture: 1 });
+            input.dispatchEvent(new Event('blur'));
+            return { afterAdds, afterRemove: calls };
+        });
+        assert.deepEqual(coercion, { afterAdds: 1, afterRemove: 1 });
+
+        // An aborted signal removes the native wrapper and frees the slot: a
+        // later registration with the same callback and capture works, and an
+        // already-aborted signal makes registration a no-op.
+        const aborted = await page.evaluate(() => {
+            let calls = 0;
+            const input = document.createElement('input');
+            document.body.appendChild(input);
+            const handler = () => { calls++; };
+            const controller = new AbortController();
+            window.addEventListener('blur', handler, { capture: true, signal: controller.signal });
+            controller.abort();
+            window.addEventListener('blur', handler, { capture: true });
+            input.dispatchEvent(new Event('blur'));
+            const afterReregister = calls;
+            const dead = new AbortController();
+            dead.abort();
+            window.removeEventListener('blur', handler, { capture: true });
+            window.addEventListener('blur', handler, { capture: true, signal: dead.signal });
+            input.dispatchEvent(new Event('blur'));
+            return { afterReregister, afterAbortedAdd: calls };
+        });
+        assert.deepEqual(aborted, { afterReregister: 1, afterAbortedAdd: 1 });
+
+        // The content-attribute path compiles handlers without touching the
+        // accessors: setAttribute is intercepted, and attributes planted any
+        // other way (here setAttributeNode, standing in for parser-set ones)
+        // are stripped by observation, which deactivates the handler.
+        const attributePath = await page.evaluate(async () => {
+            window.__attrCalls = 0;
+            document.body.setAttribute('onpagehide', 'window.__attrCalls++');
+            const afterSetAttribute = document.body.getAttribute('onpagehide');
+            const attr = document.createAttribute('onpagehide');
+            attr.value = 'window.__attrCalls++';
+            document.body.setAttributeNode(attr);
+            const plantedBeforeStrip = document.body.getAttribute('onpagehide');
+            await new Promise(resolve => setTimeout(resolve, 0));
+            const plantedAfterStrip = document.body.getAttribute('onpagehide');
+            window.dispatchEvent(new Event('pagehide'));
+            return { afterSetAttribute, plantedBeforeStrip, plantedAfterStrip, calls: window.__attrCalls };
+        });
+        assert.deepEqual(attributePath, { afterSetAttribute: null, plantedBeforeStrip: 'window.__attrCalls++', plantedAfterStrip: null, calls: 0 });
+
+        // A re-install is inert: the guard survives it, the overrides still
+        // report focused, and the stash is the same frozen object holding the
+        // platform-native probes (a re-stash would bind the already-overridden
+        // own hasFocus, not the platform Document.prototype one).
+        await page.evaluate(() => { window.__stashBeforeReinstall = window.__epNativeFocus; });
+        await installAlwaysFocused(page);
+        assert.equal(await page.evaluate(() => window.__epAlwaysFocused), true);
+        assert.equal(await page.evaluate(() => document.hasFocus()), true);
+        assert.equal(await page.evaluate(() => window.__epNativeFocus === window.__stashBeforeReinstall), true);
+        assert.match(await page.evaluate(() => window.__epNativeFocus.hasFocus.toString()), /\[native code\]/);
+
+        // The stash does not yield to a plain assignment (non-writable).
+        await page.evaluate(() => { window.__epNativeFocus = { hasFocus: () => false }; });
+        assert.equal(await page.evaluate(() => window.__epNativeFocus === window.__stashBeforeReinstall), true);
+
+        // The environment survives navigation via evaluateOnNewDocument.
+        await page.goto(origin + '/learning/dashboard');
+        assert.equal(await page.evaluate(() => document.hasFocus() && document.visibilityState === 'visible' && typeof window.__epNativeFocus?.hasFocus === 'function'), true);
+
+        // Dropdown F4 recovery still probes the genuine focus, not the spoofed
+        // document.hasFocus(): with the page looking focused but the native
+        // probe reporting a loss that the raise repairs, the window is raised
+        // exactly once and no emulation is sent.
+        const setup = async (count = 5) => {
+            await page.goto(origin + '/lesson');
+            await page.evaluate(installDropdownFixture, count);
+        };
+        // The stash is non-writable, so the focus-loss simulations replace it
+        // by redefining the configurable property.
+        const stubNativeFocus = readsToFocus => page.evaluate(limit => {
+            let focusReads = 0;
+            Object.defineProperty(window, '__epNativeFocus', {
+                configurable: true,
+                value: { hasFocus: () => limit !== null && ++focusReads > limit, visibilityState: () => 'visible', hidden: () => false },
+            });
+        }, readsToFocus);
+
+        await setup();
+        await installPopupEmulation(page);
+        let focusCalls = trackFocusRecovery(page);
+        // Trace install read consumes the first probe; the handler's first read
+        // is still a loss, the raise repairs it, the second read holds.
+        await stubNativeFocus(2);
+        let once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
+        let result = await once(page);
+        assert.deepEqual(result, { status: 'submitted-once' });
+        assert.deepEqual(await page.evaluate(() => dropdownFixture.keys), expectedPopupKeys(5));
+        assert.equal(focusCalls.bringToFront, 1);
+        assert.equal(focusCalls.emulation, 0);
+        untrackFocusRecovery(page);
+        await restorePopupEmulation(page);
+
+        // A genuine loss the raise cannot repair still falls back to focus
+        // emulation and then stops with window-not-focused before any dispatch,
+        // even though the page presents itself as focused throughout.
+        await setup();
+        await installPopupEmulation(page);
+        focusCalls = trackFocusRecovery(page);
+        await stubNativeFocus(null);
+        once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
+        result = await once(page);
+        assert.equal(result.status, 'stopped');
+        assert.equal(result.selectionDiagnostic.guard, 'window-not-focused');
+        assert.equal(result.selectionDiagnostic.keyDispatchesReturned, 0);
+        assert.equal(await page.evaluate(() => document.hasFocus()), true);
+        assert.equal(focusCalls.bringToFront, 1);
+        assert.equal(focusCalls.emulation, 1);
+        untrackFocusRecovery(page);
+        await restorePopupEmulation(page);
+
+        console.log('Always-focused: page presents focused and visible, focus-loss signals blocked, real state stashed, F4 recovery probes the genuine focus.');
+    } finally {
+        if (browser) await browser.close();
+        server.close();
+    }
+})().catch(error => { console.error(error); process.exit(1); });
