@@ -90,6 +90,21 @@ const { installAlwaysFocused } = require('../lib/always-focused');
         assert.equal(delivery.onpagehideRead, null);
         assert.equal(delivery.onvisibilitychangeRead, null);
 
+        // A { once: true } window blur listener counts accepted deliveries,
+        // not suppressed window blurs: a window blur must not consume it, the
+        // first element blur reaches it exactly once, and no second one does.
+        const onceDelivery = await page.evaluate(() => {
+            let calls = 0;
+            const input = document.createElement('input');
+            document.body.appendChild(input);
+            window.addEventListener('blur', () => { calls++; }, { once: true, capture: true });
+            window.dispatchEvent(new Event('blur'));
+            input.dispatchEvent(new Event('blur'));
+            input.dispatchEvent(new Event('blur'));
+            return calls;
+        });
+        assert.equal(onceDelivery, 1);
+
         // A re-install is inert: the guard survives it, the overrides still
         // report focused, and the stash is the same frozen object holding the
         // platform-native probes (a re-stash would bind the already-overridden
