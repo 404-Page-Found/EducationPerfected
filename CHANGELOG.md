@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Lesson dropdowns: the post-F4 native popup check now re-resolves the select through the identity-checked read on every poll instead of trusting the dispatch-time node, so a slide re-render that replaces the select node no longer stops the round as popup-open-unverified. A popup-open refusal now also reports content-free trace facts (whether the F4 keydown was seen or canceled, whether any select read open, page focus and visibility) so the next report names the cause.
+
 - Support relay: a repeat report for a known task pair now refreshes the pair's open GitHub issue on every report (report count, shapes seen, newest app version) instead of only at 10, 100 and 1000 reports, so a retest after a fix is visible on the issue. A closed issue stays closed and untouched until a newer app version reports the pair. Relay redeployed with this change.
 
 - Temporary Alt+I hotkey (Option+I on macOS): on an Assessment page it takes one read-only capture, saved under `~/.educationperfected/assessment-captures`, the same file format and `EP_ASSESSMENT_INSPECT` line as `inspect-assessment`, and never starts or answers anything. Alt+S is unchanged and still refuses Assessments. To be removed after the Assessment inspection. Synthetic coverage only.

@@ -64,6 +64,15 @@ const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restoreP
         assert.deepEqual(await page.evaluate(() => dropdownFixture.keys), expectedPopupKeys(5));
         await restorePopupEmulation(page);
 
+        // A re-render replacing the select right after F4 must not stop the round:
+        // the open check re-resolves the live, identity-verified node.
+        await setup();
+        await installPopupEmulation(page, { replaceOnF4At: 0 });
+        once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
+        result = await once(page);
+        assert.deepEqual(result, { status: 'submitted-once' });
+        await restorePopupEmulation(page);
+
         await setup();
         await installPopupEmulation(page, { neverOpen: true });
         once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
@@ -71,6 +80,9 @@ const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restoreP
         assert.equal(result.status, 'stopped');
         assert.equal(result.selectionDiagnostic.guard, 'popup-open-unverified');
         assert.equal(result.selectionDiagnostic.keyDispatchesReturned, 1);
+        assert.equal(result.diagnostic?.popup?.f4Seen, 1);
+        assert.equal(result.diagnostic?.popup?.f4Prevented, 1);
+        assert.equal(result.diagnostic?.popup?.openSeen, 0);
         await restorePopupEmulation(page);
 
         await setup();
