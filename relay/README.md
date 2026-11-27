@@ -8,7 +8,7 @@ A small Cloudflare Worker (free tier) that turns anonymous app reports into publ
 
 ## What it does
 
-- One issue per `(task_type, reason)` for a four-field report, and per `(task_type, reason, branch)` for a report that also carries the round's shape: the first report creates it (label `task-support`), later reports only raise a counter. Each pair is handled by its own Durable Object, one report at a time, so two reports arriving together cannot file two issues. The issue body is refreshed at 10, 100 and 1000 reports.
+- One issue per `(task_type, reason)` for a four-field report, and per `(task_type, reason, branch)` for a report that also carries the round's shape: the first report creates it (label `task-support`), and every later report refreshes the issue body (report count, shapes, newest app version) so a repeat report is visible. A closed issue is left closed and untouched unless a newer app version reports the pair, which reopens it. Each pair is handled by its own Durable Object, one report at a time, so two reports arriving together cannot file two issues.
 - A report from a newer app version than any seen before checks the issue and reopens it if it was closed.
 - At most 30 GitHub writes a day (`DAILY_WRITE_CAP`), counted in one Durable Object. Past that, reports are still counted.
 - `DISABLED` set to any non-empty value makes the relay do nothing.
