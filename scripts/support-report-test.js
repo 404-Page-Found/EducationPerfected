@@ -1,7 +1,7 @@
 // Fixture coverage for lib/support-report.js: tallies, reason categories only,
 // no free text leakage, and a copyable block. No browser, no network.
 const assert = require('node:assert/strict');
-const { createSupportReport, REASONS, TASK_TYPES, describeUnsupported, isValidDetail, BRANCHES } = require('../lib/support-report');
+const { createSupportReport, REASONS, TASK_TYPES, describeUnsupported, describeHandlerStop, isValidDetail, BRANCHES } = require('../lib/support-report');
 
 const empty = createSupportReport();
 assert.ok(empty.isEmpty());
@@ -111,3 +111,28 @@ assert.equal(Object.keys(many.guard_counts).length, 12);
 const rec = createSupportReport();
 rec.record('unsupported', 'refused', 'unsupported-question', withCounts);
 assert.match(rec.render('stopped'), /guard definitions-select-count \(definitionCount 8, definitions\.byType\.dropdown 3, /);
+
+// A handler stop carries its content-free reason, phase, guard and indexes.
+const stop = describeHandlerStop({ reason: 'unsafe-or-changed-state', selectionDiagnostic: { phase: 'submit-readiness', guard: 'final-state-mismatch', submitState: { visible: true, enabled: false }, dropdownIndex: 1, boxIndex: 2, keyDispatchesReturned: 3, note: 'chien' }, diagnostic: { text: 'hunter2' } }, null);
+assert.equal(stop.branch, 'handler-stop');
+assert.equal(stop.guard, 'final-state-mismatch');
+assert.deepEqual(stop.guard_counts, { 'phase.submitReadiness': 1, 'submitState.visible': 1, 'submitState.enabled': 0, 'reason.unsafeOrChangedState': 1, dropdownIndex: 1, boxIndex: 2, keyDispatchesReturned: 3 });
+assert.ok(isValidDetail(stop));
+assert.equal(describeHandlerStop({ reason: 'What is the answer: chien!' }, null).guard, 'unknown');
+assert.deepEqual(describeHandlerStop({ reason: 'Free Text', selectionDiagnostic: { phase: 'Free text', guard: 'A B' } }, null).guard_counts, {});
+assert.equal(describeHandlerStop(null, null).guard, 'unknown');
+assert.equal(describeHandlerStop({ diagnostic: { guard: 'changed-before-submit', phase: 'submit' } }, null).guard, 'changed-before-submit');
+const stopRep = createSupportReport();
+stopRep.record('dropdown-numberbox', 'refused', 'handler-stopped', stop);
+assert.equal(stopRep.details().length, 1);
+assert.match(stopRep.render('stopped'), /branch handler-stop.*guard final-state-mismatch \(/);
+assert.ok(!/chien|hunter2/.test(stopRep.render('stopped')));
+// Kebab-case free text is not a code: only the fixed list of handler constants gets through.
+assert.equal(describeHandlerStop({ reason: 'answer-chien', diagnostic: { guard: 'what-is-dog', phase: 'the-answer' } }, null).guard, 'unknown');
+assert.deepEqual(describeHandlerStop({ reason: 'answer-chien', diagnostic: { guard: 'what-is-dog', phase: 'the-answer' } }, null).guard_counts, {});
+// With no guard of its own, a valid reason code names the guard.
+assert.equal(describeHandlerStop({ reason: 'inspection-or-dispatch-uncertain' }, null).guard, 'inspection-or-dispatch-uncertain');
+assert.match(stopRep.render('stopped'), /handler stop detail: branch handler-stop/);
+assert.ok(!/unsupported detail/.test(stopRep.render('stopped')));
+for (const guard of ['baseline-changed', 'not-explicit-auto-marked', 'conflicting-activity-marking', 'self-marked-mixed-surfaces', 'self-marked-no-submit']) assert.equal(describeHandlerStop({ diagnostic: { guard } }, null).guard, guard, guard + ' is kept');
+console.log('support-report handler-stop passed');

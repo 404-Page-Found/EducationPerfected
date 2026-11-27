@@ -1,6 +1,6 @@
 // Fixture coverage for lib/support-sender.js with a fake fetch. No network.
 const assert = require('node:assert/strict');
-const { createSupportReport, describeUnsupported } = require('../lib/support-report');
+const { createSupportReport, describeUnsupported, describeHandlerStop } = require('../lib/support-report');
 const { createSupportSender, buildPayload, isEnabled, RELAY_URL } = require('../lib/support-sender');
 
 (async () => {
@@ -73,5 +73,25 @@ const { createSupportSender, buildPayload, isEnabled, RELAY_URL } = require('../
     await createSupportSender({ fetchImpl: async (u, o) => { c4.push(JSON.parse(o.body)); return { ok: true }; }, env, appVersion: '2026.11.27' }).sendRun(r4);
     assert.deepEqual(c4, [{ task_type: 'unsupported', reason: 'unsupported-question', app_version: '2026.11.27', schema: 1 }]);
     assert.equal(Object.keys(buildPayload('unsupported', 'unsupported-question', '2026.11.27', { branch: 'free text' })).length, 4);
+    const stopDetail = describeHandlerStop({ reason: 'unsafe-or-changed-state', diagnostic: { phase: 'submit', guard: 'changed-before-submit' } }, null);
+    const sp = buildPayload('dropdown-numberbox', 'handler-stopped', '2026.11.27', stopDetail);
+    assert.equal(sp.task_type, 'dropdown-numberbox');
+    assert.equal(sp.reason, 'handler-stopped');
+    assert.equal(sp.branch, 'handler-stop');
+    assert.equal(sp.guard, 'changed-before-submit');
+    assert.equal(Object.keys(buildPayload('dropdown-numberbox', 'no-handler', '2026.11.27', stopDetail)).length, 4, 'detail only rides handler-stopped');
+    assert.equal(Object.keys(buildPayload('dropdown-numberbox', 'handler-stopped', '2026.11.27', undefined)).length, 4, 'no detail, plain payload');
+    // sendRun transmits a handler-stop detail once per task type and branch.
+    const stopReport = createSupportReport();
+    stopReport.record('info-slide', 'refused', 'handler-stopped', describeHandlerStop(null, null));
+    stopReport.record('dropdown-numberbox', 'refused', 'handler-stopped', stopDetail);
+    const stopCalls = [];
+    const stopSender = createSupportSender({ fetchImpl: async (url, options) => { stopCalls.push(JSON.parse(options.body)); return { ok: true }; }, env, config: {}, appVersion: '2026.11.27' });
+    assert.equal(await stopSender.sendRun(stopReport), 2);
+    assert.equal(await stopSender.sendRun(stopReport), 0, 'not sent twice');
+    const sentStop = stopCalls.find(c => c.task_type === 'dropdown-numberbox');
+    assert.equal(sentStop.branch, 'handler-stop');
+    assert.equal(sentStop.guard, 'changed-before-submit');
+    assert.equal(stopCalls.find(c => c.task_type === 'info-slide').guard, 'unknown');
     console.log('support-sender-test passed');
 })().catch(e => { console.error(e); process.exitCode = 1; });

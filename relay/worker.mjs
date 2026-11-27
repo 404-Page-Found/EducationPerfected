@@ -22,7 +22,7 @@ export const BRANCHES = [
     'assessment', 'dash', 'unknown-game-mode', 'scope-unreadable', 'no-identity', 'translation-mode',
     'accompanying-component', 'foreign-controls', 'foreign-choice', 'foreign-multiselect', 'foreign-dropdown',
     'foreign-textbox', 'foreign-formula', 'foreign-slide-surfaces', 'multiple-components', 'renderer-association',
-    'missing-metadata', 'generic-slide', 'detection-error', 'guard-refusal', 'other',
+    'missing-metadata', 'generic-slide', 'detection-error', 'guard-refusal', 'handler-stop', 'other',
 ];
 export const GAME_MODES = ['classic', 'assessment', 'lesson', 'unknown'];
 export const COMPONENT_CODES = [
@@ -74,7 +74,10 @@ const okCount = n => Number.isSafeInteger(n) && n >= -1 && n <= MAX_COUNT;
 const known = n => (n < 0 ? 'unknown' : String(n));
 
 function validateDetail(data) {
-    if (data.task_type !== 'unsupported' || data.reason !== 'unsupported-question') return null;
+    const unsupported = data.task_type === 'unsupported' && data.reason === 'unsupported-question';
+    const stopped = data.reason === 'handler-stopped' && data.task_type !== 'unsupported' && data.task_type !== 'unknown' && data.branch === 'handler-stop';
+    if (!unsupported && !stopped) return null;
+    if (unsupported && data.branch === 'handler-stop') return null;
     if (!BRANCHES.includes(data.branch) || !GAME_MODES.includes(data.game_mode)) return null;
     if (!okCount(data.question_type) || !okCount(data.component_count)) return null;
     if (!Array.isArray(data.components) || data.components.length > MAX_COMPONENTS || !data.components.every(c => COMPONENT_CODES.includes(c))) return null;
