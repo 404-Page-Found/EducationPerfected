@@ -89,6 +89,77 @@ const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restoreP
         assert.equal(result.diagnostic?.popup?.focusIndex, 1);
         await restorePopupEmulation(page);
 
+        // EP always takes focus itself before dispatching F4: an unfocused window or
+        // app guest never receives the key (#397). The handler raises the window,
+        // falls back to focus emulation, and only stops (with its own guard, before
+        // any key dispatch) when focus still does not hold, as in this stub. The
+        // tracking wrapper proves which recovery ran instead of trusting the stub.
+        const trackFocusRecovery = () => {
+            const calls = { bringToFront: 0, emulation: 0 };
+            const originalRaise = page.bringToFront.bind(page);
+            page.bringToFront = async () => { calls.bringToFront++; return originalRaise(); };
+            const originalSession = page.createCDPSession.bind(page);
+            page.createCDPSession = async () => {
+                const session = await originalSession();
+                const send = session.send.bind(session);
+                session.send = (method, params) => {
+                    if (method === 'Emulation.setFocusEmulationEnabled' && params?.enabled === true) calls.emulation++;
+                    return send(method, params);
+                };
+                return session;
+            };
+            return calls;
+        };
+        const untrackFocusRecovery = () => { delete page.bringToFront; delete page.createCDPSession; };
+
+        await setup();
+        await installPopupEmulation(page);
+        let focusCalls = trackFocusRecovery();
+        await page.evaluate(() => { document.hasFocus = () => false; });
+        once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
+        result = await once(page);
+        assert.equal(result.status, 'stopped');
+        assert.equal(result.selectionDiagnostic.guard, 'window-not-focused');
+        assert.equal(result.selectionDiagnostic.keyDispatchesReturned, 0);
+        assert.equal(result.diagnostic?.popup?.hasFocus, 0);
+        assert.equal(result.diagnostic?.popup?.focusIndex, 1);
+        assert.deepEqual(await page.evaluate(() => [dropdownFixture.keys.length, dropdownFixture.submits]), [0, 0]);
+        assert.equal(focusCalls.bringToFront, 1);
+        assert.equal(focusCalls.emulation, 1);
+        untrackFocusRecovery();
+        await restorePopupEmulation(page);
+
+        // When focus returns after the window is raised (here: the second hasFocus
+        // read), the round proceeds without emulation. The trace observer's install
+        // read consumes the first false.
+        await setup();
+        await installPopupEmulation(page);
+        focusCalls = trackFocusRecovery();
+        await page.evaluate(() => { let focusReads = 0; document.hasFocus = () => ++focusReads > 2; });
+        once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
+        result = await once(page);
+        assert.deepEqual(result, { status: 'submitted-once' });
+        assert.deepEqual(await page.evaluate(() => dropdownFixture.keys), expectedPopupKeys(5));
+        assert.equal(focusCalls.bringToFront, 1);
+        assert.equal(focusCalls.emulation, 0);
+        untrackFocusRecovery();
+        await restorePopupEmulation(page);
+
+        // When raising the window changes nothing, focus emulation must be sent and
+        // the round then proceeds (here: focus holds from the third read on).
+        await setup();
+        await installPopupEmulation(page);
+        focusCalls = trackFocusRecovery();
+        await page.evaluate(() => { let focusReads = 0; document.hasFocus = () => ++focusReads > 3; });
+        once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
+        result = await once(page);
+        assert.deepEqual(result, { status: 'submitted-once' });
+        assert.deepEqual(await page.evaluate(() => dropdownFixture.keys), expectedPopupKeys(5));
+        assert.equal(focusCalls.bringToFront, 1);
+        assert.equal(focusCalls.emulation, 1);
+        untrackFocusRecovery();
+        await restorePopupEmulation(page);
+
         await setup();
         await installPopupEmulation(page, { commitDuringNavigation: true });
         once = createSubmitDropdownOnce({ detectQuestion, playDropdownRound, inputMode: 'f4-popup' });
@@ -186,7 +257,7 @@ const { expectedPopupChanges, expectedPopupKeys, installPopupEmulation, restoreP
         assert.deepEqual(await page.evaluate(() => [dropdownFixture.submits, dropdownFixture.nexts]), [1, 0]);
         await restorePopupEmulation(page);
 
-        console.log('Dropdown F4 popup PASS: Linux-headless native popup exact path; synthetic popup guards, no navigation commit, unsupported-open, early-close, mid-sequence failure, trace-capacity loss and early-commit stop before Enter/Submit; multi-dropdown questions submit once with no typed approval. Not Windows headful proof.');
+        console.log('Dropdown F4 popup PASS: Linux-headless native popup exact path; synthetic popup guards, no navigation commit, unsupported-open, early-close, mid-sequence failure, trace-capacity loss, unfocused-window stop before dispatch, refocus retry and focus-emulation fallback, and early-commit stop before Enter/Submit; multi-dropdown questions submit once with no typed approval. Not Windows headful proof.');
     } finally {
         if (browser) await browser.close();
         await new Promise(resolve => server.close(resolve));
