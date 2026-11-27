@@ -2025,10 +2025,9 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 else if (!TOGGLE) supportReport.record(descriptor.kind, 'skipped', 'stopped-by-user');
                 else {
                     // A stopped round handler leaves its content-free reason, phase and guard; probe the page's shape too.
+                    // Handlers that leave no stop info (info slides, typed rounds) still report the page's shape with guard unknown.
                     let stopDetail;
-                    if (lastStop) {
-                        try { stopDetail = describeHandlerStop(lastStop, await readUnsupportedShape(page)); } catch { stopDetail = describeHandlerStop(lastStop, null); }
-                    }
+                    try { stopDetail = describeHandlerStop(lastStop, await readUnsupportedShape(page)); } catch { stopDetail = describeHandlerStop(lastStop, null); }
                     supportReport.record(descriptor.kind, 'refused', 'handler-stopped', stopDetail);
                 }
                 return played;

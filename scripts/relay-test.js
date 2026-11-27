@@ -174,6 +174,7 @@ const byName = (a, b) => a.localeCompare(b);
     const stopBody = (over = {}) => detail({ task_type: 'dropdown-numberbox', reason: 'handler-stopped', branch: 'handler-stop', guard: 'changed-before-submit', guard_counts: { 'phase.submit': 1 }, ...over });
     const stopOk = validate(stopBody());
     assert.ok(stopOk && stopOk.detail.branch === 'handler-stop' && stopOk.task_type === 'dropdown-numberbox');
+    for (const task_type of TASK_TYPES.filter(t => t !== 'unsupported' && t !== 'unknown')) assert.ok(validate(stopBody({ task_type })), 'stop accepted for ' + task_type);
     for (const over of [{ branch: 'other' }, { reason: 'no-handler' }, { task_type: 'unsupported' }, { task_type: 'unknown' }, { task_type: 'What is dog' }]) assert.equal(validate(stopBody(over)), null, 'rejected stop ' + JSON.stringify(over));
     assert.equal(validate(detail({ branch: 'handler-stop' })), null, 'unsupported rounds cannot use the stop branch');
     assert.equal(validate(detail({ guard: 'ok-guard' })), null, 'guard needs its counts');
