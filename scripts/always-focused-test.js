@@ -105,6 +105,48 @@ const { installAlwaysFocused } = require('../lib/always-focused');
         });
         assert.equal(onceDelivery, 1);
 
+        // Registration semantics survive the wrapper: a repeat registration of
+        // the same callback with the same capture value is a native no-op, and
+        // removal with that capture value detaches it. The same callback used
+        // for a non-wrapped type removes its own registration, not the wrapper.
+        const semantics = await page.evaluate(() => {
+            const out = { elementBlurs: 0, keyups: 0 };
+            const handler = event => { if (event.type === 'blur') out.elementBlurs++; else out.keyups++; };
+            const input = document.createElement('input');
+            document.body.appendChild(input);
+            window.addEventListener('blur', handler, true);
+            window.addEventListener('blur', handler, true);
+            document.addEventListener('keyup', handler);
+            input.dispatchEvent(new Event('blur'));
+            const afterRepeat = out.elementBlurs;
+            document.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
+            const keyupsBeforeRemove = out.keyups;
+            // Removing the keyup registration must not detach the blur wrapper
+            // (same callback), and must actually detach the keyup listener.
+            document.removeEventListener('keyup', handler);
+            document.dispatchEvent(new KeyboardEvent('keyup', { key: 'x' }));
+            const keyupsAfterRemove = out.keyups;
+            input.dispatchEvent(new Event('blur'));
+            const blursAfterKeyupRemove = out.elementBlurs;
+            window.removeEventListener('blur', handler, true);
+            input.dispatchEvent(new Event('blur'));
+            return { afterRepeat, keyupsBeforeRemove, keyupsAfterRemove, blursAfterKeyupRemove, afterRemove: out.elementBlurs };
+        });
+        assert.deepEqual(semantics, { afterRepeat: 1, keyupsBeforeRemove: 1, keyupsAfterRemove: 1, blursAfterKeyupRemove: 2, afterRemove: 2 });
+
+        // The body/frameset on* aliases write the window handler map directly,
+        // so they are swallowed on their prototypes: assignments do nothing,
+        // reads report no handler, and window focus-loss events stay unseen.
+        const alias = await page.evaluate(() => {
+            let bodyBlur = 0, bodyPagehide = 0;
+            document.body.onblur = () => { bodyBlur++; };
+            document.body.onpagehide = () => { bodyPagehide++; };
+            window.dispatchEvent(new Event('blur'));
+            window.dispatchEvent(new Event('pagehide'));
+            return { bodyBlur, bodyPagehide, blurRead: document.body.onblur, pagehideRead: document.body.onpagehide };
+        });
+        assert.deepEqual(alias, { bodyBlur: 0, bodyPagehide: 0, blurRead: null, pagehideRead: null });
+
         // A re-install is inert: the guard survives it, the overrides still
         // report focused, and the stash is the same frozen object holding the
         // platform-native probes (a re-stash would bind the already-overridden
