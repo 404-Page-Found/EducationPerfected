@@ -7,7 +7,7 @@ const fs = require('node:fs'), path = require('node:path');
 function psLiteral(value) {
     if (typeof value !== 'string' || !value) throw new Error('Uninstall helper paths must be non-empty strings');
     if (/[\r\n]/.test(value)) throw new Error('Uninstall helper paths must not contain newlines');
-    return "'" + value.replace(/'/g, "''") + "'";
+    return "'" + value.replaceAll("'", "''") + "'";
 }
 
 function psArray(values) {

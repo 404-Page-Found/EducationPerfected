@@ -53,7 +53,7 @@ try {
     try {
       $previousRecord = Get-Content -Raw -LiteralPath $recordPath | ConvertFrom-Json
       if ($previousRecord.method -eq 'install-ps1' -and @($previousRecord.pathEntries) -contains $dest) { $recordedPathEntries = @($dest) }
-    } catch {}
+    } catch { Write-Verbose 'Ignoring an unreadable earlier install record.' }
   }
   [ordered]@{ version = 1; method = 'install-ps1'; files = @($exePath, $recordPath); pathEntries = $recordedPathEntries } | ConvertTo-Json -Compress | Set-Content -Path $recordPath -Encoding ascii
   Write-Host "Verified and installed to $dest"

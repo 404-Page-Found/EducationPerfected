@@ -14,9 +14,9 @@ function installDropdownFixture(count=5,variant){
     const splitTemplate=template=>{
         const out=[];let textStart=0,i=0;const n=template.length;
         while(i<n){
-            if(template.charCodeAt(i)!==123){i++;continue;}
+            if(template.codePointAt(i)!==123){i++;continue;}
             let j=i+1;
-            while(j<n&&template.charCodeAt(j)!==125)j++;
+            while(j<n&&template.codePointAt(j)!==125)j++;
             if(j>=n||j===i+1){i++;continue;}
             out.push(template.slice(textStart,i));
             out.push(template.slice(i,j+1));
@@ -36,7 +36,7 @@ function installDropdownFixture(count=5,variant){
     document.querySelector('#question-container-group').textContent=count===1?'Synthetic dropdown formula: choose one answer.':'Synthetic dropdown formula: choose five answers.';
     const diagram=document.createElement('img');diagram.alt='Synthetic static circle diagram';diagram.src='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><circle cx="50" cy="50" r="40" fill="lightblue"/></svg>');group.append(diagram,document.createElement('br'));
     for(const [i,answer]of ['Radius','Circumference','Circumference','2','Radius'].slice(0,count).entries()){
-        const id='dropdown-'+i,variable=variant==='variables',resolve=s=>variable?s.split('{n}').join('42'):s;
+        const id='dropdown-'+i,variable=variant==='variables',resolve=s=>variable?s.replaceAll('{n}','42'):s;
         const options=variable?[{Description:'{n} wrong',Correct:'false',Validity:'true',SortOrder:0},{Description:'{n} right',Correct:'true',Validity:'true',SortOrder:1}]:[{Description:'wrong',Correct:'false',Validity:'true',SortOrder:0},{Description:answer,Correct:'true',Validity:'true',SortOrder:1}];
         const def={ComponentTypeCode:'DROPDOWN_COMPONENT',ComponentID:id,Marked:1,Options:JSON.parse(JSON.stringify(options)),DefaultSelection:{Description:'',Correct:'false',Validity:'true',SortOrder:0}};
         q.questionDef.Components.unshift(def);const metadata=JSON.parse(JSON.stringify(def));

@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm');
 const {navigationCause,recordNavigationFailure} = require('../lib/test-navigation-cause');
 (async () => {
- const source=fs.readFileSync(require.resolve('../index'),'utf8').replace(/\r\n/g,'\n');
+ const source=fs.readFileSync(require.resolve('../index'),'utf8').replaceAll('\r\n','\n');
  const navigation=source.slice(source.indexOf('                const navigationStartedAt = TEST_BOOT ? Date.now() : null;'),source.indexOf("                console.log('Waiting for login page to load...');"));
  assert.ok(navigation.includes('throw error;'));
  assert.equal((navigation.match(/await /g)||[]).length,1,'One awaited policy call before readiness');

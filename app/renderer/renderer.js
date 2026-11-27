@@ -183,6 +183,7 @@ function renderMain(state) {
         $(id).disabled = settingsBusy || pending || typeof enabled !== 'boolean';
         if (!pending) $(id).checked = enabled === true;
         $(id + '-value').textContent = $(id).checked ? 'On' : 'Off';
+        $(id).setAttribute('aria-checked', String($(id).checked));
     }
     // Don't clobber an unapplied mode choice with the one-second poll.
     if (status && status.mode && document.activeElement !== $('mode')) $('mode').value = status.mode;
@@ -304,11 +305,13 @@ async function toggleSetting(id) {
     const enabled = $(id).checked;
     $(id).disabled = true;
     $(id + '-value').textContent = enabled ? 'On' : 'Off';
+    $(id).setAttribute('aria-checked', String(enabled));
     showMessage('', false);
     try {
         await api.action(id, enabled ? 'on' : 'off');
     } catch (error) {
         $(id).checked = status[stateKey]?.enabled === true;
+        $(id).setAttribute('aria-checked', String($(id).checked));
         showMessage(String(error?.message || error), true);
     } finally {
         pendingSettings.delete(id);

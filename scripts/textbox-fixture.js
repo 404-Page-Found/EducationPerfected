@@ -32,7 +32,7 @@ function installInputBoxFixture(config) {
         }
         return parts;
     };
-    const isExpressionPart = part => part.length > 2 && part.charCodeAt(0) === 123 && part.charCodeAt(part.length - 1) === 125 && part.indexOf('}', 1) === part.length - 1;
+    const isExpressionPart = part => part.length > 2 && part.codePointAt(0) === 123 && part.codePointAt(part.length - 1) === 125 && part.indexOf('}', 1) === part.length - 1;
     const injectorFrom = template => ({ parts: splitTemplate(template).map(part => isExpressionPart(part) ? { temporaryVariable: { expression: part.slice(1, -1) } } : { text: part }) });
     const old = document.querySelector('.multi-choice-component');
     const self = window.angular.element(old).scope().self, q = self.model._currentQuestion;
