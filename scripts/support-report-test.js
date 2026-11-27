@@ -134,4 +134,5 @@ assert.deepEqual(describeHandlerStop({ reason: 'answer-chien', diagnostic: { gua
 assert.equal(describeHandlerStop({ reason: 'inspection-or-dispatch-uncertain' }, null).guard, 'inspection-or-dispatch-uncertain');
 assert.match(stopRep.render('stopped'), /handler stop detail: branch handler-stop/);
 assert.ok(!/unsupported detail/.test(stopRep.render('stopped')));
+for (const guard of ['baseline-changed', 'not-explicit-auto-marked', 'conflicting-activity-marking', 'self-marked-mixed-surfaces', 'self-marked-no-submit']) assert.equal(describeHandlerStop({ diagnostic: { guard } }, null).guard, guard, guard + ' is kept');
 console.log('support-report handler-stop passed');
