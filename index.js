@@ -196,28 +196,36 @@ function promptSecret(label, cleaner) {
         // range, so without the explicit introducer step the parser would end on it and
         // feed the rest back as input ("A" from an arrow key, "200~" from a paste).
         let escapeKind = null;  // null | 'introducer' | 'csi' | 'osc' | 'oscEsc'
+        const introducerNext = { 0x5B: 'csi', 0x5D: 'osc' };  // '[' starts CSI, ']' starts OSC
+        // True when the byte belongs to an in-progress escape sequence.
+        const consumeEscapeByte = byte => {
+            if (escapeKind === null) return false;
+            if (escapeKind === 'introducer') {
+                escapeKind = introducerNext[byte] ?? null;  // two-byte sequence (Alt+key) is complete otherwise
+                return true;
+            }
+            if (escapeKind === 'osc') {
+                if (byte === 0x07) escapeKind = null;          // BEL terminates OSC
+                else if (byte === 0x1B) escapeKind = 'oscEsc';  // maybe ST (ESC \)
+                return true;
+            }
+            if (escapeKind === 'oscEsc') {
+                escapeKind = null;  // ST if '\', otherwise the sequence just ended
+                return true;
+            }
+            // csi: ends on a final byte; parameters are 0x30-0x3F, intermediates 0x20-0x2F
+            if (byte >= 0x40 && byte <= 0x7E) escapeKind = null;
+            return true;
+        };
+        const backspace = () => {
+            // drop one whole UTF-8 character (continuation bytes, then the lead byte)
+            while (bytes.length && (bytes.at(-1) & 0xC0) === 0x80) bytes.pop();
+            bytes.pop();
+            echo('\b \b');   // erase the echoed character
+        };
         const onData = chunk => {
             for (const byte of chunk) {
-                if (escapeKind !== null) {
-                    if (escapeKind === 'introducer') {
-                        if (byte === 0x5B /* [ */) escapeKind = 'csi';
-                        else if (byte === 0x5D /* ] */) escapeKind = 'osc';
-                        else escapeKind = null;  // two-byte sequence (Alt+key) is complete
-                        continue;
-                    }
-                    if (escapeKind === 'osc') {
-                        if (byte === 0x07) escapeKind = null;          // BEL terminates OSC
-                        else if (byte === 0x1B) escapeKind = 'oscEsc';  // maybe ST (ESC \)
-                        continue;
-                    }
-                    if (escapeKind === 'oscEsc') {
-                        escapeKind = null;  // ST if '\', otherwise the sequence just ended
-                        continue;
-                    }
-                    // csi: ends on a final byte; parameters are 0x30-0x3F, intermediates 0x20-0x2F
-                    if (byte >= 0x40 && byte <= 0x7E) escapeKind = null;
-                    continue;
-                }
+                if (consumeEscapeByte(byte)) continue;
                 if (byte === 0x1B) {  // ESC: start of escape sequence
                     escapeKind = 'introducer';
                     continue;
@@ -228,12 +236,8 @@ function promptSecret(label, cleaner) {
                     if (process.listenerCount('SIGINT')) process.emit('SIGINT');
                     else process.exit(130);
                 }
-                if (byte === 8 || byte === 127) {
-                    // drop one whole UTF-8 character (continuation bytes, then the lead byte)
-                    while (bytes.length && (bytes.at(-1) & 0xC0) === 0x80) bytes.pop();
-                    bytes.pop();
-                    echo('\b \b');   // erase the echoed character
-                } else if (byte >= 32) {
+                if (byte === 8 || byte === 127) backspace();
+                else if (byte >= 32) {
                     bytes.push(byte);
                     echo(Buffer.from([byte]));   // visible while typing
                 }
