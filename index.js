@@ -1603,30 +1603,40 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
  */
             async function enterAnswer(answer, allowed = async () => (await detectQuestion(page))?.kind === 'text') {
                 const delays = [TYPE_DELAY_MS, TYPE_DELAY_MS * 3, TYPE_DELAY_MS * 8];
-                for (const delay of delays) {
-                    if (!await allowed()) { TOGGLE = false; console.error('Answer context changed; stopping before further input.'); return false; }
+                const contextLost = () => { TOGGLE = false; console.error('Answer context changed; stopping before further input.'); return false; };
+                const typeAnswer = async delay => {
+                    for (const character of answer) {
+                        if (!TOGGLE) return false;
+                        if (!await allowed()) return contextLost();
+                        await page.keyboard.type(character, { delay });
+                    }
+                    return true;
+                };
+                const attempt = async delay => {
                     if (!await clearAnswerBox(allowed)) {
                         // Never type into an uncleared box: EP-restored text would combine
                         // with the fresh keystrokes. A vanished box is a round transition
                         // (the caller re-reads it); otherwise clear again on the next attempt.
-                        if (await answerBoxValue() === null) return false;
-                        continue;
+                        return await answerBoxValue() === null ? { done: false } : { retry: true };
                     }
-                    if (!TOGGLE) return false;
+                    if (!TOGGLE) return { done: false };
 
-                    for (const character of answer) {
-                        if (!TOGGLE) return false;
-                        if (!await allowed()) { TOGGLE = false; console.error('Answer context changed; stopping before further input.'); return false; }
-                        await page.keyboard.type(character, { delay });
-                    }
-                    if (!TOGGLE) return false;
+                    if (!await typeAnswer(delay)) return { done: false };
+                    if (!TOGGLE) return { done: false };
                     const typed = await readSettledBox(answer);
                     if (boxMatchesAnswer(answer, typed)) {
                         if (typed !== answer) console.log(`Answer box holds EP-normalized punctuation; expected "${answer}", got "${typed}". Submitting as-is.`);
-                        return true;
+                        return { done: true };
                     }
-                    if (typed === null) return false; // box vanished mid-attempt (round transition)
+                    if (typed === null) return { done: false }; // box vanished mid-attempt (round transition)
                     console.log(`Answer box mismatch; expected "${answer}", got "${typed}". Retrying.`);
+                    return { retry: true };
+                };
+                for (const delay of delays) {
+                    if (!await allowed()) return contextLost();
+                    const outcome = await attempt(delay);
+                    if (outcome.retry) continue;
+                    return outcome.done;
                 }
                 throw new Error(`Could not enter answer "${answer}" (box contains "${await answerBoxValue()}").`);
             }
