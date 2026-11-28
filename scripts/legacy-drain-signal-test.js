@@ -14,6 +14,7 @@ const { createServer } = require('./mock-ep');
 const { cleanupTestProcess } = require('./test-process-cleanup');
 if (process.env.EP_DRAIN_PRELOAD === '1') {
     const Module = require('node:module'), load = Module._load;
+    const drainDelay = () => process.env.EP_DRAIN_HANG === '1' ? new Promise(() => {}) : new Promise(resolve => setTimeout(resolve, 4500));
     Module._load = function(id, ...args) {
         const value = load.call(this, id, ...args);
         if (id !== 'puppeteer') return value;
@@ -29,7 +30,7 @@ if (process.env.EP_DRAIN_PRELOAD === '1') {
                         if (!delayed && selector === 'div[uib-modal-window=modal-window]') {
                             delayed = true;
                             console.log('DRAIN_DELAY_ENTERED');
-                            await (process.env.EP_DRAIN_HANG === '1' ? new Promise(() => {}) : new Promise(resolve => setTimeout(resolve, 4500)));
+                            await drainDelay();
                             console.log('DRAIN_DELAY_FINISHED');
                         }
                         return evaluate(selector, ...args);
