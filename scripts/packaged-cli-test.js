@@ -27,7 +27,7 @@ async function runPackagedFixture({directDownload=false}={}) {
     for (const entry of fs.readdirSync(directory, {withFileTypes:true})) {
      if (inventory.length >= 20) return;
      const name = path.join(relative, entry.name);
-     inventory.push({name, type:entry.isSymbolicLink()?'symlink':entry.isDirectory()?'directory':'file'});
+     inventory.push({name, type:(entry.isSymbolicLink()?'symlink':'')||(entry.isDirectory()?'directory':'file')});
      if (entry.isDirectory() && !entry.isSymbolicLink()) inspect(path.join(directory,entry.name),name);
     }
    };

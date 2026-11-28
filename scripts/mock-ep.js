@@ -957,7 +957,7 @@ function createServer() {
                 { id: 'box-5', answer: '0.25', definition: { RoundingTypeCode: 'DP', RoundingAmount: 2 } },
                 { id: 'box-6', answer: '88' },
             ] : null;
-            return send(lessonPage(false).replace('</body></html>', `<script>(${installDropdownNumberBoxFixture.toString()})(${JSON.stringify(variant.endsWith('unmarked') ? 'unmarked' : variant.endsWith('delayed') ? 'delayed' : '')},${JSON.stringify(numberBoxDefinition)},${JSON.stringify(textBoxItem)},${JSON.stringify(dropdownAnswers)},${JSON.stringify(numberBoxItems)});</script></body></html>`));
+            return send(lessonPage(false).replace('</body></html>', `<script>(${installDropdownNumberBoxFixture.toString()})(${JSON.stringify(['unmarked', 'delayed'].find(mode => variant.endsWith(mode)) ?? '')},${JSON.stringify(numberBoxDefinition)},${JSON.stringify(textBoxItem)},${JSON.stringify(dropdownAnswers)},${JSON.stringify(numberBoxItems)});</script></body></html>`));
         }
         if (url.pathname === '/lesson-reflection') {
             const variant = url.searchParams.get('variant') === 'unmarked' ? 'unmarked' : '';
@@ -1000,7 +1000,7 @@ function createServer() {
         // captured absent shape, so every one of these must stop unanswered
         if (url.pathname === '/audio-malformed') {
             const sd = url.searchParams.get('sd') || 'object';
-            const snippet = sd === 'null' ? ', sectionData: null' : sd === 'number' ? ', sectionData: 0' : ', sectionData: {}';
+            const snippet = { null: ', sectionData: null', number: ', sectionData: 0' }[sd] ?? ', sectionData: {}';
             return send(audioRejectPage(LIST_SELF_TEST_VALUE, snippet));
         }
         res.writeHead(404, { 'content-type': 'text/plain' });

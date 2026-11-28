@@ -9,6 +9,6 @@ function sandboxSetup(executablePath,run=require('node:child_process').spawnSync
  if(result.error)return{state:result.error.code==='ETIMEDOUT'?'timeout':'spawn-error',exitCode:null};
  const exitCode=Number.isInteger(result.status)&&result.status>=0&&result.status<=65535?result.status:null;
  // Chrome156 installer defines 78=CONFIGURE_APP_CONTAINER_SANDBOX_SUCCESS, 79=FAILED.
- return{state:exitCode===78?'configured':exitCode===79?'configuration-failed':'other-exit',exitCode};
+ return{state:({78:'configured',79:'configuration-failed'})[exitCode]??'other-exit',exitCode};
 }
 module.exports={sandboxSetup};
