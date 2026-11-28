@@ -43,23 +43,68 @@ async function prepareEmbeddedBrowser(dir,manifest){
         require('../lib/test-browser-identity').emitBrowserIdentity(manifest);
     }
 }
-async function main() {
-    const parsed = require('../lib/cli-command').parseCommand(process.argv.slice(2));
-    if (parsed.error) { console.error(parsed.error); process.exitCode=1; return; }
-    if (parsed.command === 'help') { console.log(require('../lib/cli-command').helpText()); return; }
-    if (parsed.command === 'version') { console.log(require('../package.json').version); return; }
+async function runSimpleCommand(parsed) {
+    if (parsed.command === 'help') { console.log(require('../lib/cli-command').helpText()); return true; }
+    if (parsed.command === 'version') { console.log(require('../package.json').version); return true; }
     if (parsed.command === 'accuracy-status') {
         // Read-only report: never unpacks the runtime or launches the browser.
         try { console.log(require('../lib/cli-command').accuracyStatusText(process.env)); }
         catch (error) { console.error(String(error && error.message ? error.message : error)); process.exitCode = 1; }
-        return;
+        return true;
     }
     if (parsed.command === 'update') {
         // Update failures are reported as update failures, never as startup failures.
         try { await require('./update').updateCommand({executable:process.execPath}); }
         catch (error) { console.error(require('../lib/diagnostics').diagnostic(error, 'Update')); process.exitCode = 1; }
-        return;
+        return true;
     }
+    return false;
+}
+async function runUninstall(runtime, dir, windowsBinding) {
+    const result=await require('./uninstall').uninstallCommand({store:require('../lib/credential-store').createCredentialStore(),ownDirectory:dir,cleanupOwn:async()=>{
+        if(windowsBinding?.hasLiveWorkers())throw new Error('Credential worker closure unconfirmed');
+        runtime.remove(true);
+    }});
+    if(result.incomplete)process.exitCode ||= 1;
+    // The helper now owns removal and is waiting for this exact PID.
+    // A real-console stdin handle must not leave it waiting forever.
+    // The finally below still runs before the exit is requested.
+    return { exitAfterHandoff: require('./maintenance-exit').shouldExitAfterWindowsUninstall(result, {
+        hasLiveWorkers: windowsBinding?.hasLiveWorkers() || false,
+    }) };
+}
+async function runSetupOrCredential(parsed) {
+    try {
+    if (parsed.command === 'setup') {
+        if (parsed.browserOnly) {
+            // Install-time variant: the OS installer presented the
+            // notice, so consent is implied and no login prompt runs.
+            console.log(require('./download-browser').downloadNotice());
+            await require('./download-browser').ensureBrowser({ consent: async () => true });
+            console.log('Browser ready. Save a login from the app, or run: educationperfected setup');
+        } else {
+            await require('./download-browser').ensureBrowser();
+            console.log('Browser ready. Saving a login is optional; leave email empty to skip.');
+            await require('../bin/cli').credentialCommand('--setup');
+        }
+    } else {
+        await require('../bin/cli').credentialCommand('--'+parsed.command);
+    }
+    } catch { console.error('Setup/credential command failed; no plaintext fallback.'); process.exitCode ||= 1; }
+}
+async function prepareBrowser(dir, manifest) {
+    if(manifest.browserMode==='direct-google-download') {
+        if(manifest.browserVersion!==require('./browser-downloads.json').version)throw new Error('Browser download pin mismatch');
+        process.env.PUPPETEER_BROWSER='chrome';
+        process.env.PUPPETEER_EXECUTABLE_PATH=await require('./download-browser').ensureBrowser();
+    } else {
+        await prepareEmbeddedBrowser(dir,manifest);
+    }
+}
+async function main() {
+    const parsed = require('../lib/cli-command').parseCommand(process.argv.slice(2));
+    if (parsed.error) { console.error(parsed.error); process.exitCode=1; return; }
+    if (await runSimpleCommand(parsed)) return;
     const runtime = require('../lib/runtime-directory').createRuntimeDirectory();
     const dir = runtime.directory;
     // Puppeteer creates its per-launch profile beneath this owned run directory.
@@ -85,46 +130,14 @@ async function main() {
             : createRequire(process.execPath)(file));
         if (parsed.command === 'uninstall') {
             handoffSignals();
-            const result=await require('./uninstall').uninstallCommand({store:require('../lib/credential-store').createCredentialStore(),ownDirectory:dir,cleanupOwn:async()=>{
-                if(windowsBinding?.hasLiveWorkers())throw new Error('Credential worker closure unconfirmed');
-                runtime.remove(true);
-            }});
-            if(result.incomplete)process.exitCode ||= 1;
-            // The helper now owns removal and is waiting for this exact PID.
-            // A real-console stdin handle must not leave it waiting forever.
-            // The finally below still runs before the exit is requested.
-            return { exitAfterHandoff: require('./maintenance-exit').shouldExitAfterWindowsUninstall(result, {
-                hasLiveWorkers: windowsBinding?.hasLiveWorkers() || false,
-            }) };
+            return await runUninstall(runtime, dir, windowsBinding);
         }
         if (['setup','forget-credentials','check-credentials'].includes(parsed.command)) {
             handoffSignals();
-            try {
-                if (parsed.command === 'setup') {
-                    if (parsed.browserOnly) {
-                        // Install-time variant: the OS installer presented the
-                        // notice, so consent is implied and no login prompt runs.
-                        console.log(require('./download-browser').downloadNotice());
-                        await require('./download-browser').ensureBrowser({ consent: async () => true });
-                        console.log('Browser ready. Save a login from the app, or run: educationperfected setup');
-                    } else {
-                        await require('./download-browser').ensureBrowser();
-                        console.log('Browser ready. Saving a login is optional; leave email empty to skip.');
-                        await require('../bin/cli').credentialCommand('--setup');
-                    }
-                } else {
-                    await require('../bin/cli').credentialCommand('--'+parsed.command);
-                }
-            } catch { console.error('Setup/credential command failed; no plaintext fallback.'); process.exitCode ||= 1; }
+            await runSetupOrCredential(parsed);
             return;
         }
-        if(manifest.browserMode==='direct-google-download') {
-            if(manifest.browserVersion!==require('./browser-downloads.json').version)throw new Error('Browser download pin mismatch');
-            process.env.PUPPETEER_BROWSER='chrome';
-            process.env.PUPPETEER_EXECUTABLE_PATH=await require('./download-browser').ensureBrowser();
-        } else {
-            await prepareEmbeddedBrowser(dir,manifest);
-        }
+        await prepareBrowser(dir, manifest);
         handoffSignals();
         browserCleanupConfirmed = false;
         await require('../bin/cli').runCli({onBrowserClosed:()=>{browserCleanupConfirmed=true;},accuracy:parsed.accuracy||{}});
