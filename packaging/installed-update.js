@@ -5,6 +5,9 @@ const fs = require('node:fs'), path = require('node:path');
 const appUpdate = require('./app-update');
 const update = require('./update');
 
+function upToDateMessage(plan, currentVersion) {
+    return plan.latest ? 'Already up to date (version ' + currentVersion + ').' : 'No stable release found; nothing to update to.';
+}
 async function updateWindowsInstall({ executable, currentVersion, arch, input, output, fetchImpl, confirm, spawnDetached }) {
     const write = line => output.write(line + '\n');
     const receipt = executable + '.update-result';
@@ -20,7 +23,7 @@ async function updateWindowsInstall({ executable, currentVersion, arch, input, o
     if (!plan.newer) {
         write(repair
             ? 'The desktop app is missing, but no same-or-newer stable installer is available. Install a compatible Windows setup release to repair it; no downgrade was performed.'
-            : plan.latest ? 'Already up to date (version ' + currentVersion + ').' : 'No stable release found; nothing to update to.');
+            : upToDateMessage(plan, currentVersion));
         return { status: repair ? 'desktop-missing' : 'up-to-date' };
     }
     plan.currentVersion = currentVersion;

@@ -57,6 +57,19 @@ const { DASH_TIMER_CSS, DASH_SCORE_CSS, DASH_RESULTS_CSS, DASH_PACING_NOTE, DASH
 // sign in manually in the browser window.
 const CREDENTIAL_SERVICE = 'EducationPerfected';
 
+const ROUND_LABELS = { textbox: 'textbox', numberbox: 'number-box', 'dropdown-numberbox': 'dropdown+number-box', reflection: 'reflection' };
+const SIGNAL_EXIT_CODES = { SIGINT: 130, SIGHUP: 129 };
+function captureLocationNote(captured) {
+    if (captured.file) return ' Saved to ' + captured.file + '.';
+    if (captured.fileError) return ' The capture file could not be written (' + captured.fileError + ').';
+    return '';
+}
+function completionMessage(completion) {
+    if (completion.clicked) return 'Clicked the task exit/continue button.';
+    if (completion.resultsVisible) return 'Dash results interstitial confirms sprint completion; no exit control to click.';
+    return 'The completion controls vanished; stopping the run.';
+}
+
 /**
  * Strips surrounding quotes and normalizes whitespace for credential-like values.
  * Returns null for empty/placeholder values.
@@ -543,7 +556,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
     // to credential prompts; do not create the CLI reader during sign-in.
     let startupBrowser;
     let startupSignal = null;
-    const exitCodeFor = signal => signal === 'SIGINT' ? 130 : signal === 'SIGHUP' ? 129 : 143;
+    const exitCodeFor = signal => SIGNAL_EXIT_CODES[signal] ?? 143;
     let startupShutdown = null;
     let legacyReady = false;
     const closeSignalBrowser = async () => {
@@ -2234,7 +2247,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         }
                         if ((again.kind === 'textbox' || again.kind === 'numberbox' || again.kind === 'dropdown-numberbox' || again.kind === 'slide-surfaces' || again.kind === 'reflection' || again.kind === 'workingformula') && result.diagnostic) console.error('Unsupported question diagnostic ' + JSON.stringify(result.diagnostic));
                     }
-                    const roundLabel = descriptor.kind === 'textbox' ? 'textbox' : descriptor.kind === 'numberbox' ? 'number-box' : descriptor.kind === 'dropdown-numberbox' ? 'dropdown+number-box' : descriptor.kind === 'reflection' ? 'reflection' : 'selection';
+                    const roundLabel = ROUND_LABELS[descriptor.kind] ?? 'selection';
                     return await mapRoundOutcome(result, again, modalBaseline, 'Selection', roundLabel, ' The submission may or may not have been accepted.');
                     }finally{if(modalBaseline)await modalBaseline.dispose().catch(()=>{});}
                 }
@@ -2501,7 +2514,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                                     return { clicked: true, resultsVisible: shown(resultsCss) };
                                 }, DIR.exit_button_css, DIR.exit_continue_button_css, DIR.dash_results_css).catch(() => ({ clicked: false, resultsVisible: false }));
                                 if (proven && TOGGLE && (completion.clicked || completion.resultsVisible)) runReason = 'completed';
-                                console.log(completion.clicked ? 'Clicked the task exit/continue button.' : (completion.resultsVisible ? 'Dash results interstitial confirms sprint completion; no exit control to click.' : 'The completion controls vanished; stopping the run.'));
+                                console.log(completionMessage(completion));
                             }
                             console.log(`Answer loop stopping: question element gone (complete=${complete}, reason=${runReason}).`);
                             break;
@@ -2985,7 +2998,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 try { captured = await controls.exclusive(async () => { capturingAssessment = true; try { return await captureAssessment(page, { dir }); } finally { capturingAssessment = false; } }); }
                 catch { await notifyControl('Stop the run before an Assessment capture.'); return; }
                 if (captured?.guard === 'captured') {
-                    const where = captured.file ? ' Saved to ' + captured.file + '.' : captured.fileError ? ' The capture file could not be written (' + captured.fileError + ').' : '';
+                    const where = captureLocationNote(captured);
                     console.log('EP_ASSESSMENT_INSPECT ' + JSON.stringify(captured));
                     await notifyControl('Assessment captured (read-only); nothing was answered.' + where);
                 } else await notifyControl('Not an Assessment page (or unreadable); nothing captured.');
@@ -3104,7 +3117,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
             };
             const validationOnly = gapsFillOnly || choiceSelectOnly || gapsSubmitOnce || textboxFillOnly || dropdownSubmitOnce || multiSelectOnly;
             const controls = createRunControls({
-                run: multiSelectOnly ? runMultiSelectOnly : dropdownSubmitOnce ? runDropdownSubmitOnce : textboxFillOnly ? runTextboxFillOnly : choiceSelectOnly ? runSelectOnly : (gapsFillOnly || gapsSubmitOnce) ? runFillOnly : startLoop,
+                run: [[multiSelectOnly, runMultiSelectOnly], [dropdownSubmitOnce, runDropdownSubmitOnce], [textboxFillOnly, runTextboxFillOnly], [choiceSelectOnly, runSelectOnly], [gapsFillOnly || gapsSubmitOnce, runFillOnly]].find(([on]) => on)?.[1] ?? startLoop,
                 requestStop: () => { TOGGLE = false; cancelReflectionRequests(); },
                 setMode: value => { ENTER = value === 'auto'; },
                 refresh: refreshWords,
