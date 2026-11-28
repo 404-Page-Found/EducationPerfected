@@ -66,9 +66,9 @@ const { createRunControls } = require('../lib/run-controls');
     assert.doesNotMatch(diagnostic(new Error('A page says sandbox in ordinary content')), /operating-system policy/);
 
     const { windowsTaskkillPath } = require('./test-process-cleanup');
-    assert.equal(windowsTaskkillPath('C:\\Windows'), 'C:\\Windows\\System32\\taskkill.exe');
+    assert.equal(windowsTaskkillPath(String.raw`C:\Windows`), String.raw`C:\Windows\System32\taskkill.exe`);
     assert.throws(() => windowsTaskkillPath('Windows'));
-    assert.throws(() => windowsTaskkillPath('C:\\Windows\\..\\other'));
+    assert.throws(() => windowsTaskkillPath(String.raw`C:\Windows\..\other`));
     console.log('Run controls: idempotent start/stop, stop drain, mode guard, same-tick cancel, close passed.');
 })().catch(e => { console.error(e); process.exitCode = 1; });
 

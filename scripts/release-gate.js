@@ -4,7 +4,7 @@ const { execFileSync } = require('node:child_process');
 const criteria = require('../release/criteria.json');
 const root = path.join(__dirname, '..');
 // Fail closed on nonstandard Git installations instead of searching inherited PATH.
-const git = process.platform === 'win32' ? 'C:\\Program Files\\Git\\cmd\\git.exe' : '/usr/bin/git';
+const git = process.platform === 'win32' ? String.raw`C:\Program Files\Git\cmd\git.exe` : '/usr/bin/git';
 function evidenceReference(value, base) {
     if (typeof value !== 'string' || !value.trim() || value !== value.trim()) return false;
     if (value.startsWith('https://')) {

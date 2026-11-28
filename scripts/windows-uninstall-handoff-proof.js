@@ -38,7 +38,7 @@ const { spawnBackgroundHelper } = require('../packaging/windows-helper-spawn');
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 // Absolute System32 paths: never resolve OS tools through PATH.
-const system32 = name => path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', name);
+const system32 = name => path.join(process.env.SystemRoot || String.raw`C:\Windows`, 'System32', name);
 
 async function proveUninstallHandoff() {
     const exe = path.join(installDir, 'educationperfected.exe');

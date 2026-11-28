@@ -3,7 +3,7 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), path = re
 const wf = fs.readFileSync(path.join(__dirname, '../.github/workflows/uninstall-validation.yml'), 'utf8');
 for (const required of [
     'windows-2025', 'contents: read', 'workflow_dispatch:', 'pull_request:',
-    'Inno Setup 6\\ISCC.exe', '/VERYSILENT', '/TASKS="addtopath"',
+    String.raw`Inno Setup 6\ISCC.exe`, '/VERYSILENT', '/TASKS="addtopath"',
     'windows-uninstall-handoff-proof.js', 'windows-uninstall-console-lifetime-proof.py',
     'windows-uninstall-prompt-proof.py', 'educationperfected-uninstall.log',
     // The non-ASCII install directory is deliberate: it exercises the install

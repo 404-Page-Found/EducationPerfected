@@ -57,7 +57,7 @@ async function writeAppResources(root, appDir, version) {
 
 // One asserted Info.plist substitution; a missing key fails the build closed.
 function replacePlistValue(plist, key, from, to) {
-    const pattern = new RegExp('(<key>' + key + '</key>\\s*<string>)' + from + '(</string>)');
+    const pattern = new RegExp('(<key>' + key + String.raw`</key>\s*<string>)` + from + '(</string>)');
     if (!pattern.test(plist)) throw new Error('Electron Info.plist lacks the expected ' + key + ' entry');
     return plist.replace(pattern, '$1' + to + '$2');
 }
@@ -71,8 +71,8 @@ function finishMacosBundle(bundle, root, version) {
     plist = replacePlistValue(plist, 'CFBundleExecutable', 'Electron', APP_NAME);
     plist = replacePlistValue(plist, 'CFBundleDisplayName', 'Electron', APP_NAME);
     plist = replacePlistValue(plist, 'CFBundleName', 'Electron', APP_NAME);
-    plist = replacePlistValue(plist, 'CFBundleIdentifier', 'com\\.github\\.Electron', APP_IDENTIFIER);
-    plist = replacePlistValue(plist, 'CFBundleIconFile', 'electron\\.icns', 'educationperfected.icns');
+    plist = replacePlistValue(plist, 'CFBundleIdentifier', String.raw`com\.github\.Electron`, APP_IDENTIFIER);
+    plist = replacePlistValue(plist, 'CFBundleIconFile', String.raw`electron\.icns`, 'educationperfected.icns');
     plist = replacePlistValue(plist, 'CFBundleShortVersionString', '[^<]*', version);
     plist = replacePlistValue(plist, 'CFBundleVersion', '[^<]*', version);
     fs.writeFileSync(plistPath, plist);

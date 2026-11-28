@@ -15,10 +15,10 @@ assert.deepEqual(normalizeRecord({version:1,method:'pkg',directories:'/Applicati
 assert.deepEqual(normalizeRecord({version:1,method:'deb',files:['/usr/bin/educationperfected'],pathEntries:'oops',shortcuts:[1]}).files,['/usr/bin/educationperfected']);
 // PowerShell 5.1's ConvertTo-Json unwraps one-element arrays into bare strings
 // and empty arrays into null; both forms must still normalize.
-assert.deepEqual(normalizeRecord({version:1,method:'install-ps1',pathEntries:'C:\\Programs\\EducationPerfected'}).pathEntries,['C:\\Programs\\EducationPerfected'],'bare-string pathEntries counts as one entry');
+assert.deepEqual(normalizeRecord({version:1,method:'install-ps1',pathEntries:String.raw`C:\Programs\EducationPerfected`}).pathEntries,[String.raw`C:\Programs\EducationPerfected`],'bare-string pathEntries counts as one entry');
 assert.deepEqual(normalizeRecord({version:1,method:'install-ps1',pathEntries:null}).pathEntries,[],'null pathEntries normalizes to none');
-assert.deepEqual(normalizeRecord({version:1,method:'install-ps1',files:'C:\\Programs\\EducationPerfected\\educationperfected.exe'}).files,[],'bare-string files dropped: the deletion list stays array-only');
-assert.deepEqual(normalizeRecord({version:1,method:'install-ps1',shortcuts:'C:\\shortcut.lnk'}).shortcuts,[],'bare-string shortcuts dropped');
+assert.deepEqual(normalizeRecord({version:1,method:'install-ps1',files:String.raw`C:\Programs\EducationPerfected\educationperfected.exe`}).files,[],'bare-string files dropped: the deletion list stays array-only');
+assert.deepEqual(normalizeRecord({version:1,method:'install-ps1',shortcuts:String.raw`C:\shortcut.lnk`}).shortcuts,[],'bare-string shortcuts dropped');
 assert.deepEqual(normalizeRecord({version:1,method:'deb',pathEntries:[1],'shortcuts':['ok',2]}).pathEntries,[],'non-string arrays dropped');
 assert.deepEqual(normalizeRecord({version:1,method:'deb',pathEntries:[1],shortcuts:['ok',2]}).shortcuts,[],'mixed arrays dropped');
 // readInstallRecord: missing, malformed, valid; relative paths never read cwd.
@@ -34,9 +34,9 @@ const winBase={platform:'win32',env:{},spawn:()=>({status:1})};
 fs.writeFileSync(path.join(home,'unins000.exe'),'inert');
 assert.equal(inferInstall({...winBase,executable:exe}).method,'setup-exe','unins000.exe next to the exe means the setup exe installed it');
 fs.rmSync(path.join(home,'unins000.exe'));
-assert.equal(inferInstall({...winBase,executable:'C:\\npm\\node_modules\\educationperfected\\vendor\\educationperfected.exe'}).method,'npm');
-assert.equal(inferInstall({...winBase,env:{LOCALAPPDATA:'C:\\Users\\page\\AppData\\Local'},executable:'C:\\Users\\page\\AppData\\Local\\Programs\\EducationPerfected\\educationperfected.exe'}).method,'install-ps1');
-assert.equal(inferInstall({...winBase,executable:'C:\\Users\\page\\Downloads\\educationperfected-windows-x64.exe'}).method,'raw-exe');
+assert.equal(inferInstall({...winBase,executable:String.raw`C:\npm\node_modules\educationperfected\vendor\educationperfected.exe`}).method,'npm');
+assert.equal(inferInstall({...winBase,env:{LOCALAPPDATA:String.raw`C:\Users\page\AppData\Local`},executable:String.raw`C:\Users\page\AppData\Local\Programs\EducationPerfected\educationperfected.exe`}).method,'install-ps1');
+assert.equal(inferInstall({...winBase,executable:String.raw`C:\Users\page\Downloads\educationperfected-windows-x64.exe`}).method,'raw-exe');
 // inferInstall: POSIX locations
 assert.equal(inferInstall({platform:'linux',env:{},executable:'/usr/lib/node_modules/educationperfected/vendor/educationperfected'}).method,'npm');
 assert.equal(inferInstall({platform:'linux',env:{},executable:'/usr/bin/educationperfected',spawn:command=>command==='dpkg'?{status:0}:{status:1}}).method,'deb');
@@ -52,23 +52,23 @@ assert.equal(detectInstall({executable:exe,platform:'win32',env:{}}).method,'npm
 fs.rmSync(recordPathFor(exe));
 assert.equal(detectInstall({executable:exe,platform:'darwin',env:{}}).inferred,true);
 // PowerShell helper script construction
-assert.equal(psLiteral("C:\\it's"),"'C:\\it''s'",'single quotes doubled');
+assert.equal(psLiteral(String.raw`C:\it's`),String.raw`'C:\it''s'`,'single quotes doubled');
 assert.throws(()=>psLiteral('a\nb'),/newlines/);
-const filesScript=windowsUninstallHelperScript({pid:42,mode:'files',log:'C:\\ep-logs\\u.log',files:['C:\\ep\\educationperfected.exe'],pathEntries:['C:\\ep'],shortcuts:['C:\\ep\\ep.lnk']});
+const filesScript=windowsUninstallHelperScript({pid:42,mode:'files',log:String.raw`C:\ep-logs\u.log`,files:[String.raw`C:\ep\educationperfected.exe`],pathEntries:[String.raw`C:\ep`],shortcuts:[String.raw`C:\ep\ep.lnk`]});
 assert.ok(filesScript.includes('Wait-Process -Id 42'),'helper waits for the CLI process');
 assert.ok(filesScript.includes('Remove-Item -LiteralPath $f -Force'),'helper deletes files');
-assert.ok(filesScript.includes('C:\\ep\\educationperfected.exe'),'files embedded as literals');
-assert.ok(filesScript.includes("'c:\\ep'"),'PATH entries embedded lowercased for case-insensitive matching');
+assert.ok(filesScript.includes(String.raw`C:\ep\educationperfected.exe`),'files embedded as literals');
+assert.ok(filesScript.includes(String.raw`'c:\ep'`),'PATH entries embedded lowercased for case-insensitive matching');
 assert.ok(filesScript.includes('ExpandString'),'PATH rewrite stays REG_EXPAND_SZ');
 assert.ok(filesScript.includes('PathType Container'),'files mode never recursively deletes a directory entry');
 assert.ok(filesScript.includes('skipped directory'),'directory entries are logged and skipped');
 assert.ok(!filesScript.includes('-Recurse'),'no recursive removal in files mode');
 assert.ok(filesScript.includes('$PSCommandPath'),'helper deletes itself');
-const npmScript=windowsUninstallHelperScript({pid:42,mode:'npm',log:'C:\\ep-logs\\u.log'});
+const npmScript=windowsUninstallHelperScript({pid:42,mode:'npm',log:String.raw`C:\ep-logs\u.log`});
 assert.ok(npmScript.includes('npm.cmd')&&npmScript.includes('uninstall -g educationperfected'));
-assert.throws(()=>windowsUninstallHelperScript({pid:42,mode:'inno',log:'C:\\ep-logs\\u.log'}),/uninstaller path/);
+assert.throws(()=>windowsUninstallHelperScript({pid:42,mode:'inno',log:String.raw`C:\ep-logs\u.log`}),/uninstaller path/);
 assert.throws(()=>windowsUninstallHelperScript({pid:0,mode:'npm',log:'x'}),/process id/);
 assert.throws(()=>windowsUninstallHelperScript({pid:1,mode:'bogus',log:'x'}),/mode/);
-assert.throws(()=>windowsUninstallHelperScript({pid:1,mode:'files',log:'C:\\ep-logs\\u.log',files:['bad\npath']}),/newlines/);
+assert.throws(()=>windowsUninstallHelperScript({pid:1,mode:'files',log:String.raw`C:\ep-logs\u.log`,files:['bad\npath']}),/newlines/);
 fs.rmSync(home,{recursive:true,force:true});
 console.log('Install record parse/inference precedence and Windows helper script construction passed (synthetic).');

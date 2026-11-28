@@ -35,7 +35,7 @@ function resolveCliExecutable({ platform = process.platform, execPath = process.
 // Linux desktop has no pkexec to elevate through.
 function shellQuote(value) {
     if (/^[A-Za-z0-9_\-./:=+]+$/.test(value)) return value;
-    return "'" + String(value).replaceAll("'", "'\\''") + "'";
+    return "'" + String(value).replaceAll("'", String.raw`'\''`) + "'";
 }
 
 module.exports = { resolveCliExecutable, shellQuote };

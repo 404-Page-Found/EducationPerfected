@@ -37,7 +37,7 @@ assert.doesNotMatch(source,/pull_request_target|git push|gh release create|gh re
 for(const line of source.split('\n'))if(line.includes('uses:'))assert.match(line,/\/[a-z0-9-]+@[a-f0-9]{40}(?:\s|$)/,'pinned action: '+line);
 const isccStep=source.split('      - name: Build the per-user Windows installer')[1].split('      - name:')[0];
 for(const define of ['/DAppVersion=$version','/DSourceExe=$src','/DAppPayload=$payload','/DOutputDir=$out'])assert.ok(isccStep.includes(define),'the Publish ISCC invocation passes every define installer/windows-setup.iss requires: '+define);
-for(const derivation of ['$root = (Get-Location).Path',"Join-Path $root 'installer\\windows-setup.iss'","$out = Join-Path $root","$src = Join-Path $out","$payload = Join-Path $out"])assert.ok(isccStep.includes(derivation),'ISCC paths derive from the checkout root, never repo-relative: '+derivation);
+for(const derivation of ['$root = (Get-Location).Path',String.raw`Join-Path $root 'installer\windows-setup.iss'`,"$out = Join-Path $root","$src = Join-Path $out","$payload = Join-Path $out"])assert.ok(isccStep.includes(derivation),'ISCC paths derive from the checkout root, never repo-relative: '+derivation);
 assert.doesNotMatch(isccStep,/\/D(SourceExe|AppPayload)=build\\/,'no repo-root-relative /D paths');
 assert.ok(source.indexOf('node scripts/beta-candidate.js build-downloadable')<source.indexOf('- name: Build the per-user Windows installer'),'the candidate build lays down app-payload before the installer compiles against it');
 assert.ok(require('../package.json').scripts['test:phase3'].includes('publish-workflow-policy-test.js'),'wired into test:phase3');

@@ -13,7 +13,7 @@ for (const required of [
 const publish=fs.readFileSync(path.join(__dirname,'../.github/workflows/publish.yml'),'utf8');
 for(const required of ['Install rpm tooling for Linux package lanes','apt-get install -y rpm rpm2cpio','Build and byte-verify platform packages','scripts/build-packages.sh','Pack the npm installer package','npm pack','Exercise install.sh end-to-end','Exercise the npm package end-to-end','Exercise install.ps1 end-to-end','EP_INSTALL_BASE_URL'])assert.ok(publish.includes(required),required);
 const sh=fs.readFileSync(path.join(__dirname,'../installer/install.sh'),'utf8');
-for(const required of ['set -eu','SHA256SUMS','sha256sum','Checksum mismatch','/.local/bin','EP_INSTALL_BASE_URL','educationperfected-$os-$arch','educationperfected-install.json','method\\":\\"install-sh'])assert.ok(sh.includes(required),required);
+for(const required of ['set -eu','SHA256SUMS','sha256sum','Checksum mismatch','/.local/bin','EP_INSTALL_BASE_URL','educationperfected-$os-$arch','educationperfected-install.json',String.raw`method\":\"install-sh`])assert.ok(sh.includes(required),required);
 const ps1=fs.readFileSync(path.join(__dirname,'../installer/install.ps1'),'utf8');
 for(const required of ['Get-FileHash','SHA256SUMS','Checksum mismatch','LOCALAPPDATA','EP_INSTALL_BASE_URL','educationperfected-windows-x64.exe','Test-Path $base','educationperfected.exe','educationperfected-install.json','ConvertTo-Json',"method = 'install-ps1'",'$addedToPath','$recordedPathEntries'])assert.ok(ps1.includes(required),required);
 assert.ok(ps1.includes('$addedToPath = $true'),'install.ps1 tracks whether it added the PATH entry');

@@ -30,7 +30,7 @@ for (const value of [undefined, '', 'fixture-report', rejectedPlainHttp, 'https:
     assert.ok(validate(evidence, commit).some(x => x.startsWith('linux-arm64/clean-machine-no-node: missing evidence')));
 }
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ep-release-gate-'));
-const git = process.platform === 'win32' ? 'C:\\Program Files\\Git\\cmd\\git.exe' : '/usr/bin/git';
+const git = process.platform === 'win32' ? String.raw`C:\Program Files\Git\cmd\git.exe` : '/usr/bin/git';
 const run = args => execFileSync(git, args, {cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']}).trim();
 try {
     run(['init']); run(['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-m', 'fixture']);

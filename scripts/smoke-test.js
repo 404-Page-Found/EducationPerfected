@@ -48,7 +48,7 @@ async function loginAndReachDashboard(page, origin) {
     const navigation = page.waitForNavigation({ timeout: 5000 }).catch(() => null);
     await loginButton.click();
     await navigation;
-    await page.waitForSelector('main #single-spa-application\\:mfeGlobalNavigation\\:Tertiary', { timeout: 5000 });
+    await page.waitForSelector(String.raw`main #single-spa-application\:mfeGlobalNavigation\:Tertiary`, { timeout: 5000 });
     check('ElementHandle.click navigates, escaped #home_css selector matches');
 }
 
@@ -125,7 +125,7 @@ async function testCompletionExit(page, origin) {
     await exit.click();
     await exitNav;
     // After clicking Exit, we should be on the dashboard (main with the shell selector).
-    await page.waitForSelector('main #single-spa-application\\:mfeGlobalNavigation\\:Tertiary', { timeout: 2000 });
+    await page.waitForSelector(String.raw`main #single-spa-application\:mfeGlobalNavigation\:Tertiary`, { timeout: 2000 });
     check('completion exit button resolves and clicks to dashboard');
 }
 
@@ -215,7 +215,7 @@ async function driveDashSprint(page, origin, { route, label, rounds, totalLabel,
     const exitNav = page.waitForNavigation({ timeout: 5000, waitUntil: 'domcontentloaded' }).catch(() => null);
     await exit.click();
     await exitNav;
-    await page.waitForSelector('main #single-spa-application\\:mfeGlobalNavigation\\:Tertiary', { timeout: 2000 });
+    await page.waitForSelector(String.raw`main #single-spa-application\:mfeGlobalNavigation\:Tertiary`, { timeout: 2000 });
     check(`${label}: completion exit button resolves and clicks to dashboard`);
 }
 
@@ -313,7 +313,7 @@ async function testDashQuizSprint(page, origin) {
     const exitNav = page.waitForNavigation({ timeout: 5000, waitUntil: 'domcontentloaded' }).catch(() => null);
     await exit.click();
     await exitNav;
-    await page.waitForSelector('main #single-spa-application\\:mfeGlobalNavigation\\:Tertiary', { timeout: 2000 });
+    await page.waitForSelector(String.raw`main #single-spa-application\:mfeGlobalNavigation\:Tertiary`, { timeout: 2000 });
     check('Dash choice: completion exit button resolves and clicks to dashboard');
 }
 
