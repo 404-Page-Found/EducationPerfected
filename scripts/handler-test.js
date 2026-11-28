@@ -129,13 +129,13 @@ async function testChoiceMetadataVariants(page, origin) {
         }, shape);
         const d = await detectQuestion(page);
         assert.equal(d.kind, 'unsupported', shape);
-        const expectedReason = shape === 'extra-visible-group'
-            ? /multiple visible choice components/
-            : shape === 'extra-component'
-                ? /without exactly one identifiable multi-choice component/
-                : shape.endsWith('options')
-                    ? /choice option metadata is missing or unreadable/
-                    : /correct-marked choice option has no usable text/;
+        const reasonByShape = {
+            'extra-visible-group': /multiple visible choice components/,
+            'extra-component': /without exactly one identifiable multi-choice component/,
+        };
+        let expectedReason = /correct-marked choice option has no usable text/;
+        if (reasonByShape[shape]) expectedReason = reasonByShape[shape];
+        else if (shape.endsWith('options')) expectedReason = /choice option metadata is missing or unreadable/;
         assert.match(d.reason, expectedReason, shape);
         assert.equal(await page.$eval('input:checked', () => true).catch(() => false), false);
     }
@@ -1156,12 +1156,17 @@ async function main() {
     const interrupt = code => {
         // Registered before boot: cleanup also covers a signal while waiting
         // for the child browser endpoint, before program has been assigned.
-        const cleanup = Promise.all([
-            program ? program.browser.close().catch(() => {}) : Promise.resolve(),
-            browser ? (launched ? browser.close() : (async () => {
+        const closeBrowser = () => {
+            if (!browser) return Promise.resolve();
+            if (launched) return browser.close();
+            return (async () => {
                 if (page) await page.close().catch(() => {});
                 await browser.disconnect();
-            })()) : Promise.resolve(),
+            })();
+        };
+        const cleanup = Promise.all([
+            program ? program.browser.close().catch(() => {}) : Promise.resolve(),
+            closeBrowser(),
         ]).catch(() => {});
         // Chrome may have its own process group, so the connected integration
         // browser must also close over CDP. Bound cleanup in case CDP is stuck.

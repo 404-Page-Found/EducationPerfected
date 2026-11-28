@@ -95,7 +95,8 @@ async function verifyPackagedDelete() {
   else {try {fs.rmSync(root,{recursive:true,force:true});} catch (error) {
    const code = ['EPERM','EACCES','EBUSY','ENOTEMPTY','ENOENT'].includes(error?.code) ? error.code : 'other';
    const target = typeof error?.path === 'string' ? path.relative(root,error.path) : null;
-   const kind = target === 'keyring.node' ? 'source-binding' : target === 'educationperfected.exe' ? 'executable-copy' : target === '' ? 'owned-root' : target && !target.startsWith('..') && !path.isAbsolute(target) ? 'owned-child' : 'unknown';
+   let kind = {'keyring.node':'source-binding','educationperfected.exe':'executable-copy','':'owned-root'}[target];
+   if (kind === undefined) kind = target && !target.startsWith('..') && !path.isAbsolute(target) ? 'owned-child' : 'unknown';
    console.error('Packaged store fixture cleanup checkpoint: code='+code+'; target='+kind+'; childClosed='+childClosed+'; workersLive='+Boolean(binding?.hasLiveWorkers()));
    cleanupFailure ||= new Error('Packaged store fixture file cleanup failed');
   }}
