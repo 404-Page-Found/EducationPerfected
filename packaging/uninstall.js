@@ -119,6 +119,105 @@ function removalPlan(install,{platform,executable}){
  }
 }
 
+async function removeLogin(c,store){
+ const {output}=c;
+   try{await store.remove();output.write('App saved login removed (or none existed).\n');}
+   catch{c.incomplete=true;output.write('Saved login removal failed; unlock the native OS credential store and retry.\n');}
+}
+
+function removeBrowsers(c,browsers){
+ const {output}=c;
+  let safe=realDirectory(browsers);
+  try{if(safe&&fs.readdirSync(browsers).some(name=>name.endsWith('.lock')||name.startsWith('.download-')))safe=false;}catch{safe=false;}
+  if(safe){fs.rmSync(browsers,{recursive:true});output.write('Downloaded browsers removed.\n');}
+  else{c.incomplete=true;output.write('Browser downloads retained: a live download lock or an unexpected path. Close every copy and inspect before removing manually: '+browsers+'\n');}
+}
+
+function removeSettingsFiles(c,root){
+ const {output}=c;
+  for(const name of ['config.json','app-setup.json','app-update-result.txt']){
+   const file=path.join(root,name);
+   try{
+    const stat=fs.lstatSync(file);
+    if(stat.isFile()&&!stat.isSymbolicLink()){fs.unlinkSync(file);if(name==='config.json')output.write('Saved app settings removed.\n');}
+    else{c.incomplete=true;output.write('Unexpected settings path retained for inspection.\n');}
+   }catch(error){if(error.code!=='ENOENT'){c.incomplete=true;output.write('Saved app settings could not be removed.\n');}}
+  }
+}
+
+function removeAppData(c,root){
+ const {output}=c;
+  const appData=path.join(root,'app-data');
+  try{
+   const stat=fs.lstatSync(appData);
+   if(stat.isDirectory()&&!stat.isSymbolicLink()){fs.rmSync(appData,{recursive:true,maxRetries:3,retryDelay:300});output.write('Desktop app data removed.\n');}
+   else{c.incomplete=true;output.write('Unexpected app data path retained for inspection.\n');}
+  }catch(error){if(error.code!=='ENOENT'){c.incomplete=true;output.write('Desktop app data could not be fully removed; close the app and retry.\n');}}
+}
+
+function removeLegacyData(c,{platform,env,home}){
+ const {output}=c;
+  for(const legacyDir of legacyElectronDataDirs({platform,env,home})){
+   try{
+    const stat=fs.lstatSync(legacyDir);
+    if(stat.isDirectory()&&!stat.isSymbolicLink()){fs.rmSync(legacyDir,{recursive:true,maxRetries:3,retryDelay:300});output.write('Old desktop app data removed ('+legacyDir+').\n');}
+    else{c.incomplete=true;output.write('Unexpected old app data path retained for inspection: '+legacyDir+'\n');}
+   }catch(error){if(error.code!=='ENOENT'){c.incomplete=true;output.write('Old desktop app data could not be fully removed: '+legacyDir+'\n');}}
+  }
+}
+
+async function removeData(c,{root,tmp,ownDirectory,cleanupOwn,platform,env,home}){
+ const {output}=c;
+  let safe=safeRuntimeRoot(tmp,ownDirectory);
+  // Unknown root entries are not recursively deleted, nor followed as links.
+  try{if(fs.readdirSync(root).some(name=>!['tmp','browsers','MAINTENANCE.lock','config.json','app-setup.json','app-update-result.txt','app-data'].includes(name)))safe=false;}catch{safe=false;}
+  if(!safe){c.incomplete=true;output.write('Live/uncertain runtime files or unknown app data retained. Close all app/browser processes and inspect before retrying.\n');}
+ removeSettingsFiles(c,root);
+ removeAppData(c,root);
+ removeLegacyData(c,{platform,env,home});
+  try{await cleanupOwn();}catch{c.incomplete=true;output.write('Owned runtime cleanup failed; retained for inspection.\n');}
+  // Only remove empty containers. No recursive root or temp deletion.
+  try{fs.rmdirSync(tmp);}catch(error){if(error.code!=='ENOENT')c.incomplete=true;}
+}
+
+const PROGRAM_REMOVERS={
+ 'helper-files':async(c,plan)=>{
+  const {pid,log,tmpDir,env,spawnDetached,waitForHelperReady}=c;
+  await startWindowsUninstallHelper({pid,mode:'files',log,files:plan.files,pathEntries:plan.pathEntries,shortcuts:plan.shortcuts,tmp:tmpDir,env,spawnDetached,waitReady:waitForHelperReady});
+  c.programPending=true;
+ },
+ 'helper-npm':async(c)=>{
+  const {pid,log,tmpDir,env,spawnDetached,waitForHelperReady}=c;
+  await startWindowsUninstallHelper({pid,mode:'npm',log,tmp:tmpDir,env,spawnDetached,waitReady:waitForHelperReady});
+  c.programPending=true;
+ },
+ 'posix-files':async(c,plan)=>{
+  const {output}=c;
+  let failed=null;
+  for(const file of plan.files){try{fs.rmSync(file,{force:true});}catch(error){failed=file;c.incomplete=true;output.write('Could not remove '+file+': '+error.message+'\n');}}
+  if(!failed){c.programRemoved=true;output.write('Program removed.\n');}
+ },
+ 'npm-direct':async(c)=>{
+  const {output,spawn}=c;
+  const result=spawn('npm',['uninstall','-g',PACKAGE_NAME],{stdio:'inherit'});
+  if(result.error||result.status!==0){c.incomplete=true;output.write('npm uninstall failed; run it by hand: npm uninstall -g '+PACKAGE_NAME+'\n');}
+  else{c.programRemoved=true;output.write('Program removed (npm uninstall -g '+PACKAGE_NAME+').\n');}
+ },
+ 'package':async(c,plan)=>{
+  const {output,spawn}=c;
+  const result=spawn(plan.command[0],plan.command.slice(1),{stdio:'inherit'});
+  if(result.error||result.status!==0){c.incomplete=true;output.write('Package removal failed; run it by hand: '+plan.command.join(' ')+'\n');}
+  else{c.programRemoved=true;output.write('Program removed ('+plan.command.join(' ')+').\n');}
+ },
+ 'pkg':async(c,plan)=>{
+  const {output,spawn}=c;
+  const remove=spawn('sudo',['rm','-rf',...plan.files,...plan.directories],{stdio:'inherit'});
+  const forget=remove.error||remove.status!==0?null:spawn('sudo',['pkgutil','--forget',plan.receipt],{stdio:'inherit'});
+  if(remove.error||remove.status!==0||(forget&&(forget.error||forget.status!==0))){c.incomplete=true;output.write('Package removal failed; remove the files and forget the receipt by hand: sudo rm -rf '+[...plan.files,...plan.directories].join(' ')+' && sudo pkgutil --forget '+plan.receipt+'\n');}
+  else{c.programRemoved=true;output.write('Program removed (files deleted, installer receipt forgotten).\n');}
+ },
+};
+
 async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=process.execPath,platform=process.platform,env=process.env,pid=process.pid,tmpDir=os.tmpdir(),confirm=confirmUninstall,confirmInno=confirmInnoUninstall,waitForHelperReady,output=process.stdout,spawn=require('node:child_process').spawnSync,spawnDetached=(command,args)=>require('./windows-helper-spawn').spawnBackgroundHelper(command,args)}={}){
  const install=detectInstall({executable,platform,env,spawn});
  output.write(install.inferred
@@ -139,95 +238,29 @@ async function uninstallCommand({store,ownDirectory,cleanupOwn,home,executable=p
  const choices=await confirm(undefined,undefined,plan?plan.detail:null);
  if(!choices||(!choices.login&&!choices.data&&!choices.browsers&&!choices.program)){output.write('Uninstall cancelled; no app data, browser downloads, saved login or program removed.\n');return {cancelled:true};}
  const root=storageRoot(home),release=acquireMaintenance(root);
- let incomplete=false;
+ const c={output,spawn,pid,log,tmpDir,env,spawnDetached,waitForHelperReady,incomplete:false,programPending:false,programRemoved:false};
  try{
   // Credential deletion is authorized by the same explicit local confirmation.
-  if(choices.login){
-   try{await store.remove();output.write('App saved login removed (or none existed).\n');}
-   catch{incomplete=true;output.write('Saved login removal failed; unlock the native OS credential store and retry.\n');}
-  }
+  if(choices.login)await removeLogin(c,store);
   const tmp=path.join(root,'tmp'),browsers=path.join(root,'browsers');
-  if(choices.browsers&&fs.existsSync(browsers)){
-   let safe=realDirectory(browsers);
-   try{if(safe&&fs.readdirSync(browsers).some(name=>name.endsWith('.lock')||name.startsWith('.download-')))safe=false;}catch{safe=false;}
-   if(safe){fs.rmSync(browsers,{recursive:true});output.write('Downloaded browsers removed.\n');}
-   else{incomplete=true;output.write('Browser downloads retained: a live download lock or an unexpected path. Close every copy and inspect before removing manually: '+browsers+'\n');}
-  }
-  if(choices.data){
-   let safe=safeRuntimeRoot(tmp,ownDirectory);
-   // Unknown root entries are not recursively deleted, nor followed as links.
-   try{if(fs.readdirSync(root).some(name=>!['tmp','browsers','MAINTENANCE.lock','config.json','app-setup.json','app-update-result.txt','app-data'].includes(name)))safe=false;}catch{safe=false;}
-   if(!safe){incomplete=true;output.write('Live/uncertain runtime files or unknown app data retained. Close all app/browser processes and inspect before retrying.\n');}
-   // config.json is the shared settings file; app-setup.json is the desktop
-   // app's wizard marker and app-update-result.txt its one-shot update receipt.
-   for(const name of ['config.json','app-setup.json','app-update-result.txt']){
-    const file=path.join(root,name);
-    try{
-     const stat=fs.lstatSync(file);
-     if(stat.isFile()&&!stat.isSymbolicLink()){fs.unlinkSync(file);if(name==='config.json')output.write('Saved app settings removed.\n');}
-     else{incomplete=true;output.write('Unexpected settings path retained for inspection.\n');}
-    }catch(error){if(error.code!=='ENOENT'){incomplete=true;output.write('Saved app settings could not be removed.\n');}}
-   }
-   // The desktop app's own data folder (saved sessions, caches) lives under
-   // the root as app-data; remove it as a real directory, never through a link.
-   const appData=path.join(root,'app-data');
-   try{
-    const stat=fs.lstatSync(appData);
-    if(stat.isDirectory()&&!stat.isSymbolicLink()){fs.rmSync(appData,{recursive:true,maxRetries:3,retryDelay:300});output.write('Desktop app data removed.\n');}
-    else{incomplete=true;output.write('Unexpected app data path retained for inspection.\n');}
-   }catch(error){if(error.code!=='ENOENT'){incomplete=true;output.write('Desktop app data could not be fully removed; close the app and retry.\n');}}
-   // The desktop app's pre-relocation data home in the OS app-data location
-   // (left by the draft builds): same rule, a real directory only.
-   for(const legacyDir of legacyElectronDataDirs({platform,env,home})){
-    try{
-     const stat=fs.lstatSync(legacyDir);
-     if(stat.isDirectory()&&!stat.isSymbolicLink()){fs.rmSync(legacyDir,{recursive:true,maxRetries:3,retryDelay:300});output.write('Old desktop app data removed ('+legacyDir+').\n');}
-     else{incomplete=true;output.write('Unexpected old app data path retained for inspection: '+legacyDir+'\n');}
-    }catch(error){if(error.code!=='ENOENT'){incomplete=true;output.write('Old desktop app data could not be fully removed: '+legacyDir+'\n');}}
-   }
-   try{await cleanupOwn();}catch{incomplete=true;output.write('Owned runtime cleanup failed; retained for inspection.\n');}
-   // Only remove empty containers. No recursive root or temp deletion.
-   try{fs.rmdirSync(tmp);}catch(error){if(error.code!=='ENOENT')incomplete=true;}
-  }
+  if(choices.browsers&&fs.existsSync(browsers))removeBrowsers(c,browsers);
+  if(choices.data)await removeData(c,{root,tmp,ownDirectory,cleanupOwn,platform,env,home});
  }finally{release();}
  // Removing the root is best-effort: entries the user chose to keep make it
  // non-empty, which is deliberate, not a failure.
- try{fs.rmdirSync(root);}catch(error){if(error.code!=='ENOENT'&&error.code!=='ENOTEMPTY'&&error.code!=='ENOTDIR')incomplete=true;}
- output.write((incomplete?'Uninstall incomplete; retained data remains.':'Requested items removed.')+'\n');
+ try{fs.rmdirSync(root);}catch(error){if(error.code!=='ENOENT'&&error.code!=='ENOTEMPTY'&&error.code!=='ENOTDIR')c.incomplete=true;}
+ output.write((c.incomplete?'Uninstall incomplete; retained data remains.':'Requested items removed.')+'\n');
  // Program removal runs last: on Windows a helper waits for this process to
  // exit, so nothing below may need the executable again.
- let programPending=false,programRemoved=false;
  if(choices.program&&plan){
-  if(plan.kind==='helper-files'){
-   await startWindowsUninstallHelper({pid,mode:'files',log,files:plan.files,pathEntries:plan.pathEntries,shortcuts:plan.shortcuts,tmp:tmpDir,env,spawnDetached,waitReady:waitForHelperReady});
-   programPending=true;
-  }else if(plan.kind==='helper-npm'){
-   await startWindowsUninstallHelper({pid,mode:'npm',log,tmp:tmpDir,env,spawnDetached,waitReady:waitForHelperReady});
-   programPending=true;
-  }else if(plan.kind==='posix-files'){
-   let failed=null;
-   for(const file of plan.files){try{fs.rmSync(file,{force:true});}catch(error){failed=file;incomplete=true;output.write('Could not remove '+file+': '+error.message+'\n');}}
-   if(!failed){programRemoved=true;output.write('Program removed.\n');}
-  }else if(plan.kind==='npm-direct'){
-   const result=spawn('npm',['uninstall','-g',PACKAGE_NAME],{stdio:'inherit'});
-   if(result.error||result.status!==0){incomplete=true;output.write('npm uninstall failed; run it by hand: npm uninstall -g '+PACKAGE_NAME+'\n');}
-   else{programRemoved=true;output.write('Program removed (npm uninstall -g '+PACKAGE_NAME+').\n');}
-  }else if(plan.kind==='package'){
-   const result=spawn(plan.command[0],plan.command.slice(1),{stdio:'inherit'});
-   if(result.error||result.status!==0){incomplete=true;output.write('Package removal failed; run it by hand: '+plan.command.join(' ')+'\n');}
-   else{programRemoved=true;output.write('Program removed ('+plan.command.join(' ')+').\n');}
-  }else if(plan.kind==='pkg'){
-   const remove=spawn('sudo',['rm','-rf',...plan.files,...plan.directories],{stdio:'inherit'});
-   const forget=remove.error||remove.status!==0?null:spawn('sudo',['pkgutil','--forget',plan.receipt],{stdio:'inherit'});
-   if(remove.error||remove.status!==0||(forget&&(forget.error||forget.status!==0))){incomplete=true;output.write('Package removal failed; remove the files and forget the receipt by hand: sudo rm -rf '+[...plan.files,...plan.directories].join(' ')+' && sudo pkgutil --forget '+plan.receipt+'\n');}
-   else{programRemoved=true;output.write('Program removed (files deleted, installer receipt forgotten).\n');}
-  }
+  const remover=PROGRAM_REMOVERS[plan.kind];
+  if(remover)await remover(c,plan);
  }
- if(programPending)output.write('The program removal finishes in the background after this program exits. Log: '+log+'\n');
+ if(c.programPending)output.write('The program removal finishes in the background after this program exits. Log: '+log+'\n');
  else if(!plan)output.write('Delete the executable manually: '+executable+'\n');
  // programRemoved is the shutdown signal for callers whose own files were
  // removed: it is independent of retained login/data (incomplete), so a
  // successful program removal is never hidden by an unrelated retention.
- return {incomplete,programPending,programRemoved};
+ return {incomplete:c.incomplete,programPending:c.programPending,programRemoved:c.programRemoved};
 }
 module.exports={uninstallCommand,confirmUninstall,confirmInnoUninstall,safeRuntimeRoot,removalPlan,legacyElectronDataDirs};
