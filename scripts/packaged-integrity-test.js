@@ -54,7 +54,7 @@ const { boundedClose, stopChild } = require('./packaged-test-cleanup');
    if(Date.now()>deadline)throw new Error('Extraction checkpoint timed out');
    await new Promise(resolve=>setTimeout(resolve,1));
   }
-  child.kill(signal);const interrupted=await boundedClose(closed,10000,'Extraction interrupt did not exit');assert.equal(interrupted.code,signal==='SIGINT'?130:signal==='SIGHUP'?129:143);assert.equal(interrupted.signal,null);
+  child.kill(signal);const interrupted=await boundedClose(closed,10000,'Extraction interrupt did not exit');assert.equal(interrupted.code,({SIGINT:130,SIGHUP:129})[signal]??143);assert.equal(interrupted.signal,null);
   assert.deepEqual(fs.readdirSync(extract),[],'Interrupted extraction must be removed');
   console.log('Extraction '+signal+' handled with owned temp cleanup.');
   }

@@ -82,7 +82,7 @@ async function assertRestartSuperseded(action) {
     const restart = draining.restartAfterDrain();
     assert.equal(draining.status().state, 'stopping');
     const duplicate = draining.restartAfterDrain();
-    const supersede = action === 'stop' ? draining.stop() : action === 'close' ? draining.close() : action === 'browserClosed' ? draining.browserClosed() : null;
+    const supersede = ['stop', 'close', 'browserClosed'].includes(action) ? draining[action]() : null;
     releaseDrain(); await restart; await duplicate; await supersede;
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(count, action === 'restart' ? 2 : 1, 'Explicit ' + action + ' must supersede a pending restart; duplicate restart must not duplicate work');

@@ -4,7 +4,7 @@ function packagedFixtureTarget(platform = process.platform, arch = process.arch)
  const supported = (platform === 'win32' && arch === 'x64') ||
   (['linux', 'darwin'].includes(platform) && ['x64', 'arm64'].includes(arch));
  if (!supported) throw new Error('No packaged fixture target for this platform');
- const directory = (platform === 'win32' ? 'windows' : platform === 'darwin' ? 'macos' : 'linux') + '-' + arch;
+ const directory = ({ win32: 'windows', darwin: 'macos' }[platform] ?? 'linux') + '-' + arch;
  const filename = platform === 'win32' ? 'educationperfected.exe' : 'educationperfected';
  return { executable: path.resolve(__dirname, '../build', directory, filename), filename };
 }

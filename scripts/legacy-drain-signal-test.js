@@ -84,7 +84,7 @@ if (process.env.EP_DRAIN_PRELOAD === '1') {
             const result = await Promise.race([closed, new Promise((_, reject) => {
                 const timer = setTimeout(() => reject(new Error('Legacy drain did not exit: ' + output)), 10000); timer.unref();
             })]);
-            assert.equal(result.signal, null, output); assert.equal(result.code, signal === 'SIGINT' ? 130 : signal === 'SIGHUP' ? 129 : 143, output);
+            assert.equal(result.signal, null, output); assert.equal(result.code, { SIGINT: 130, SIGHUP: 129 }[signal] ?? 143, output);
             if (force) {
                 assert.ok(output.includes('Second interrupt received; forcing browser shutdown.'), output);
                 assert.ok(!output.includes('DRAIN_DELAY_FINISHED'), output);
