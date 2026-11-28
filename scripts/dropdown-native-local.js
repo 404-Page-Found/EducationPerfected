@@ -5,7 +5,8 @@ const {observeDropdownInput}=require('../lib/dropdown-input-trace');
 function localVariant(argv){
     const named=argv.find(value=>value.startsWith('--variant='));
     const separate=argv.findIndex(value=>value==='--variant');
-    const variant=named?named.slice('--variant='.length):separate>=0?argv[separate+1]:argv.includes('--f4-popup')?'f4-popup':'legacy';
+    const fallback=argv.includes('--f4-popup')?'f4-popup':'legacy';
+    const variant=named?named.slice('--variant='.length):separate>=0?argv[separate+1]:fallback;
     if(variant!=='legacy'&&variant!=='f4-popup')throw new Error('Unknown local dropdown variant. Use legacy or f4-popup.');
     return variant;
 }
