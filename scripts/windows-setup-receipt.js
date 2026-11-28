@@ -12,7 +12,10 @@ function setupReceiptDiagnostic(text, code, state) {
     const lf = setupReceipt(text, code, {closed:true});
     const converted = text.replaceAll('\r\n', '\n');
     const crlf = text === converted.replaceAll('\n', '\r\n') ? setupReceipt(converted, code, {closed:true}) : {certain:false};
-    const receipt = lf.certain ? (lf.success ? 'success-lf' : 'failure-lf') : crlf.certain && text.includes('\r\n') ? (crlf.success ? 'success-crlf' : 'failure-crlf') : 'unrecognized';
+    const receiptFor = (result, suffix) => (result.success ? 'success-' : 'failure-') + suffix;
+    let receipt = 'unrecognized';
+    if (lf.certain) receipt = receiptFor(lf, 'lf');
+    else if (crlf.certain && text.includes('\r\n')) receipt = receiptFor(crlf, 'crlf');
     const exit = [0,1,20,259].includes(code) ? String(code) : 'other';
     return 'Setup helper checkpoint: exit='+exit+'; receipt='+receipt+'; closed='+Boolean(state.closed)+'; timeout='+Boolean(state.timedOut)+'; parentKill='+Boolean(state.terminatedByUs)+'; stderrOrError='+Boolean(state.helperError);
 }

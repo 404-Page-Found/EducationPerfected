@@ -53,7 +53,10 @@ if (require.main === module) {
             else console.log('Release evidence checks complete for this commit. Publication still requires authority; evidence authenticity needs review.');
         } catch (error) {
             // Avoid printing evidence, environment values or Git stderr in diagnostics.
-            const category = error?.code === 'DIRTY_WORKTREE' ? 'source worktree is dirty' : error instanceof SyntaxError ? 'malformed evidence JSON' : error?.code === 'ENOENT' ? 'Git is unavailable at the fixed system path' : 'Git checkout or evidence could not be read';
+            let category = 'Git checkout or evidence could not be read';
+            if (error?.code === 'DIRTY_WORKTREE') category = 'source worktree is dirty';
+            else if (error instanceof SyntaxError) category = 'malformed evidence JSON';
+            else if (error?.code === 'ENOENT') category = 'Git is unavailable at the fixed system path';
             console.error('Release blocked: ' + category + '.'); process.exitCode = 1;
         }
     }

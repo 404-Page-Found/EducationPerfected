@@ -153,7 +153,7 @@ async function credentialCommand(command, { store, prompt = promptCredentials, o
     // Setup has no browser signal owner. Restore raw input even on SIGTERM.
     const interrupted = signal => {
         if (process.stdin.isTTY && process.stdin.isRaw) process.stdin.setRawMode(false);
-        process.exit(signal === 'SIGINT' ? 130 : signal === 'SIGHUP' ? 129 : 143);
+        process.exit({ SIGINT: 130, SIGHUP: 129 }[signal] ?? 143);
     };
     const onInt = () => interrupted('SIGINT'), onTerm = () => interrupted('SIGTERM'), onHup = () => interrupted('SIGHUP');
     let record;

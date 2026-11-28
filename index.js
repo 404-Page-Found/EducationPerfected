@@ -415,6 +415,16 @@ async function resolveCredentials(watchForSession) {
 
 // ===== Program ===== //
 
+function markingMessage(autoMarked, isDashTyped) {
+    const subject = isDashTyped ? 'Dash sprint round' : 'lesson question';
+    if (autoMarked === false) return `This ${subject} is marked manually (self/peer/teacher), not auto-marked by EP; stopping instead of answering.`;
+    const round = isDashTyped ? 'this Dash sprint round' : 'this lesson question';
+    return `EP did not confirm ${round} is auto-marked (the marking field was missing or unreadable); stopping instead of answering.`;
+}
+function noAnswersMessage(kind, isDashTyped) {
+    if (isDashTyped) return 'This Dash sprint round ships no accepted answers to answer with; stopping instead of guessing.';
+    return `This ${kind === 'audio' ? 'audio' : 'lesson'} question ships no accepted answers to answer with (it may be manually marked); stopping instead of guessing.`;
+}
 async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected = () => {}, onStartupPhase = () => {}, legacySignals = false, gapsFillOnly = false, choiceSelectOnly = false, gapsSubmitOnce = false, textboxFillOnly = false, dropdownSubmitOnce = false, multiSelectOnly = false, reflectionTextProvider, accuracy = {}, connectBrowser = null, selectPage = null, browserControls = true } = {}) {
     // F4 popup is the only normal-run dropdown input path. The older
     // Home/ArrowDown mechanism remains only in explicit synthetic regression
@@ -1797,13 +1807,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         return false;
                     }
                 } else if (descriptor.autoMarked !== true) {
-                    const message = descriptor.autoMarked === false
-                        ? isDashTyped
-                            ? 'This Dash sprint round is marked manually (self/peer/teacher), not auto-marked by EP; stopping instead of answering.'
-                            : 'This lesson question is marked manually (self/peer/teacher), not auto-marked by EP; stopping instead of answering.'
-                        : isDashTyped
-                            ? 'EP did not confirm this Dash sprint round is auto-marked (the marking field was missing or unreadable); stopping instead of answering.'
-                            : 'EP did not confirm this lesson question is auto-marked (the marking field was missing or unreadable); stopping instead of answering.';
+                    const message = markingMessage(descriptor.autoMarked, isDashTyped);
                     console.error(message);
                     await alert(message);
                     return false;
@@ -1825,9 +1829,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 const correct = answers.find(a => !rejected.has(a));
                 if (correct === undefined) {
                     const message = answers.length === 0
-                        ? isDashTyped
-                            ? `This Dash sprint round ships no accepted answers to answer with; stopping instead of guessing.`
-                            : `This ${descriptor.kind === 'audio' ? 'audio' : 'lesson'} question ships no accepted answers to answer with (it may be manually marked); stopping instead of guessing.`
+                        ? noAnswersMessage(descriptor.kind, isDashTyped)
                         : `EP rejected every shipped answer for ${key}; stopping instead of guessing.`;
                     console.error(message);
                     await alert(message);
@@ -2181,7 +2183,22 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         console.log('Selection slide changed during detection; re-reading it in a fresh pass.');
                         return true;
                     }
-                    const play = descriptor.kind === 'dropdown' ? playDropdownRound : descriptor.kind === 'dropdown-numberbox' ? playDropdownNumberBoxRound : descriptor.kind === 'slide-surfaces' ? playSlideSurfacesRound : descriptor.kind === 'workingformula' ? playWorkingFormulaRound : descriptor.kind === 'reflection' ? playReflectionRound : descriptor.kind === 'numberbox' ? playNumberBoxRound : descriptor.kind === 'textbox' ? playTextboxRound : descriptor.kind === 'gaps' ? playGapsRound : descriptor.kind === 'highlight' ? playHighlightRound : playChoiceRound;
+                    const roundExtras = kind => {
+                        if (kind === 'dropdown' || kind === 'dropdown-numberbox') return { inputMode: dropdownInputMode };
+                        if (kind !== 'reflection') return {};
+                        return { requestText: async request => typeof reflectionTextProvider === 'function' ? await reflectionTextProvider(request, onReflectionRequestCancel) : false };
+                    };
+                    const play = new Map([
+                        ['dropdown', playDropdownRound],
+                        ['dropdown-numberbox', playDropdownNumberBoxRound],
+                        ['slide-surfaces', playSlideSurfacesRound],
+                        ['workingformula', playWorkingFormulaRound],
+                        ['reflection', playReflectionRound],
+                        ['numberbox', playNumberBoxRound],
+                        ['textbox', playTextboxRound],
+                        ['gaps', playGapsRound],
+                        ['highlight', playHighlightRound],
+                    ]).get(descriptor.kind) ?? playChoiceRound;
                     // Issue #222: single-choice mistakes only (neighboring distractor).
                     // Other surfaces stay perfect to preserve their fail-closed proofs;
                     // a wrong single-choice still advances via the normal Next flow.
@@ -2214,11 +2231,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                         log: msg => console.log(msg),
                         beforeSubmit: () => humanDelay.beforeSubmit(again.kind),
                         ...((again.kind === 'choice' && again.multi !== true && choiceMistakeIntent && choiceMistakeResult) ? { intentionalMistake: true, mistakeResult: choiceMistakeResult } : {}),
-                        ...((again.kind === 'dropdown' || again.kind === 'dropdown-numberbox') ? {
-                            inputMode: dropdownInputMode,
-                        } : again.kind === 'reflection' ? {
-                            requestText: async request => typeof reflectionTextProvider === 'function' ? await reflectionTextProvider(request, onReflectionRequestCancel) : false,
-                        } : {}),
+                        ...roundExtras(again.kind),
                     });
                     if (choiceAccuracyPending !== null && accuracyRun && (result.status === 'advanced' || result.status === 'complete' || result.status === 'modal')) {
                         try {
@@ -3124,7 +3137,10 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 inspect: () => collectSelfMarkDiagnostics(page),
                 inspectDash: () => require('./lib/dash-diagnostics').collectDashDiagnostics(page),
                 inspectComponents: () => require('./lib/components-diagnostics').collectComponentsDiagnostics(page),
-                close: () => legacySignals && startupSignal ? closeSignalBrowser() : (ownsBrowser ? browser.close() : Promise.resolve().then(() => browser.disconnect())),
+                close: () => {
+                    if (legacySignals && startupSignal) return closeSignalBrowser();
+                    return ownsBrowser ? browser.close() : Promise.resolve().then(() => browser.disconnect());
+                },
             });
             // Issue #222: expose accuracy in status and allow tuning when stopped.
             // Validation sessions stay perfect and reject accuracy changes.
