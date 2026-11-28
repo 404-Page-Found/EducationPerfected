@@ -1281,6 +1281,6 @@ async function main() {
 }
 
 main().catch(e => {
-    console.error(`\nHandler test FAILED: ${e && e.stack || e}`);
+    console.error(`\nHandler test FAILED: ${e?.stack || e}`);
     process.exitCode = 1;
 });

@@ -507,6 +507,6 @@ function describeManagedBrowser() {
 
 describeManagedBrowser();
 main().catch(e => {
-    console.error(`\nSmoke test FAILED: ${e && e.stack || e}`);
+    console.error(`\nSmoke test FAILED: ${e?.stack || e}`);
     process.exitCode = 1;
 });

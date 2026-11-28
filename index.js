@@ -1102,7 +1102,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
  * @returns {boolean}
  */
             function isPageGoneError(e) {
-                const message = String((e && e.message) || e);
+                const message = String((e?.message) || e);
                 return /detached Frame|Execution context was destroyed|Cannot find context|Target closed|Session closed|Browser has been closed|Navigating was not successful/i.test(message);
             }
 
@@ -1165,7 +1165,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 } catch { /* keep generic on URL failure */ }
                 try {
                     const found = await page.evaluate(detectDashInPage, DIR.dash_timer_css, DIR.dash_results_css);
-                    if (found && found.isDash) return true;
+                    if (found?.isDash) return true;
                 } catch { /* keep generic on evaluate failure */ }
                 try {
                     return !!(await page.evaluate(() => !!document.querySelector('.dash-info')));
@@ -2235,7 +2235,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     });
                     if (choiceAccuracyPending !== null && accuracyRun && (result.status === 'advanced' || result.status === 'complete' || result.status === 'modal')) {
                         try {
-                            const mistook = choiceMistakeIntent ? Boolean(choiceMistakeResult && choiceMistakeResult.mistake) : false;
+                            const mistook = choiceMistakeIntent ? Boolean(choiceMistakeResult?.mistake) : false;
                             if (mistook) console.log(`Accuracy mistake for ${again.key}: selected a neighboring distractor (target ${accuracyRun.target}%).`);
                             accuracyRun.recordFirstTry(mistook);
                         } catch { /* never break answering on stats */ }
@@ -2307,7 +2307,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 let isDash = false;
                 try {
                     const dash = await page.evaluate(detectDashInPage, DIR.dash_timer_css, DIR.dash_results_css);
-                    if (dash && dash.isDash) {
+                    if (dash?.isDash) {
                         isDash = true;
                         timerVisible = !!dash.timerVisible;
                     }
@@ -2321,7 +2321,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                 if (!isDash) return;
                 dashNoted = true;
                 console.log(`Dash sprint detected (timer visible: ${timerVisible ? 'yes' : 'no'}). ${DASH_PACING_NOTE}`);
-                if (accuracyRun && accuracyRun.enabled !== false && accuracyConfig && accuracyConfig.enabled) {
+                if (accuracyRun && accuracyRun.enabled !== false && accuracyConfig?.enabled) {
                     console.log(`Accuracy ${accuracyRun.target}% is on for this Dash sprint. ${DASH_ACCURACY_NOTE}`);
                 } else {
                     console.log(`Accuracy is perfect for this Dash sprint (recommended). ${DASH_ACCURACY_NOTE}`);

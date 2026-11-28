@@ -229,7 +229,7 @@ function createAppSession({
                     maintenance.update = { ...maintenance.update, checking: false, plan: null, upToDate: true, latest: plan.latest };
                 }
             } catch (error) {
-                maintenance.update = { ...maintenance.update, checking: false, error: String(error && error.message ? error.message : error) };
+                maintenance.update = { ...maintenance.update, checking: false, error: String(error?.message ? error.message : error) };
             }
             emitState();
             return getState();
@@ -278,7 +278,7 @@ function createAppSession({
                 pendingPlan = null;
                 maintenance.update.applying = false;
                 maintenance.update.plan = null;
-                maintenance.update.error = String(error && error.message ? error.message : error);
+                maintenance.update.error = String(error?.message ? error.message : error);
                 emitState();
                 throw error;
             }
@@ -348,7 +348,7 @@ function createAppSession({
                 // A close requested mid-launch wins over the launch: a cancelled
                 // startup settles closed, not failed (there is nothing to retry).
                 if (closeRequested) { resetSession('closed'); return getState(); }
-                resetSession('failed', String(error && error.message ? error.message : error));
+                resetSession('failed', String(error?.message ? error.message : error));
                 throw error;
             }
         },
@@ -373,11 +373,11 @@ function createAppSession({
                 case 'accuracy': result = await controls.setAccuracy(String(value ?? '')); break;
                 case 'reports':
                     result = controls.reports(value === undefined || value === null || value === '' ? undefined : String(value));
-                    if (result && result.error) throw new Error(result.error);
+                    if (result?.error) throw new Error(result.error);
                     break;
                 case 'delay':
                     result = controls.delay(value === undefined || value === null || value === '' ? undefined : String(value));
-                    if (result && result.error) throw new Error(result.error);
+                    if (result?.error) throw new Error(result.error);
                     break;
             }
             emitState();

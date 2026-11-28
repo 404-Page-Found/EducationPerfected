@@ -175,4 +175,4 @@ async function proveUpdateHandoff() {
     await proveUninstallHandoff();
     await proveUpdateHandoff();
     process.exit(0);
-})().catch(error => { console.error(error && error.stack || error); process.exit(1); });
+})().catch(error => { console.error(error?.stack || error); process.exit(1); });

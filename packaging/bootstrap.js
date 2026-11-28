@@ -49,7 +49,7 @@ async function runSimpleCommand(parsed) {
     if (parsed.command === 'accuracy-status') {
         // Read-only report: never unpacks the runtime or launches the browser.
         try { console.log(require('../lib/cli-command').accuracyStatusText(process.env)); }
-        catch (error) { console.error(String(error && error.message ? error.message : error)); process.exitCode = 1; }
+        catch (error) { console.error(String(error?.message ? error.message : error)); process.exitCode = 1; }
         return true;
     }
     if (parsed.command === 'update') {

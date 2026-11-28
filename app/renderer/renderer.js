@@ -185,7 +185,7 @@ function renderMain(state) {
         $(id + '-value').textContent = $(id).checked ? 'On' : 'Off';
     }
     // Don't clobber an unapplied mode choice with the one-second poll.
-    if (status && status.mode && document.activeElement !== $('mode')) $('mode').value = status.mode;
+    if (status?.mode && document.activeElement !== $('mode')) $('mode').value = status.mode;
     $('login-status').textContent = state.setup.hasLogin
         ? 'A login is saved in your OS credential store.'
         : 'No login saved. You sign in manually in the browser.';
@@ -202,7 +202,7 @@ function renderMaintenance(state) {
     $('update-status').textContent = updateStatusLines(maintenance, update).join(' ');
     $('apply-update').hidden = !update.plan || update.applying;
     if (update.plan) $('apply-update').textContent = `Update to v${update.plan.version}`;
-    $('update-log').hidden = !(update.log && update.log.length);
+    $('update-log').hidden = !(update.log?.length);
     $('update-log').textContent = (update.log || []).join('\n');
     $('update-manual').hidden = !update.manual;
     $('update-manual').textContent = update.manual ? `Run this in a terminal, then relaunch the app: ${update.manual}` : '';
@@ -246,17 +246,17 @@ api.onMaintenanceProgress(() => {
 
 // --- Update buttons ---
 $('check-update').addEventListener('click', () => {
-    api.checkUpdate().catch(error => showMessage(String(error && error.message ? error.message : error), true));
+    api.checkUpdate().catch(error => showMessage(String(error?.message ? error.message : error), true));
 });
 $('apply-update').addEventListener('click', async () => {
     try {
         const result = await api.applyUpdate();
-        if (result && result.quitRequired && latest) {
+        if (result?.quitRequired && latest) {
             latest.maintenance.update.log.push('Closing so the installer can finish.');
             renderMaintenance(latest);
         }
     } catch (error) {
-        showMessage(String(error && error.message ? error.message : error), true);
+        showMessage(String(error?.message ? error.message : error), true);
     }
 });
 
@@ -282,7 +282,7 @@ async function run(action, value, okMessage) {
         if (okMessage) showMessage(okMessage, false);
         return true;
     } catch (error) {
-        showMessage(String(error && error.message ? error.message : error), true);
+        showMessage(String(error?.message ? error.message : error), true);
         return false;
     }
 }
@@ -331,7 +331,7 @@ $('save-login').addEventListener('click', async () => {
     try {
         await api.saveLogin($('login-email').value, $('login-password').value);
     } catch (error) {
-        $('login-error').textContent = String(error && error.message ? error.message : error);
+        $('login-error').textContent = String(error?.message ? error.message : error);
         $('login-error').hidden = false;
         return;
     }
@@ -348,7 +348,7 @@ async function startFromSetup() {
         await api.completeWizard();
         await api.startSession();
     } catch (error) {
-        errorBox.textContent = String(error && error.message ? error.message : error);
+        errorBox.textContent = String(error?.message ? error.message : error);
         errorBox.hidden = false;
     }
 }
@@ -360,7 +360,7 @@ $('retry-session').addEventListener('click', async () => {
 
 $('forget-login').addEventListener('click', async () => {
     try { await api.forgetLogin(); render(latest); }
-    catch (error) { showMessage(String(error && error.message ? error.message : error), true); }
+    catch (error) { showMessage(String(error?.message ? error.message : error), true); }
 });
 
 // --- Reflection dialog ---
@@ -381,11 +381,11 @@ $('reflection-fill').addEventListener('click', () => {
     try {
         api.respondReflection(reflectionId, $('reflection-text').value)
             .catch(error => {
-                $('reflection-error').textContent = String(error && error.message ? error.message : error);
+                $('reflection-error').textContent = String(error?.message ? error.message : error);
                 $('reflection-error').hidden = false;
             });
     } catch (error) {
-        $('reflection-error').textContent = String(error && error.message ? error.message : error);
+        $('reflection-error').textContent = String(error?.message ? error.message : error);
         $('reflection-error').hidden = false;
     }
 });
@@ -424,6 +424,6 @@ void (async () => {
         }
     } catch (error) {
         show('failed');
-        $('failed-error').textContent = String(error && error.message ? error.message : error);
+        $('failed-error').textContent = String(error?.message ? error.message : error);
     }
 })();
