@@ -1,6 +1,6 @@
 # Downloadable stable-release candidate policy
 
-This prepares stable version `2026.11.22` without a prerelease suffix. It is not release approval or a statement that native checks pass.
+This prepares stable version `2026.11.28` without a prerelease suffix. It is not release approval or a statement that native checks pass.
 
 ## Distribution boundary
 
