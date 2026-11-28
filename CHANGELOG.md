@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v2026.11.28
+
+Prepared but not yet published. Full PR list: [v2026.11.22...v2026.11.28](https://github.com/404-Page-Found/EducationPerfected/compare/v2026.11.22...v2026.11.28).
 
 - Always focused: the task page now presents itself as focused and visible to Education Perfect's scripts at all times, even when its window is unfocused, so EP's focus tracking (lose-focus warnings and pauses) never observes a focus loss during a managed run. `document.hasFocus()` and the visibility getters report focused/visible to page scripts, and page scripts cannot register window blur/pagehide or document visibilitychange listeners or assign the matching on* handlers; element-level form focus handling is untouched. The genuine OS state stays available to EducationPerfected itself through native probes stashed before the overrides: the dropdown F4 recovery (#397) still raises the window or falls back to focus emulation based on the real focus, and the popup trace keeps recording it. The desktop app's embedded browser is kept unthrottled while its window is unfocused, and the CLI's own browser launches with background throttling disabled. Synthetic coverage only; behavior against EP's live focus system on a real unfocused window is the retest's to prove.
 
