@@ -42,7 +42,7 @@ async function colorFixture(page, origin, pattern = '@@009900@BODY@@') {
         await colorFixture(page, origin, '@@3@Synthetic@@ answer @@abc@BODY@@');
         await page.evaluate(() => mathFixture.previews.forEach((p,i) => p.fields.renderGroup.textContent = 'Synthetic answer Synthetic answer ' + i));
         assert.equal((await detectQuestion(page)).kind, 'choice');
-        const invalid = ['BODY@','@BODY','@@BODY@@','@@0@BODY@@','@@a@BODY@@','@@12@BODY@@','@@abcd@BODY@@','@@ggg@BODY@@','@@1234567@BODY@@','@@3@BODY','@@3@@@','@@3@BODY@@@','@@3@BODY@@2@x@@@@','\\@@3@BODY@@','@@3@BODY@','@@3@BODY@@[x]','@@3@BODY@@`x`','@@3@BODY@@<x>','@@3@BODY@@{x}'];
+        const invalid = ['BODY@','@BODY','@@BODY@@','@@0@BODY@@','@@a@BODY@@','@@12@BODY@@','@@abcd@BODY@@','@@ggg@BODY@@','@@1234567@BODY@@','@@3@BODY','@@3@@@','@@3@BODY@@@','@@3@BODY@@2@x@@@@',String.raw`\@@3@BODY@@`,'@@3@BODY@','@@3@BODY@@[x]','@@3@BODY@@`x`','@@3@BODY@@<x>','@@3@BODY@@{x}'];
         for (const pattern of invalid) {
             await colorFixture(page, origin, pattern);
             assert.equal((await detectQuestion(page)).kind, 'unsupported', pattern);

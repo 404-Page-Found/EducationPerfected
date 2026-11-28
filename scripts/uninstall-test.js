@@ -149,13 +149,13 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
  }
  // Windows install.ps1: background helper, PATH entry and files passed through, exe still present.
  {
-  const s=await runProgramScenario({method:'install-ps1',record:{pathEntries:['C:\\\\Programs\\\\EducationPerfected']},platform:'win32',choices:{program:true},execName:'educationperfected.exe'});
+  const s=await runProgramScenario({method:'install-ps1',record:{pathEntries:[String.raw`C:\\Programs\\EducationPerfected`]},platform:'win32',choices:{program:true},execName:'educationperfected.exe'});
   assert.equal(s.detached.length,1);assert.equal(s.detached[0][0],'powershell.exe');
   const helperPath=scriptFor(s.tmp);
   const helper=fs.readFileSync(helperPath,'utf8');
   assert.ok(helper.includes('Wait-Process -Id 43210'),'helper waits for the CLI pid');
   assert.ok(helper.includes(s.exe),'helper deletes the executable');
-  assert.ok(helper.includes('c:\\\\programs\\\\educationperfected'),'helper removes the PATH entry (matched case-insensitively)');
+  assert.ok(helper.includes(String.raw`c:\\programs\\educationperfected`),'helper removes the PATH entry (matched case-insensitively)');
   assert.ok(helper.includes(path.join(s.tmp,'educationperfected-uninstall.log')),'helper logs to the printed log file');
   assert.equal(fs.existsSync(s.exe),true,'the running exe is never deleted synchronously');
   assert.equal(s.result.programPending,true);
@@ -165,10 +165,10 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
  // Windows install.ps1 record written by PowerShell 5.1: pathEntries unwrapped
  // to a bare string still reaches the helper as the PATH entry to remove.
  {
-  const s=await runProgramScenario({method:'install-ps1',record:{pathEntries:'C:\\Programs\\EducationPerfected'},platform:'win32',choices:{program:true},execName:'educationperfected.exe'});
+  const s=await runProgramScenario({method:'install-ps1',record:{pathEntries:String.raw`C:\Programs\EducationPerfected`},platform:'win32',choices:{program:true},execName:'educationperfected.exe'});
   assert.equal(s.detached.length,1);
   const helper=fs.readFileSync(scriptFor(s.tmp),'utf8');
-  assert.ok(helper.includes('c:\\programs\\educationperfected'),'bare-string PATH entry is removed by the helper');
+  assert.ok(helper.includes(String.raw`c:\programs\educationperfected`),'bare-string PATH entry is removed by the helper');
   assert.equal(s.result.programPending,true);
   cleanup(s);
  }
@@ -208,7 +208,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
  // install record written before the installer escaped non-ASCII characters
  // comes back mangled): the uninstaller next to the executable is used.
  {
-  const s=await runProgramScenario({method:'setup-exe',record:{uninstaller:'C:\\\\Edu\\uFFFDtionPerfected\\\\unins000.exe',uninstallerFallbackFixture:true},platform:'win32',choices:{inno:true},execName:'educationperfected.exe'});
+  const s=await runProgramScenario({method:'setup-exe',record:{uninstaller:String.raw`C:\\Edu\uFFFDtionPerfected\\unins000.exe`,uninstallerFallbackFixture:true},platform:'win32',choices:{inno:true},execName:'educationperfected.exe'});
   assert.equal(s.detached.length,1);
   const helper=fs.readFileSync(scriptFor(s.tmp),'utf8');
   assert.ok(helper.includes(path.join(s.home,'unins000.exe')),'helper starts the uninstaller next to the executable, not the mangled record path');
@@ -217,7 +217,7 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
  }
  // Windows setup exe whose uninstaller is nowhere: no invented path, manual line.
  {
-  const s=await runProgramScenario({method:'setup-exe',record:{uninstaller:'C:\\\\gone\\\\unins000.exe'},platform:'win32',choices:{inno:true},execName:'educationperfected.exe'});
+  const s=await runProgramScenario({method:'setup-exe',record:{uninstaller:String.raw`C:\\gone\\unins000.exe`},platform:'win32',choices:{inno:true},execName:'educationperfected.exe'});
   assert.deepEqual(s.detached,[]);
   assert.ok(s.output.includes('Delete the executable manually: '+s.exe));
   cleanup(s);

@@ -49,7 +49,7 @@ for (const [name, w, h] of [['wizard-image.bmp', 164, 314], ['wizard-small.bmp',
 
 // Installer wiring: the setup exe, wizard and Settings entry use the icon.
 const iss = fs.readFileSync(path.join(__dirname, '../installer/windows-setup.iss'), 'utf8');
-for (const required of ['SetupIconFile=..\\branding\\educationperfected.ico', 'WizardImageFile=wizard-image.bmp', 'WizardSmallImageFile=wizard-small.bmp', 'UninstallDisplayIcon={app}\\educationperfected.exe']) assert.ok(iss.includes(required), required);
+for (const required of [String.raw`SetupIconFile=..\branding\educationperfected.ico`, 'WizardImageFile=wizard-image.bmp', 'WizardSmallImageFile=wizard-small.bmp', String.raw`UninstallDisplayIcon={app}\educationperfected.exe`]) assert.ok(iss.includes(required), required);
 
 // Build wiring: the Windows SEA executables get the icon after postject.
 const builder = fs.readFileSync(path.join(__dirname, '../packaging/build-development.js'), 'utf8');

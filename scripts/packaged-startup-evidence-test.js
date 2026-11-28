@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),{startupEvidence}=require('./packaged-startup-evidence');
 const empty=startupEvidence('');assert.ok(Object.values(empty).every(value=>value===false));
-const evidence=startupEvidence('secret@example.test C:\\private\\token EducationPerfected could not start. Startup failed: The browser could not launch; check display and system browser dependencies.');
+const evidence=startupEvidence(String.raw`secret@example.test C:\private\token EducationPerfected could not start. Startup failed: The browser could not launch; check display and system browser dependencies.`);
 assert.equal(evidence.startupFailed,true);assert.equal(evidence.launchFailed,true);assert.equal(evidence.ownerReady,false);
 assert.ok(Object.values(evidence).every(value=>typeof value==='boolean'));for(const privatePart of ['secret@example.test','private','token','secret'])assert.ok(!JSON.stringify(evidence).includes(privatePart));
 assert.equal(startupEvidence('The browser sandbox was blocked by operating-system policy.').sandboxBlocked,true);
@@ -14,5 +14,5 @@ for(const input of [line+'\n'+line,'EP_TEST_STARTUP_FAILURE='+JSON.stringify({..
 console.log('Owner cause parser enforces one exact bounded-field receipt, duplicate/unknown/private payloads rejected.');
 
 assert.equal(parseStartupFailure(line.replace('EP_TEST_STARTUP_FAILURE={','EP_TEST_STARTUP_FAILURE={"name":"Error",')),null);
-assert.equal(parseStartupFailure(line.replace('EP_TEST_STARTUP_FAILURE={','EP_TEST_STARTUP_FAILURE={"na\\u006de":"Error",')),null);
+assert.equal(parseStartupFailure(line.replace('EP_TEST_STARTUP_FAILURE={',String.raw`EP_TEST_STARTUP_FAILURE={"na\u006de":"Error",`)),null);
 for(const delta of [{category:'private'},{browserCreated:1},{controllerConnected:0},{browserExit:'private'},{code:'private'}])assert.equal(parseStartupFailure('EP_TEST_STARTUP_FAILURE='+JSON.stringify({...cause,...delta})),null);

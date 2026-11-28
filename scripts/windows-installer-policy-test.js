@@ -3,13 +3,13 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const iss=fs.readFileSync(path.join(__dirname,'../installer/windows-setup.iss'),'utf8');
 for(const required of [
  'AppId={{5C0EDD47-9C42-5901-AF48-2393F39A36CD}','PrivilegesRequired=lowest',
- '{localappdata}\\Programs\\EducationPerfected','OutputBaseFilename=educationperfected-windows-x64-setup',
- 'DestName: "educationperfected.exe"','Name: "addtopath"','{group}\\EducationPerfected',
- 'Source: "{#AppPayload}\\*"; DestDir: "{app}\\app"; Flags: ignoreversion recursesubdirs createallsubdirs',
+ String.raw`{localappdata}\Programs\EducationPerfected`,'OutputBaseFilename=educationperfected-windows-x64-setup',
+ 'DestName: "educationperfected.exe"','Name: "addtopath"',String.raw`{group}\EducationPerfected`,
+ String.raw`Source: "{#AppPayload}\*"; DestDir: "{app}\app"; Flags: ignoreversion recursesubdirs createallsubdirs`,
  'CurUninstallStepChanged','RemoveAppFromPath','UninstallDisplayName=EducationPerfected',
  '[UninstallDelete]','educationperfected.exe.backup','educationperfected.exe.update-result',
- 'educationperfected.exe.update.lock','{app}\\.update-*',
- 'MB_DEFBUTTON2','forget-credentials','DelTree','{%USERPROFILE}\\.educationperfected',
+ 'educationperfected.exe.update.lock',String.raw`{app}\.update-*`,
+ 'MB_DEFBUTTON2','forget-credentials','DelTree',String.raw`{%USERPROFILE}\.educationperfected`,
  'WriteInstallRecord','JsonEscape','educationperfected-install.json','"method":"setup-exe"','"uninstaller"','SaveStringToFile',
 ])assert.ok(iss.includes(required),required);
 // SaveStringToFile writes ANSI while the CLI reads the record as UTF-8, so the
@@ -17,7 +17,7 @@ for(const required of [
 // a non-ASCII Windows username puts one in the default install location, and
 // an unescaped byte came back mangled, pointing the uninstall handoff at a
 // nonexistent uninstaller (the app quit, nothing started).
-assert.ok(iss.includes(String.raw`\u' + Hex4(Ord(S[I]))`),'JsonEscape emits \\uXXXX for non-ASCII');
+assert.ok(iss.includes(String.raw`\u' + Hex4(Ord(S[I]))`),String.raw`JsonEscape emits \uXXXX for non-ASCII`);
 assert.ok(iss.includes('else if Ord(S[I]) < 128'),'JsonEscape passes ASCII through only');
 // The desktop browser is part of AppPayload, copied by [Files] before the
 // finish page. A leftover [Run] hook starts an unrelated CLI download in a
@@ -29,29 +29,29 @@ assert.doesNotMatch(iss,/PrivilegesRequired=(admin|poweruser)/);
 assert.ok(!iss.includes('ChangesUninstall'),'not a valid Inno directive; ISCC aborts on it');
 assert.ok(!iss.includes('StringChange'),'PATH removal matches whole ;-delimited entries, never substrings');
 assert.ok(iss.includes('WizardIsTaskSelected'),'task check uses the wizard-context function');
-assert.ok(iss.includes('Type: files; Name: "{app}\\educationperfected-install.json"'),'the Inno uninstaller removes the install record');
+assert.ok(iss.includes(String.raw`Type: files; Name: "{app}\educationperfected-install.json"`),'the Inno uninstaller removes the install record');
 assert.ok(!iss.includes('RegWriteStringValue'),'PATH writes must preserve REG_EXPAND_SZ');
 assert.ok(iss.includes('RegWriteExpandStringValue'),'PATH writes use RegWriteExpandStringValue');
 const icons = iss.split('[Icons]')[1].split('[')[0];
-assert.ok(icons.includes('Name: "{group}\\EducationPerfected"; Filename: "{app}\\app\\EducationPerfected.exe"'), 'the single launcher opens the desktop app');
+assert.ok(icons.includes(String.raw`Name: "{group}\EducationPerfected"; Filename: "{app}\app\EducationPerfected.exe"`), 'the single launcher opens the desktop app');
 assert.ok(!icons.includes('Uninstall EducationPerfected'), 'no Start-menu Uninstall shortcut: uninstall lives in Settings > Apps and the terminal CLI');
 assert.ok(!iss.split('WriteInstallRecord')[1].includes('Uninstall EducationPerfected'), 'the install record lists only the shortcuts the installer still creates');
 assert.equal((icons.match(/Filename: "\{app\}/g)||[]).length, 1, 'only one program launcher, no duplicate CLI launcher');
 const installDelete = iss.split('[InstallDelete]')[1].split(/^\[/m)[0];
-assert.ok(installDelete.includes('Type: files; Name: "{group}\\EducationPerfected App.lnk"'), 'upgrades remove the old separate app shortcut');
-assert.ok(installDelete.includes('Type: files; Name: "{group}\\Uninstall EducationPerfected.lnk"'), 'upgrades remove the old Start-menu Uninstall shortcut');
-assert.ok(iss.includes("ExpandConstant('{%APPDATA}\\EducationPerfected')"), 'uninstall offers removing the pre-relocation desktop app data in %AppData%');
+assert.ok(installDelete.includes(String.raw`Type: files; Name: "{group}\EducationPerfected App.lnk"`), 'upgrades remove the old separate app shortcut');
+assert.ok(installDelete.includes(String.raw`Type: files; Name: "{group}\Uninstall EducationPerfected.lnk"`), 'upgrades remove the old Start-menu Uninstall shortcut');
+assert.ok(iss.includes(String.raw`ExpandConstant('{%APPDATA}\EducationPerfected')`), 'uninstall offers removing the pre-relocation desktop app data in %AppData%');
 const publish=fs.readFileSync(path.join(__dirname,'../.github/workflows/publish.yml'),'utf8');
 for(const required of [
- 'Inno Setup 6\\ISCC.exe',"require('./package.json').version",'/DAppVersion','/DSourceExe',
- 'installer\\windows-setup.iss','educationperfected-windows-x64-setup.exe >> SHA256SUMS',
+ String.raw`Inno Setup 6\ISCC.exe`,"require('./package.json').version",'/DAppVersion','/DSourceExe',
+ String.raw`installer\windows-setup.iss`,'educationperfected-windows-x64-setup.exe >> SHA256SUMS',
  "runner.os == 'Windows'",
 ])assert.ok(publish.includes(required),required);
 const isccStep=publish.split('      - name: Build the per-user Windows installer')[1].split('      - name:')[0];
 assert.ok(isccStep.includes('Join-Path $root'),'ISCC receives absolute paths; Inno resolves relative Source/OutputDir against the script directory');
 assert.doesNotMatch(isccStep,/\/DSourceExe=build\\/,'no repo-root-relative /DSourceExe');
 const compileCheck=fs.readFileSync(path.join(__dirname,'../.github/workflows/installer-compile-check.yml'),'utf8');
-for(const required of ['pull_request:','windows-2025','Inno Setup 6\\ISCC.exe','stub executable, compile proof only','Join-Path $root','contents: read'])assert.ok(compileCheck.includes(required),required);
+for(const required of ['pull_request:','windows-2025',String.raw`Inno Setup 6\ISCC.exe`,'stub executable, compile proof only','Join-Path $root','contents: read'])assert.ok(compileCheck.includes(required),required);
 assert.doesNotMatch(compileCheck,/upload-artifact|contents: write|pull_request_target/,'compile proof only, no artifacts or write access');
 const bundles=publish.split('      - name: Upload validated downloadable candidate bundle')[1].split('      - name:')[0];
 assert.match(bundles,/educationperfected\*/,'candidate upload picks up the installer via glob');

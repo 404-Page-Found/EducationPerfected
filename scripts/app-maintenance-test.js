@@ -56,9 +56,9 @@ async function main() {
     // CLI pairing: only the exact installed app layouts resolve to a CLI.
     {
         const r = maintenance.resolveCliExecutable;
-        assert.equal(r({ platform: 'win32', execPath: 'C:\\Users\\u\\AppData\\Local\\Programs\\EducationPerfected\\app\\EducationPerfected.exe' }),
-            'C:\\Users\\u\\AppData\\Local\\Programs\\EducationPerfected\\educationperfected.exe');
-        assert.equal(r({ platform: 'win32', execPath: 'C:\\src\\node_modules\\electron\\dist\\electron.exe' }), null);
+        assert.equal(r({ platform: 'win32', execPath: String.raw`C:\Users\u\AppData\Local\Programs\EducationPerfected\app\EducationPerfected.exe` }),
+            String.raw`C:\Users\u\AppData\Local\Programs\EducationPerfected\educationperfected.exe`);
+        assert.equal(r({ platform: 'win32', execPath: String.raw`C:\src\node_modules\electron\dist\electron.exe` }), null);
         assert.equal(r({ platform: 'darwin', execPath: '/Applications/EducationPerfected.app/Contents/MacOS/EducationPerfected' }), '/usr/local/bin/educationperfected');
         assert.equal(r({ platform: 'darwin', execPath: '/Users/u/dev/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron' }), null);
         assert.equal(r({ platform: 'linux', execPath: '/usr/lib/educationperfected/app/educationperfected-app' }), '/usr/bin/educationperfected');
