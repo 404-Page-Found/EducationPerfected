@@ -2491,7 +2491,7 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                                     // visible results proof alone still completes the sprint.
                                     if (button.tagName !== 'BUTTON') {
                                         const fallback = exitEl || contEl;
-                                        if (fallback && fallback.tagName === 'BUTTON') {
+                                        if (fallback?.tagName === 'BUTTON') {
                                             fallback.click();
                                             return { clicked: true, resultsVisible: shown(resultsCss) };
                                         }
