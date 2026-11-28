@@ -43,14 +43,14 @@ const MODEL = (q, modelOverrides = {}) => ({ gameMode: null, isDash: true, _curr
         await page.goto(origin + '/dash-task/typed');
         const run = async (html, model, allowMix = false) => {
             await page.setContent(html);
-            await page.evaluate(installStub, model && model.model ? model : { model });
+            await page.evaluate(installStub, model?.model ? model : { model });
             return page.evaluate(readDashTypedInPage, null, null, allowMix);
         };
         const refuse = (descriptor, guard) => {
-            assert.equal(descriptor && descriptor.kind, 'unsupported', guard + ' did not refuse');
+            assert.equal(descriptor?.kind, 'unsupported', guard + ' did not refuse');
             assert.equal(descriptor.dash, true, guard + ' refusal is not flagged dash');
-            assert.equal(descriptor.diagnostic && descriptor.diagnostic.guard, guard, 'wrong refusal guard: ' + JSON.stringify(descriptor));
-            assert.equal(descriptor.diagnostic && descriptor.diagnostic.renderer, 'dash-typed', 'wrong refusal renderer: ' + JSON.stringify(descriptor));
+            assert.equal(descriptor.diagnostic?.guard, guard, 'wrong refusal guard: ' + JSON.stringify(descriptor));
+            assert.equal(descriptor.diagnostic?.renderer, 'dash-typed', 'wrong refusal renderer: ' + JSON.stringify(descriptor));
         };
 
         // The captured shape is answered.

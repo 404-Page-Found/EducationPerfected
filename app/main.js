@@ -117,7 +117,7 @@ function createElectronApp({ electron, session }) {
         // guest at its default 150px height and the pane clips. Scripts load only from the app.
         const rendererPolicy = RENDERER_CSP;
         const rendererSession = electron.session && electron.session.defaultSession;
-        if (rendererSession && rendererSession.webRequest) rendererSession.webRequest.onHeadersReceived({ urls: ['file://*/*'] }, (details, callback) => {
+        if (rendererSession?.webRequest) rendererSession.webRequest.onHeadersReceived({ urls: ['file://*/*'] }, (details, callback) => {
             callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [rendererPolicy] } });
         });
         window = new BrowserWindow({
@@ -161,7 +161,7 @@ function createElectronApp({ electron, session }) {
         // reply lands.
         ipcMain.handle(IPC.applyUpdate, async () => {
             const result = await session.applyUpdate();
-            if (result && result.quitRequired) quitAfterReply();
+            if (result?.quitRequired) quitAfterReply();
             return result;
         });
     }
@@ -235,7 +235,7 @@ function createElectronApp({ electron, session }) {
             }
             report = { ok: true, state, embeddedPage: true, maintenanceScreens };
         } catch (error) {
-            report = { ok: false, error: String((error && error.message) || error) };
+            report = { ok: false, error: String((error?.message) || error) };
             process.exitCode = 1;
         }
         try {

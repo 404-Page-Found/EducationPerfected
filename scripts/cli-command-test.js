@@ -54,7 +54,7 @@ async function probe(args,downloadFails=false,updateFails=false){
   if(id==='./update')return {updateCommand:async options=>{assert.equal(options.executable,'fixed.exe');events.push('update');if(updateFails)throw new Error('inert update failure');}};
   if(id==='../lib/credential-store')return {createCredentialStore:()=>({inert:true})};
   if(id==='./uninstall')return {uninstallCommand:async options=>{assert.equal(options.ownDirectory,'/inert-runtime');assert.equal(options.store.inert,true);events.push('uninstall');await options.cleanupOwn();return {incomplete:false};}};
-  if(id==='./download-browser')return {ensureBrowser:async(options)=>{let step='acquire';if(options&&options.consent)step=(await options.consent())===true?'acquire-implied':'acquire-refused';events.push(step);if(downloadFails)throw new Error('inert cancellation');},downloadNotice:()=>'inert notice'};
+  if(id==='./download-browser')return {ensureBrowser:async(options)=>{let step='acquire';if(options?.consent)step=(await options.consent())===true?'acquire-implied':'acquire-refused';events.push(step);if(downloadFails)throw new Error('inert cancellation');},downloadNotice:()=>'inert notice'};
   if(id==='../bin/cli')return {credentialCommand:async command=>{events.push(command);},runCli:async()=>{throw new Error('Must not launch browser');}};
   if(id==='./maintenance-exit')return {shouldExitAfterWindowsUninstall:()=>false,exitAfterMaintenanceHandoff:async()=>false};
   if(id==='../lib/diagnostics')return {diagnostic:()=> 'inert'};

@@ -64,7 +64,7 @@ function makeDeps(overrides = {}) {
 
 async function expectReject(promise, pattern) {
     await assert.rejects(promise, error => {
-        assert.match(String(error && error.message), pattern);
+        assert.match(String(error?.message), pattern);
         return true;
     });
 }

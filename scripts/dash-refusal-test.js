@@ -30,7 +30,7 @@ const DASH_QUESTION = {
     try {
         const page = (await browser.pages())[0];
         const refuseByName = (descriptor, reader) => {
-            assert.equal(descriptor && descriptor.kind, 'unsupported', reader + ' did not refuse');
+            assert.equal(descriptor?.kind, 'unsupported', reader + ' did not refuse');
             assert.equal(descriptor.dash, true, reader + ' refusal is not flagged dash');
             assert.match(descriptor.reason, /Dash timed sprint round detected/, reader + ' refusal does not name Dash');
             assert.match(descriptor.reason, /inspect-dash/, reader + ' refusal does not point at the capture');
@@ -75,7 +75,7 @@ const DASH_QUESTION = {
         await page.setContent('<table><tr><td id="question-text">word</td></tr></table>');
         await page.evaluate(STUB, { gameMode: 1, _currentQuestion: {} });
         const classic = await page.evaluate(detectQuestionInPage);
-        assert.equal(classic && classic.kind, 'text', 'classic text without isDash was refused');
+        assert.equal(classic?.kind, 'text', 'classic text without isDash was refused');
         console.log('Dash refusal: classic, audio, typed, choice, number-box and textbox readers name Dash and stop; non-Dash classic unaffected PASS. Synthetic only.');
     } finally {
         await browser.close().catch(() => {});
