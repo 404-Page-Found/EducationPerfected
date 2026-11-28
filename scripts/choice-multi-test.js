@@ -6,7 +6,7 @@ const { playChoiceRound } = require('../lib/choice-handler');
 
 // Isolate adversarial normalization so a regression cannot hang the test runner.
 const source = require('node:fs').readFileSync(require.resolve('../lib/multi-choice-state'), 'utf8');
-const stripBody = source.slice(source.indexOf('    const strip ='), source.indexOf('    const rows ='));
+const stripBody = source.slice(source.indexOf('    const strip ='), source.indexOf('    const renderReady'));
 const bounded = require('node:child_process').spawnSync(process.execPath, ['-e', stripBody + ";if (strip('['.repeat(120000) + ' unmatched').length !== 120010) process.exit(1);"], { timeout: 2000 });
 assert.equal(bounded.error, undefined, 'unmatched bracket normalization exceeded its bounded runtime');
 assert.equal(bounded.status, 0, String(bounded.stderr));
