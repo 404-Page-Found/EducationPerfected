@@ -72,20 +72,34 @@ function isNewer(a, b) {
 const okCount = n => Number.isSafeInteger(n) && n >= -1 && n <= MAX_COUNT;
 const known = n => (n < 0 ? 'unknown' : String(n));
 
-function validateDetail(data) {
+function detailKindOk(data) {
     const unsupported = data.task_type === 'unsupported' && data.reason === 'unsupported-question';
     const stopped = data.reason === 'handler-stopped' && data.task_type !== 'unsupported' && data.task_type !== 'unknown' && data.branch === 'handler-stop';
-    if (!unsupported && !stopped) return null;
-    if (unsupported && data.branch === 'handler-stop') return null;
-    if (!BRANCHES.includes(data.branch) || !GAME_MODES.includes(data.game_mode)) return null;
-    if (!okCount(data.question_type) || !okCount(data.component_count)) return null;
-    if (!Array.isArray(data.components) || data.components.length > MAX_COMPONENTS || !data.components.every(c => COMPONENT_CODES.includes(c))) return null;
+    if (!unsupported && !stopped) return false;
+    return !(unsupported && data.branch === 'handler-stop');
+}
+
+function detailShapeOk(data) {
+    if (!BRANCHES.includes(data.branch) || !GAME_MODES.includes(data.game_mode)) return false;
+    if (!okCount(data.question_type) || !okCount(data.component_count)) return false;
+    return Array.isArray(data.components) && data.components.length <= MAX_COMPONENTS && data.components.every(c => COMPONENT_CODES.includes(c));
+}
+
+function controlsOk(controls) {
+    if (!controls || typeof controls !== 'object' || Array.isArray(controls)) return false;
+    if (Object.keys(controls).sort((a, b) => a.localeCompare(b)).join(',') !== CONTROL_KEYS.join(',')) return false;
+    return CONTROL_KEYS.every(k => okCount(controls[k]));
+}
+
+function guardOk(data) {
+    if ('guard_counts' in data && !validCounts(data.guard_counts)) return false;
+    return !('guard' in data && data.guard !== 'unknown' && !(typeof data.guard === 'string' && GUARD_RE.test(data.guard)));
+}
+
+function validateDetail(data) {
+    if (!detailKindOk(data) || !detailShapeOk(data)) return null;
     const controls = data.controls;
-    if (!controls || typeof controls !== 'object' || Array.isArray(controls)) return null;
-    if (Object.keys(controls).sort((a, b) => a.localeCompare(b)).join(',') !== CONTROL_KEYS.join(',')) return null;
-    if (!CONTROL_KEYS.every(k => okCount(controls[k]))) return null;
-    if ('guard_counts' in data && !validCounts(data.guard_counts)) return null;
-    if ('guard' in data && data.guard !== 'unknown' && !(typeof data.guard === 'string' && GUARD_RE.test(data.guard))) return null;
+    if (!controlsOk(controls) || !guardOk(data)) return null;
     return {
         branch: data.branch,
         game_mode: data.game_mode,
