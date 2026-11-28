@@ -1063,7 +1063,7 @@ async function testTypedSubmitRaces(page, origin) {
         let rewritten = false;
         Object.defineProperty(m, '_currentQuestion', { get() {
             const box = document.querySelector('#answer-text');
-            if (!rewritten && box && box.value === 'Ho la febbre') {
+            if (!rewritten && box?.value === 'Ho la febbre') {
                 rewritten = true; box.value = 'unexpected rewrite'; window.__rewritten = true;
             }
             return q;

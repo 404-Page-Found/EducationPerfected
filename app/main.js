@@ -190,7 +190,7 @@ function createElectronApp({ electron, session }) {
                 });
             });
             const state = await window.webContents.executeJavaScript('window.educationPerfected.getState()');
-            if (!state || state.session !== 'idle' || typeof state.version !== 'string') {
+            if (state?.session !== 'idle' || typeof state.version !== 'string') {
                 throw new Error('unexpected initial state: ' + JSON.stringify(state));
             }
             // Exercise the real embedded guest, not just the shell. Electron
