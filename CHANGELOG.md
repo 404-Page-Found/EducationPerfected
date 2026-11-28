@@ -68,7 +68,7 @@ Full PR list: [v2026.11.22...v2026.11.29](https://github.com/404-Page-Found/Educ
 
 ## v2026.11.22
 
-Second V2026 stable release, prepared but not yet published. Replaces the unpublished v2026.11.21 draft. Full PR list: [v2026.11.16...v2026.11.22](https://github.com/404-Page-Found/EducationPerfected/compare/v2026.11.16...v2026.11.22).
+Second V2026 stable release. Replaces the v2026.11.21 draft. Full PR list: [v2026.11.16...v2026.11.22](https://github.com/404-Page-Found/EducationPerfected/compare/v2026.11.16...v2026.11.22).
 
 - Installed desktop fixes: attach to Electron's actual embedded webview instead of looking only at ordinary browser pages, fixing the startup error "The browser opened no page to control". App update remains reachable in App settings before startup and after a failed session. Windows now has one EducationPerfected Start-menu launcher for the desktop window; upgrades remove the old separate EducationPerfected App shortcut, while the terminal command remains available. Native app launch checks now also navigate the real embedded guest offline and check maintenance visibility across startup states. A real Windows installer interaction remains unverified.
 
