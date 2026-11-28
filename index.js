@@ -1799,19 +1799,15 @@ async function launchProgram({ onBrowserClosed = () => {}, onBrowserDisconnected
                     // unreadable/malformed sectionData never borrows it.
                     const allowed = audioAllowed(descriptor);
                     if (!allowed) {
-                        const message = markingMessage(descriptor.autoMarked, isDashTyped);
-                    console.error(message);
+                        const message = descriptor.autoMarked === false
+                            ? 'This audio task is marked manually (self/peer/teacher), not auto-marked by EP; stopping instead of answering.'
+                            : 'EP did not confirm this audio task is auto-marked or a self-test list (the marking fields were missing or unreadable); stopping instead of answering.';
+                        console.error(message);
                         await alert(message);
                         return false;
                     }
                 } else if (descriptor.autoMarked !== true) {
-                    const message = descriptor.autoMarked === false
-                        ? isDashTyped
-                            ? 'This Dash sprint round is marked manually (self/peer/teacher), not auto-marked by EP; stopping instead of answering.'
-                            : 'This lesson question is marked manually (self/peer/teacher), not auto-marked by EP; stopping instead of answering.'
-                        : isDashTyped
-                            ? 'EP did not confirm this Dash sprint round is auto-marked (the marking field was missing or unreadable); stopping instead of answering.'
-                            : 'EP did not confirm this lesson question is auto-marked (the marking field was missing or unreadable); stopping instead of answering.';
+                    const message = markingMessage(descriptor.autoMarked, isDashTyped);
                     console.error(message);
                     await alert(message);
                     return false;
