@@ -66,7 +66,8 @@ async function testTrace() {
         const observer=await page.evaluateHandle(observeDropdownInput,tracking);
         await tracking.dispose();
         const target=await page.$('select');
-        const pressHome=async remaining=>{if(remaining===0)return;await target.press('Home');return pressHome(remaining-1);};
+        const pressHome=async remaining=>{if(remaining===0)return;
+        await target.press('Home');return pressHome(remaining-1);};
         await pressHome(40);
         const bounded=await observer.evaluate(value=>value.snapshot());
         assert.equal(bounded.events.length,64);

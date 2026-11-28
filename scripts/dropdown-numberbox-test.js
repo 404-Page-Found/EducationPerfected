@@ -275,5 +275,6 @@ const baseDiag = { kind: 'dropdown-numberbox-refusal', domSelectCount: 4, domBox
         assert.equal((await playDropdownNumberBoxRound(page, d, { enter: true, timeout: 50 })).status, 'stopped');
         assert.deepEqual(await page.evaluate(() => [dropdownNumberBoxFixture.submits, dropdownNumberBoxFixture.nexts]), [0, 0]);
         console.log('Dropdown+number-box mixed-slide fixtures PASS: four dropdowns and six number boxes filled (12 trusted keys / 8 trusted changes / 17 trusted characters), one Submit with no typed approval; fill-only without Submit; authored-unmarked slide completes; single-surface slides pass through; 19 refusals plus assessment and prefill stops with no input; mid-run tampers stop before Submit; semi mode fills then watches the user Submit; three-surface slides (dropdowns + number boxes + text box) detect, fill and submit once, marked and unmarked, with prefill, mixed-marking, contract-failure and mid-run tamper stops; number-box + text-box slides without dropdowns detect, fill and submit once, marked and unmarked, with stray-select and mid-run tamper stops. Synthetic Linux only.');
-    } finally { if (browser) await browser.close(); await new Promise(r => server.close(r)); }
+    } finally { if (browser) await browser.close();
+    await new Promise(r => server.close(r)); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

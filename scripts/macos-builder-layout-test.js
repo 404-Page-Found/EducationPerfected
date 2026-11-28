@@ -9,7 +9,8 @@ const source=fs.readFileSync(path.resolve(__dirname,'../packaging/build-developm
   fs.writeFileSync(path.join(packaging,'notices','node-LICENSE'),runtimeBytes);fs.writeFileSync(path.join(packaging,'notices','runtime.json'),JSON.stringify(runtime));
   for(const arch of ['arm64','x64']) {
    const payload=path.join(root,'chrome-mac-'+arch),contents=path.join(payload,'Google Chrome for Testing.app','Contents'),browser=path.join(contents,'MacOS','Google Chrome for Testing');
-   for(const dir of ['MacOS','Frameworks','Resources'])fs.mkdirSync(path.join(contents,dir),{recursive:true});fs.writeFileSync(browser,'synthetic');fs.writeFileSync(path.join(contents,'Info.plist'),'synthetic');
+   for(const dir of ['MacOS','Frameworks','Resources'])fs.mkdirSync(path.join(contents,dir),{recursive:true});
+   fs.writeFileSync(browser,'synthetic');fs.writeFileSync(path.join(contents,'Info.plist'),'synthetic');
    const moduleFixture={exports:{}},stop=new Error('archive boundary');let archives=0;
    const load=id=>{
     if(id==='puppeteer')return {executablePath:()=>browser};

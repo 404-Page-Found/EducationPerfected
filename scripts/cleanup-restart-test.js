@@ -22,7 +22,10 @@ const { finishFixtureCleanup } = require('./fixture-cleanup-errors');
             return key === 'launch' ? async (...options) => { browser = await launchBrowser(...options); return browser; } : target[key];
         } }) : value;
     };
-    console.log = (...args) => { const text = String(args[0]); if (text.includes('No credentials provided')) loginReady = true; if (text === 'answerLoop entered.') entries++; if (text.includes('task completion confirmed')) completed = true; log(...args); };
+    console.log = (...args) => { const text = String(args[0]); if (text.includes('No credentials provided')) loginReady = true;
+    if (text === 'answerLoop entered.') entries++;
+    if (text.includes('task completion confirmed')) completed = true;
+    log(...args); };
     try {
         let launchFailure;
         const launch = require('../index').launchProgram();

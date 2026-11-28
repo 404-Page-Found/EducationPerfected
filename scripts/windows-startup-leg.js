@@ -49,7 +49,8 @@ async function runLeg(mode,nonce,expectedIdentity) {
   driverStage(mode,nonce,'spawn-returned');
   closed=new Promise(resolve=>child.once('close',(code,signal)=>resolve({code,signal})));
   child.once('error',error=>{spawnError=error;});
-  const capture=chunk=>{if(spawnError)return;text+=chunk.toString();if(Buffer.byteLength(text)>65536){text='';spawnError=new Error('Diagnostic output limit');}};
+  const capture=chunk=>{if(spawnError)return;
+  text+=chunk.toString();if(Buffer.byteLength(text)>65536){text='';spawnError=new Error('Diagnostic output limit');}};
   child.stdout.on('data',capture);child.stderr.on('data',capture);
   const ready=await connectAfterLoginReady({text:()=>text,child,failure:()=>spawnError||serverError,connect:options=>require('puppeteer').connect(options)});
   browser=ready.browser;result.networkSandbox=await require('./windows-network-sandbox').observeNetworkSandbox(browser);result.ready=true;driverStage(mode,nonce,'ready-observed');

@@ -105,5 +105,6 @@ async function colorFixture(page, origin, pattern = '@@009900@BODY@@') {
             assert.deepEqual(await page.evaluate(()=>[window.mathFixture.clicks.length,window.colorSubmits]),[0,0],mutation);
         }
         console.log('Block color synthetic: 14 palette/hex auto positives, disjoint spans,19 malformed/unsafe refusals,10 association/context/final-drift +25 exact-radio/foreign-editable guards zero selection/Submit PASS. No live compatibility proof.');
-    } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
+    } finally {if(browser)await browser.close();
+    await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});

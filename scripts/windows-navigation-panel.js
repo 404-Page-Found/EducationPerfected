@@ -11,7 +11,8 @@ async function sample({kind,executablePath,env,url,launch,requestSeen,logPath,re
   stage='page-selection';
   const initial=(await browser.pages())[0];initialBlank=initial.url()==='about:blank';
   const page=kind==='new-page'?await browser.newPage():initial;
-  stage='navigation';if(recover)await require('../lib/initial-login-navigation').navigateInitialLogin(page,url);else await page.goto(url,{waitUntil:'domcontentloaded',timeout:30000});navigated=true;
+  stage='navigation';if(recover)await require('../lib/initial-login-navigation').navigateInitialLogin(page,url);else await page.goto(url,{waitUntil:'domcontentloaded',timeout:30000});
+  navigated=true;
   stage='readiness';await page.waitForSelector('#loginId',{timeout:5000});ready=true;
  }catch(error){
   cause=startupFailure(error,browser);

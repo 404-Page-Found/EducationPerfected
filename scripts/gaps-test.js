@@ -79,7 +79,8 @@ async function testInvisibleText(page, setup) {
         for(const mutation of ['manual','markingUnknown','gameMode','textbox','mixed','duplicateHints','missingCorrect','wrongIndex','duplicateID','foreignSource','foreignZone','prefilled','hidden','domID','extraGap','reviewMode','staleOrder','unknownInput','malformedHints','templateOrder','storedAnswer']) await assertMutationRefusal(page, setup, mutation);
         for(const mutation of ['identity','answer','marking','ineffective','wrongGap','sourceReplacement','submitReplacement','sameKeyNext','hintPaddingChange']) await assertInputGuard(page, setup, mutation);
                 console.log('Gaps: trusted DOM-order exact answers, one submit, semi-auto, 3 padded-distractor successes, 83 initial refusals and 16 post-input/no-Next refusals PASS. Source-derived synthetic only.');
-    } finally {if(browser)await browser.close();await new Promise(r=>server.close(r));}
+    } finally {if(browser)await browser.close();
+    await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});
 
 async function assertMutationRefusal(page, setup, mutation) {

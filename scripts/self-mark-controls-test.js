@@ -22,7 +22,8 @@ const { createRunControls } = require('../lib/run-controls');
     await assert.rejects(failed.inspect(), /fixture/); assert.equal(failed.status().state, 'stopped');
     for (const outcome of ['completed', 'error']) {
         let inspected = 0;
-        const idle = createRunControls({ run() { if (outcome === 'error') throw new Error('fixture'); return {reason:'completed'}; }, inspect() { inspected++; return 'ok'; } });
+        const idle = createRunControls({ run() { if (outcome === 'error') throw new Error('fixture');
+        return {reason:'completed'}; }, inspect() { inspected++; return 'ok'; } });
         idle.start(); await new Promise(resolve => setImmediate(resolve));
         assert.equal(idle.status().state, outcome);
         assert.equal(await idle.inspect(), 'ok'); assert.equal(inspected, 1);

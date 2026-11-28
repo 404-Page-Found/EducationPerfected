@@ -29,7 +29,8 @@ async function observeNetworkSandbox(browser,milliseconds=20000){
   return assertNetworkSandbox(await bounded(page.evaluate(()=>document.body.innerText)),histograms);
  }finally{
   expired=true;
-  const cleanup=[];if(page)cleanup.push(page.close().catch(()=>{}));if(session)cleanup.push(session.detach().catch(()=>{}));
+  const cleanup=[];if(page)cleanup.push(page.close().catch(()=>{}));
+  if(session)cleanup.push(session.detach().catch(()=>{}));
   let cleanupTimer;try{await Promise.race([Promise.all(cleanup),new Promise(resolve=>{cleanupTimer=setTimeout(resolve,2000);})]);}finally{clearTimeout(cleanupTimer);clearTimeout(timer);}
  }
 }

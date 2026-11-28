@@ -103,5 +103,6 @@ async function runAfterCase(page, origin, mutation) {
         const prefix=await page.evaluate(readGapsInPage,null,'descriptor');
         assert.deepEqual(prefix.descriptor.gaps.map(g=>[g.source,g.filled]),[[0,true],[4,false],[3,false],[5,false]]);
         console.log('Repeated exact labels: 4 DOM gaps / 6 tiles, injective stable [0,4,3,5], trusted fill-only and single Submit, 10 initial + 9 post-input/cancel refusals, permanent attempt consumption, 0 Next PASS. Synthetic only.');
-    } finally { if(browser)await browser.close();await new Promise(r=>server.close(r)); }
+    } finally { if(browser)await browser.close();
+    await new Promise(r=>server.close(r)); }
 })().catch(e=>{console.error(e);process.exitCode=1;});

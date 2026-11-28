@@ -39,5 +39,6 @@ const {installControlMenu}=require('../lib/browser-controls');
   await page.evaluate(installControlMenu);await check();
   if(process.env.EP_PANEL_BOUNDS_SCREENSHOT)await page.screenshot({path:process.env.EP_PANEL_BOUNDS_SCREENSHOT});
   console.log('Panel drag, expand, resize and restored positions stay within scrollbar-excluding page bounds.');
- }finally{if(browser)await browser.close();server.closeAllConnections();server.close();}
+ }finally{if(browser)await browser.close();
+ server.closeAllConnections();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

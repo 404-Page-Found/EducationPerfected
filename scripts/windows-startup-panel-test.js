@@ -10,7 +10,12 @@ const Module=require('node:module');
  const calls=[],logs=[];
  const identity={length:123,sha256:'b'.repeat(64),browserVersion:'156.0.8078.47'};
  const target=require.resolve('./windows-startup-panel'),originalLoad=Module._load,originalLog=console.log,originalEnv=process.env,originalArgv=process.argv,originalPlatform=Object.getOwnPropertyDescriptor(process,'platform'),originalArch=Object.getOwnPropertyDescriptor(process,'arch');
- function req(name){if(name==='node:fs')return {statSync:()=>({isFile:()=>true}),readFileSync:()=>JSON.stringify(identity)};if(name==='node:crypto')return {randomBytes:()=>({toString:()=>nonce})};if(name==='./startup-browser-identity')return {verifyArchive:async()=>{if(fail==='identity')throw new Error();return identity;}};if(name==='node:child_process')return {spawnSync:(exe,args)=>{const current=args[2];calls.push(current);return current===fail?{status:20}: {status:0,signal:null,stderr:'',stdout:`EP_OWNED_PIPE_NONCE=${nonce}\nEP_OWNED_PIPE_MODE=${current}\nEP_OWNED_PIPE_RESULT=pass\n`};}};return require(name);}
+ function req(name){if(name==='node:fs')return {statSync:()=>({isFile:()=>true}),readFileSync:()=>JSON.stringify(identity)};
+ if(name==='node:crypto')return {randomBytes:()=>({toString:()=>nonce})};
+ if(name==='./startup-browser-identity')return {verifyArchive:async()=>{if(fail==='identity')throw new Error();
+ return identity;}};
+ if(name==='node:child_process')return {spawnSync:(exe,args)=>{const current=args[2];calls.push(current);return current===fail?{status:20}: {status:0,signal:null,stderr:'',stdout:`EP_OWNED_PIPE_NONCE=${nonce}\nEP_OWNED_PIPE_MODE=${current}\nEP_OWNED_PIPE_RESULT=pass\n`};}};
+ return require(name);}
  let error;
  try{
   Object.defineProperty(process,'platform',{value:fail==='host'?'linux':'win32'});Object.defineProperty(process,'arch',{value:'x64'});process.argv=['node','fixed'];process.env={GITHUB_ACTIONS:'true',RUNNER_OS:'Windows',RUNNER_ENVIRONMENT:'github-hosted',EP_FIXTURE_PYTHON:'/fixed/python'};console.log=s=>logs.push(s);

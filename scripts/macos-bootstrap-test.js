@@ -16,7 +16,8 @@ async function probe(rejectPath) {
   if(id==='node:module')return {createRequire:()=>()=>({})};
   if(id==='../lib/native-binding')return {setPackagedBinding(){}};
   if(id==='modern-tar/fs')return {unpackTar:()=>new Writable({write(chunk,encoding,callback){order.push('unpack');callback();}})};
-  if(id==='./macos-extracted-executable')return {macosExtractedExecutable:(root,relative)=>{order.push('validate');assert.equal(root,'/synthetic-owned-root');assert.equal(relative,executable);if(rejectPath)throw moduleError;return '/validated-canonical/browser';}};
+  if(id==='./macos-extracted-executable')return {macosExtractedExecutable:(root,relative)=>{order.push('validate');assert.equal(root,'/synthetic-owned-root');assert.equal(relative,executable);if(rejectPath)throw moduleError;
+  return '/validated-canonical/browser';}};
   if(id==='../bin/cli')return {runCli:async()=>{order.push('cli');assert.equal(processFixture.env.PUPPETEER_EXECUTABLE_PATH,'/validated-canonical/browser');}};
   if(id==='../lib/diagnostics')return {diagnostic:error=>{assert.equal(error,moduleError);return 'Synthetic rejected path';}};
   assert.ok(id.startsWith('node:'));return require(id);

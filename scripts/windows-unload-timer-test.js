@@ -15,7 +15,8 @@ const source=fs.readFileSync(path.resolve(__dirname,'windows-native-unload-test.
  };
  load.resolve=id=>{assert.equal(id,'@napi-rs/keyring-win32-x64-msvc');return '/synthetic-keyring.node';};
  await vm.runInNewContext(source,{require:load,process:fakeProcess,console:{log(){},error:line=>{output.push(String(line));}}, // NOSONAR: fixed sibling test source, inert worker/filesystem/timers; no external input or native load.
-  setTimeout:(callback,milliseconds)=>{const id=++nextId;timers.set(id,milliseconds);if(milliseconds===2000)queueMicrotask(callback);return id;},clearTimeout:id=>{timers.delete(id);}});
+  setTimeout:(callback,milliseconds)=>{const id=++nextId;timers.set(id,milliseconds);if(milliseconds===2000)queueMicrotask(callback);
+  return id;},clearTimeout:id=>{timers.delete(id);}});
  assert.equal(fakeProcess.exitCode,1,'Original loaded-DLL-lock assertion failure remains fatal');
  assert.equal(removed,false,'Unconfirmed worker retains extraction ownership');
  assert.ok(output.some(line=>line.includes('owned test extraction retained')));

@@ -151,5 +151,6 @@ const eachSequential = (values, run) => values.reduce((previous, value) => previ
         });
         assert.equal((await modalRun).status, 'modal');
         console.log('Highlight: trusted per-token exact selection, one Submit, single-answer, semi-auto, covered-token and unsupported-next guards, completion/modal signals, 34 initial refusals and 8 mid-play refusals PASS. Source-derived synthetic only.');
-    } finally { if (browser) await browser.close(); await new Promise(r => server.close(r)); }
+    } finally { if (browser) await browser.close();
+    await new Promise(r => server.close(r)); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

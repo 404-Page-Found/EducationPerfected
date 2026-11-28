@@ -13,7 +13,8 @@ async function testGapsValidation(submit, repeated = false) {
     const child=spawn(process.execPath,[path.join(__dirname,submit ? '../bin/validate-gaps-submit.js' : '../bin/validate-gaps-fill.js')],{env,stdio:['pipe','pipe','pipe'],detached:process.platform!=='win32'});
     let output='',browser;
     child.stdout.on('data',d=>{output+=d;});child.stderr.on('data',d=>{output+=d;});
-    const wait=async predicate=>{const end=Date.now()+20000;while(!predicate()){if(child.exitCode!==null||Date.now()>end)throw new Error('Validation checkpoint failed: '+output);await new Promise(r=>setTimeout(r,20));}};
+    const wait=async predicate=>{const end=Date.now()+20000;while(!predicate()){if(child.exitCode!==null||Date.now()>end)throw new Error('Validation checkpoint failed: '+output);
+    await new Promise(r=>setTimeout(r,20));}};
     try {
         await wait(()=>/EP_WS_ENDPOINT=(\S+)/.test(output));
         browser=await puppeteer.connect({browserWSEndpoint:output.match(/EP_WS_ENDPOINT=(\S+)/)[1]});

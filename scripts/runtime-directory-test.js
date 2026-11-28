@@ -41,7 +41,8 @@ try {
     const locked = path.join(next.directory, 'locked-profile');
     fs.writeFileSync(locked, 'inert');
     try {
-        fs.rmSync = (file, options) => { if (file === locked) throw Object.assign(new Error('inert locked file'), {code:'EPERM'});return originalRemove(file, options); };
+        fs.rmSync = (file, options) => { if (file === locked) throw Object.assign(new Error('inert locked file'), {code:'EPERM'});
+        return originalRemove(file, options); };
         assert.throws(() => next.remove(true), /locked file/);
         assert.equal(JSON.parse(fs.readFileSync(path.join(next.directory, 'OWNER.json'))).state, 'cleanup-ready');
     } finally { fs.rmSync = originalRemove; }
@@ -55,7 +56,8 @@ try {
     fs.writeFileSync(flakyLocked, 'inert');
     let strikes = 2;
     try {
-        fs.rmSync = (file, options) => { if (file === flakyLocked && strikes-- > 0) throw Object.assign(new Error('inert transient lock'), {code:'EPERM'}); return originalRemove(file, options); };
+        fs.rmSync = (file, options) => { if (file === flakyLocked && strikes-- > 0) throw Object.assign(new Error('inert transient lock'), {code:'EPERM'});
+        return originalRemove(file, options); };
         assert.equal(flaky.remove(true), true);
     } finally { fs.rmSync = originalRemove; }
     assert.equal(fs.existsSync(flaky.directory), false);
@@ -65,7 +67,8 @@ try {
     let dirStrikes = 2;
     const originalRmdir = fs.rmdirSync;
     try {
-        fs.rmdirSync = (target, options) => { if (target === racing.directory && dirStrikes-- > 0) throw Object.assign(new Error('inert still-written directory'), {code:'ENOTEMPTY'}); return originalRmdir(target, options); };
+        fs.rmdirSync = (target, options) => { if (target === racing.directory && dirStrikes-- > 0) throw Object.assign(new Error('inert still-written directory'), {code:'ENOTEMPTY'});
+        return originalRmdir(target, options); };
         assert.equal(racing.remove(true), true);
     } finally { fs.rmdirSync = originalRmdir; }
     assert.equal(fs.existsSync(racing.directory), false);
