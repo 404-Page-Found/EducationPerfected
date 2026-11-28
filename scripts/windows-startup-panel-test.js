@@ -21,5 +21,5 @@ const Module=require('node:module');
   Object.defineProperty(process,'platform',{value:fail==='host'?'linux':'win32'});Object.defineProperty(process,'arch',{value:'x64'});process.argv=['node','fixed'];process.env={GITHUB_ACTIONS:'true',RUNNER_OS:'Windows',RUNNER_ENVIRONMENT:'github-hosted',EP_FIXTURE_PYTHON:'/fixed/python'};console.log=s=>logs.push(s);
   Module._load=function(name,parent,isMain){return parent?.filename===target?req(name):originalLoad.call(this,name,parent,isMain);};delete require.cache[target];await require('./windows-startup-panel').panel();
  }catch(e){error=e;}finally{Module._load=originalLoad;console.log=originalLog;process.env=originalEnv;process.argv=originalArgv;Object.defineProperty(process,'platform',originalPlatform);Object.defineProperty(process,'arch',originalArch);delete require.cache[target];}
- assert.deepEqual(calls,fail==='host'||fail==='identity'?[]:fail==='source'?['source']:['source','sea']);assert.equal(!error,fail==='none');
+ assert.deepEqual(calls,({host:[],identity:[],source:['source']})[fail]??['source','sea']);assert.equal(!error,fail==='none');
 }})().catch(error=>{console.error(error);process.exitCode=1;});

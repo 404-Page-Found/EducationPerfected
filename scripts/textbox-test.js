@@ -39,7 +39,7 @@ const { playTextboxRound, playNumberBoxRound } = require('../lib/textbox-handler
             await setup();
             await page.evaluate(m => {
                 const f = textboxFixture, c = f.base['box-b'][0], s = c.componentState;
-                if (m.startsWith('editable-')) { const extra = document.createElement('div'); extra.textContent = 'Extra editable'; extra.setAttribute('contenteditable', m === 'editable-empty' ? '' : m === 'editable-plain' ? 'plaintext-only' : 'true'); f.group.append(extra); }
+                if (m.startsWith('editable-')) { const extra = document.createElement('div'); extra.textContent = 'Extra editable'; extra.setAttribute('contenteditable', { 'editable-empty': '', 'editable-plain': 'plaintext-only' }[m] ?? 'true'); f.group.append(extra); }
                 if (m === 'manual') f.self.sectionData.activityGroup.isAutoMarked = false;
                 if (m === 'assessment') f.self.model.gameMode = 2;
                 if (m === 'unsupported-mode') f.self.model.gameMode = 4;

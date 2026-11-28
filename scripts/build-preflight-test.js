@@ -45,7 +45,7 @@ const source=fs.readFileSync(path.resolve(__dirname,'../packaging/build-developm
    // Execute only this fixed sibling builder with inert native/bundle/archive dependencies.
    vm.runInNewContext(source,{require:load,module:moduleFixture,__dirname:packaging,process:{argv:['node','fixed-builder'],env:{},execPath:process.execPath,versions:{node:scenario==='runtime-version'?'0.0.0':process.versions.node}},console:{warn:line=>warnings.push(line),log(){}}}); // NOSONAR: fixed repository source and synthetic fixtures only; no external code or input.
    const target={directory:'synthetic',browserDirectory:'chrome-synthetic',browserFiles:[],nativePackage:'never-loaded',executable:'never-built'};
-   await assert.rejects(moduleFixture.exports.buildDevelopment(target),error=>scenario==='required-missing'?/Missing required production dependency/.test(error.message):scenario==='runtime-version'?/Node runtime notice version mismatch/.test(error.message):scenario==='runtime-corrupt'?/Node runtime notice checksum mismatch/.test(error.message):error===stop);
+   await assert.rejects(moduleFixture.exports.buildDevelopment(target),error=>{const pattern={'required-missing':/Missing required production dependency/,'runtime-version':/Node runtime notice version mismatch/,'runtime-corrupt':/Node runtime notice checksum mismatch/}[scenario];return pattern?pattern.test(error.message):error===stop;});
    assert.equal(archived,['required-missing','runtime-version','runtime-corrupt'].includes(scenario)?0:1);assert.equal(bundled,0);assert.equal(spawned,0);
    assert.equal(warnings.length,scenario==='missing-notice'?1:0);
   } finally {fs.rmSync(root,{recursive:true,force:true});}
@@ -66,7 +66,7 @@ const source=fs.readFileSync(path.resolve(__dirname,'../packaging/build-developm
   };
   vm.runInNewContext(source,{require:load,module:moduleFixture,__dirname:'/synthetic/packaging',process:{argv:scenario==='arguments'?['node','builder','unapproved-output']:['node','builder'],env:scenario==='custom-browser'?{PUPPETEER_EXECUTABLE_PATH:'/unapproved/browser'}:{},execPath:process.execPath},console}); // NOSONAR: fixed sibling source, inert dependencies and synthetic inputs only.
   const target={directory:'synthetic',browserDirectory:'chrome-synthetic',browserFiles:['required.dat'],nativePackage:'never-loaded',executable:'never-built'};
-  const expected=scenario==='arguments'?/no output path arguments/:scenario==='custom-browser'?/Custom browser paths/:scenario==='missing-browser'?/Chrome for Testing is not installed/:/Expected a Chrome for Testing payload directory/;
+  const expected={arguments:/no output path arguments/,'custom-browser':/Custom browser paths/,'missing-browser':/Chrome for Testing is not installed/}[scenario]??/Expected a Chrome for Testing payload directory/;
   await assert.rejects(moduleFixture.exports.buildDevelopment(target),expected);
   assert.equal(archived,0);assert.equal(bundled,0);assert.equal(spawned,0);assert.equal(noticesTouched,0);
  }

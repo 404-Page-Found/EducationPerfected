@@ -65,7 +65,7 @@ async function setup(page, origin, mutation = '') {
             const result = await playChoiceRound(page, d, { enter: true, timeout: 250, shouldStop: () => false });
             assert.equal(await page.evaluate(() => window.transitionFixture.submits), 1, mutation);
             assert.equal(result.status, 'stopped', mutation + JSON.stringify(result));
-            const reason = ['duplicate-explanation','duplicate-next'].includes(mutation) ? /More than one visible/ : mutation === 'locked' ? /did not advance/ : /could not be associated/;
+            const reason = { 'duplicate-explanation': /More than one visible/, 'duplicate-next': /More than one visible/, locked: /did not advance/ }[mutation] ?? /could not be associated/;
             assert.match(result.message, reason, mutation);
             assert.equal(await page.evaluate(() => window.transitionFixture.clicks), 0, mutation);
         }
