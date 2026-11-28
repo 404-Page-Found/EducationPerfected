@@ -49,62 +49,79 @@ async function runCli({ input = process.stdin, output = process.stdout, launch =
     process.on('SIGHUP', onSignal);
     print();
     try {
+        const handleApprovalLine = async (line, command) => {
+            const request = pendingApproval;
+            if (request.phase === 'text' && !['quit', 'exit', 'stop'].includes(command)) {
+                if (!require('../lib/reflection-handler').validReflectionText(line)) {
+                    request.resolve(false);
+                    output.write('Reflection text not supported; no input.\n');
+                    return 'continue';
+                }
+                request.text = line;
+                request.phase = 'confirm';
+                output.write(`Reflection fill approval for ${request.approval.key}: ${JSON.stringify(line)}. Type yes to fill this response only. No Submit or self-grade will be clicked. Anything else cancels.\n`);
+                return 'continue';
+            }
+            if (request.phase) {
+                const approved = request.phase === 'confirm' && command === 'yes';
+                request.resolve(approved ? request.text : false);
+                output.write(approved ? 'Reflection fill approved for this question only.\n' : 'Reflection fill not approved; no input.\n');
+                if (command === 'quit' || command === 'exit') { await quit(); print(); return 'break'; }
+                return 'continue';
+            }
+            return null;
+        };
+        const inspectCommand = (label, inspect) => async () => output.write(label + ' ' + JSON.stringify(await inspect()) + '\n');
+        const simpleCommands = {
+            start: () => controls.start(),
+            stop: () => controls.stop(),
+            refresh: () => controls.refresh(),
+            'inspect-self-mark': inspectCommand('EP_SELF_MARK_INSPECT', () => controls.inspect()),
+            'inspect-dash': inspectCommand('EP_DASH_INSPECT', () => controls.inspectDash()),
+            'inspect-components': inspectCommand('EP_COMPONENTS_INSPECT', () => controls.inspectComponents()),
+            'inspect-assessment': inspectCommand('EP_ASSESSMENT_INSPECT', () => controls.inspectAssessment()),
+        };
+        const accuracyCommand = async command => {
+            const arg = command === 'accuracy' ? '' : command.slice('accuracy '.length);
+            if (typeof controls.setAccuracy === 'function') {
+                // Show setAccuracy's own validation message (e.g. "Accuracy must be
+                // 0-100.") rather than the generic command-failure fallback.
+                try { await controls.setAccuracy(arg); }
+                catch (e) { output.write(String(e && e.message ? e.message : e) + '\n'); return 'continue'; }
+            }
+            else output.write('Accuracy control unavailable in this session.\n');
+        };
+        const knobCommand = (key, sliceAt, done) => command => {
+            const result = controls[key](command.length === key.length ? undefined : command.slice(sliceAt).trim());
+            output.write((result.error ? result.error : done(result)) + '\n');
+        };
+        const delayCommand = knobCommand('delay', 6, pacing => 'Answer pacing: ' + pacing.delay);
+        const reportsCommand = knobCommand('reports', 8, reports => 'Support reports: ' + reports.reports);
+        const dispatch = async command => {
+            if (Object.hasOwn(simpleCommands, command)) { await simpleCommands[command](); return; }
+            if (command === 'status' || command === '') { /* print below */ return; }
+            if (command === 'mode auto' || command === 'mode semi') { await controls.mode(command.slice(5)); return; }
+            if (command === 'accuracy' || command.startsWith('accuracy ')) return accuracyCommand(command);
+            if (command === 'delay' || command.startsWith('delay ')) { delayCommand(command); return; }
+            if (command === 'reports' || command.startsWith('reports ')) { reportsCommand(command); return; }
+            if (command === 'watch-assessment' || command.startsWith('watch-assessment ')) {
+                return require('../lib/assessment-diagnostics').runWatchCommand(controls, command.slice(16), output) ? undefined : 'continue';
+            }
+            if (command === 'quit' || command === 'exit') { await quit(); print(); return 'break'; }
+            output.write('Unknown command. Use start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, reports [on|off], refresh, inspect-self-mark, inspect-dash, inspect-components, inspect-assessment, watch-assessment or quit.\n');
+            return 'continue';
+        };
         for await (const line of terminal) {
             const command = line.trim();
             if (pendingApproval) {
-                const request = pendingApproval;
-                if (request.phase === 'text' && !['quit', 'exit', 'stop'].includes(command)) {
-                    if (!require('../lib/reflection-handler').validReflectionText(line)) {
-                        request.resolve(false);
-                        output.write('Reflection text not supported; no input.\n');
-                        continue;
-                    }
-                    request.text = line;
-                    request.phase = 'confirm';
-                    output.write(`Reflection fill approval for ${request.approval.key}: ${JSON.stringify(line)}. Type yes to fill this response only. No Submit or self-grade will be clicked. Anything else cancels.\n`);
-                    continue;
-                }
-                if (request.phase) {
-                    const approved = request.phase === 'confirm' && command === 'yes';
-                    request.resolve(approved ? request.text : false);
-                    output.write(approved ? 'Reflection fill approved for this question only.\n' : 'Reflection fill not approved; no input.\n');
-                    if (command === 'quit' || command === 'exit') { await quit(); print(); break; }
-                    continue;
-                }
+                const handled = await handleApprovalLine(line, command);
+                if (handled === 'break') break;
+                if (handled) continue;
             }
             try {
-                if (command === 'start') controls.start();
-                else if (command === 'stop') await controls.stop();
-                else if (command === 'status' || command === '') { /* print below */ }
-                else if (command === 'mode auto' || command === 'mode semi') await controls.mode(command.slice(5));
-                else if (command === 'accuracy' || command.startsWith('accuracy ')) {
-                    const arg = command === 'accuracy' ? '' : command.slice('accuracy '.length);
-                    if (typeof controls.setAccuracy === 'function') {
-                        // Show setAccuracy's own validation message (e.g. "Accuracy must be
-                        // 0-100.") rather than the generic command-failure fallback.
-                        try { await controls.setAccuracy(arg); }
-                        catch (e) { output.write(String(e && e.message ? e.message : e) + '\n'); continue; }
-                    }
-                    else output.write('Accuracy control unavailable in this session.\n');
-                }
-                else if (command === 'delay' || command.startsWith('delay ')) {
-                    const pacing = controls.delay(command === 'delay' ? undefined : command.slice(6).trim());
-                    output.write((pacing.error ? pacing.error : 'Answer pacing: ' + pacing.delay) + '\n');
-                }
-                else if (command === 'reports' || command.startsWith('reports ')) {
-                    const reports = controls.reports(command === 'reports' ? undefined : command.slice(8).trim());
-                    output.write((reports.error ? reports.error : 'Support reports: ' + reports.reports) + '\n');
-                }
-                else if (command === 'inspect-self-mark') output.write('EP_SELF_MARK_INSPECT ' + JSON.stringify(await controls.inspect()) + '\n');
-                else if (command === 'inspect-dash') output.write('EP_DASH_INSPECT ' + JSON.stringify(await controls.inspectDash()) + '\n');
-                else if (command === 'inspect-components') output.write('EP_COMPONENTS_INSPECT ' + JSON.stringify(await controls.inspectComponents()) + '\n');
-                else if (command === 'inspect-assessment') output.write('EP_ASSESSMENT_INSPECT ' + JSON.stringify(await controls.inspectAssessment()) + '\n');
-                else if (command === 'watch-assessment' || command.startsWith('watch-assessment ')) {
-                    if (!require('../lib/assessment-diagnostics').runWatchCommand(controls, command.slice(16), output)) continue;
-                }
-                else if (command === 'refresh') await controls.refresh();
-                else if (command === 'quit' || command === 'exit') { await quit(); print(); break; }
-                else { output.write('Unknown command. Use start, stop, status, mode auto, mode semi, accuracy [on|off], delay, delay on, delay off, reports [on|off], refresh, inspect-self-mark, inspect-dash, inspect-components, inspect-assessment, watch-assessment or quit.\n'); continue; }
+                const action = await dispatch(command);
+                if (action === 'break') break;
+                if (action === 'continue') continue;
                 print();
             } catch {
                 output.write(command === 'inspect-self-mark' || command === 'inspect-dash' || command === 'inspect-components' || command === 'inspect-assessment'
