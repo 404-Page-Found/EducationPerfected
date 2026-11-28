@@ -64,7 +64,8 @@ for(const mutation of ['manual','assessment','mixed','unmarked','missing','dupli
  if(m==='extraTextBoxes'){for(let i=0;i<6;i++){const el=document.createElement('input');el.className='text-box-component';f.group.append(el);f.q.questionDef.Components.push({ComponentTypeCode:'TEXT_BOX_COMPONENT',ComponentID:'text-box-'+i,Marked:1});}}
  if(m==='extraNumberBoxes'){for(let i=0;i<2;i++){const el=document.createElement('input');el.className='number-box-component';f.group.append(el);f.q.questionDef.Components.push({ComponentTypeCode:'NUMBER_BOX_COMPONENT',ComponentID:'number-box-'+i,Marked:1});}}
  if(m==='extraInGaps'){const wrap=document.createElement('div');wrap.className='fitg-component';const el=document.createElement('input');wrap.append(el);f.group.append(wrap);}
- if(m==='extraSelectsInGaps'){const wrap=document.createElement('div');wrap.className='fitg-component';f.group.append(wrap);for(const select of [...f.group.querySelectorAll('select')])wrap.append(select);f.group.append(document.createElement('input'));}
+ if(m==='extraSelectsInGaps'){const wrap=document.createElement('div');wrap.className='fitg-component';f.group.append(wrap);for(const select of [...f.group.querySelectorAll('select')])wrap.append(select);
+ f.group.append(document.createElement('input'));}
  if(m==='rawMismatch')f.q.questionDef.Components[0].Options=[];
  if(m==='lazyGetter'){delete s._shuffledOptions;Object.defineProperty(s,'shuffledOptions',{get(){throw new Error('must not invoke');}});}
  if(m==='extraSelect')f.group.append(c.dropDownList.cloneNode(true));
@@ -147,4 +148,5 @@ await page.evaluate(()=>{const c=dropdownFixture.base['dropdown-0'][0],s=c.compo
 assert.equal((await playDropdownRound(page,rd,{enter:true,timeout:300})).status,'advanced');
 assert.deepEqual(await page.evaluate(()=>[dropdownFixture.submittedSelections,dropdownFixture.submits]),[[['42 right','42 right']],1]);}
 console.log('Dropdown source-derived browser fixtures PASS: five DOM-ordered controls, 15 trusted keys / 10 trusted changes / one Submit; exact fill-only0Submit; 33 initial refusals,10 post-key stops, event-driven cancellation; variable-template slide fills+submits, fourteen injector/ref raw refusals0input, reordered variable metadata submits. Synthetic Linux only; intermediate selections occur.');
-}finally{if(browser)await browser.close();await new Promise(r=>server.close(r));}})().catch(e=>{console.error(e);process.exitCode=1;});
+}finally{if(browser)await browser.close();
+await new Promise(r=>server.close(r));}})().catch(e=>{console.error(e);process.exitCode=1;});

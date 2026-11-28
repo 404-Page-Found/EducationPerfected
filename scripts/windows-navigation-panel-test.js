@@ -11,7 +11,8 @@ const {browserStderr,browserLogFile,LIMIT}=require('./windows-browser-stderr'),{
  await assert.rejects(late,/session deadline/);resolveLate({detach:async()=>{lateDetached=true;}});
  await new Promise(resolve=>setImmediate(resolve));assert.equal(lateDetached,true);
  let detached=false;const calls=[];
- const metrics=await utilityHistograms({target:()=>({createCDPSession:async()=>({send:async(command,args,options)=>{calls.push(command);assert.equal(options.timeout,2000);assert.equal(args.delta,false);if(args.name!==names[0])throw new Error('private');return{histogram:metric};},detach:async()=>{detached=true;}})})});
+ const metrics=await utilityHistograms({target:()=>({createCDPSession:async()=>({send:async(command,args,options)=>{calls.push(command);assert.equal(options.timeout,2000);assert.equal(args.delta,false);if(args.name!==names[0])throw new Error('private');
+ return{histogram:metric};},detach:async()=>{detached=true;}})})});
  assert.equal(detached,true);assert.deepEqual(calls,new Array(names.length).fill('Browser.getHistogram'));assert.equal(metrics[names[0]].state,'read');assert.equal(metrics[names[1]].state,'unavailable');assert.ok(!JSON.stringify(metrics).includes('private'));
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'ep-log-inert-')),logPath=path.join(root,'chrome.log');

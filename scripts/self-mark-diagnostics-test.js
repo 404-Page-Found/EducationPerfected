@@ -90,7 +90,8 @@ async function install(page) {
         await page.evaluate(() => {
             window.savedAngular = window.angular;
             const group = document.querySelector('#question-container-group');
-            window.angular = { element(el) { if (el === group) throw new Error('private-scope'); return savedAngular.element(el); } };
+            window.angular = { element(el) { if (el === group) throw new Error('private-scope');
+            return savedAngular.element(el); } };
         });
         assert.equal((await collectSelfMarkDiagnostics(page)).guard, 'not-lesson-mode');
         await page.evaluate(() => { window.angular = window.savedAngular; });

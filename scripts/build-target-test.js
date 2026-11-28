@@ -7,9 +7,11 @@ function probe(file,platform,arch,glibc=true) {
  return selected;
 }
 for(const arch of ['x64','arm64']) {
- const target=probe('build-linux.js','linux',arch);if(!target)throw new Error('Supported Linux wrapper must select a target');assert.equal(target.directory,'linux-'+arch);assert.equal(target.nativePackage,'@napi-rs/keyring-linux-'+arch+'-gnu');
+ const target=probe('build-linux.js','linux',arch);if(!target)throw new Error('Supported Linux wrapper must select a target');
+ assert.equal(target.directory,'linux-'+arch);assert.equal(target.nativePackage,'@napi-rs/keyring-linux-'+arch+'-gnu');
 }
-const windows=probe('build-windows.js','win32','x64');if(!windows)throw new Error('Supported Windows wrapper must select a target');assert.equal(windows.executable,'educationperfected.exe');
+const windows=probe('build-windows.js','win32','x64');if(!windows)throw new Error('Supported Windows wrapper must select a target');
+assert.equal(windows.executable,'educationperfected.exe');
 for(const arch of ['ia32','arm64'])assert.throws(()=>probe('build-windows.js','win32',arch),/Development builder requires Windows x64/);
 for(const arch of ['ia32','arm','riscv64'])assert.throws(()=>probe('build-linux.js','linux',arch),/Development builder requires glibc Linux x64 or arm64/);
 assert.throws(()=>probe('build-linux.js','linux','x64',false),/Development builder requires glibc Linux x64 or arm64/);

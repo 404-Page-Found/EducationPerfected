@@ -81,5 +81,6 @@ const { readReflectionInPage } = require('../lib/reflection-state');
         await baseline.dispose();
         await page.goto(origin + '/lesson'); assert.equal((await detectQuestion(page)).kind, 'choice');
         console.log('Reflection handler PASS: user-authored fill-only, trusted input, no Submit/Next, marked/unmarked, auto/semi, no default text, prefilled and changed-state refusals, Assessment and unrelated choice unchanged. Synthetic only.');
-    } finally { if (browser) await browser.close(); await new Promise(r => server.close(r)); }
+    } finally { if (browser) await browser.close();
+    await new Promise(r => server.close(r)); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

@@ -24,7 +24,8 @@ const gapsMode = process.argv.includes('--gaps')||selectionModalMode;
             return key === 'launch' ? async (...options) => { browser = await launchBrowser({...options[0],...(process.env.HANDLER_EXECUTABLE_PATH?{executablePath:process.env.HANDLER_EXECUTABLE_PATH}:{})}); return browser; } : target[key];
         } }) : value;
     };
-    console.log = (...args) => { if (String(args[0]).includes('No credentials provided')) loginReady = true; log(...args); };
+    console.log = (...args) => { if (String(args[0]).includes('No credentials provided')) loginReady = true;
+    log(...args); };
     try {
         const { launch } = await launchAndAwaitLogin(() => browser, () => loginReady);
         const page = (await browser.pages())[0];

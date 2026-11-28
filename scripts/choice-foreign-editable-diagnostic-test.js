@@ -42,5 +42,6 @@ const { describeUnsupported, isValidDetail } = require('../lib/support-report');
         assert.ok(filled.controls.textareas >= 1 && filled.components.length >= 1 && isValidDetail(filled));
         assert.ok(!/SECRET-PAGE-TEXT/.test(JSON.stringify(probe)));
         console.log('choice-foreign-editable-diagnostic-test passed');
-    } finally { if (browser) await browser.close(); await new Promise(r => server.close(r)); }
+    } finally { if (browser) await browser.close();
+    await new Promise(r => server.close(r)); }
 })().catch(e => { console.error(e); process.exit(1); });

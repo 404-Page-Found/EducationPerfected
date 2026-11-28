@@ -65,7 +65,8 @@ async function setup(page, origin) {
         assert.equal(aborted.status,'aborted'); assert.deepEqual(await page.evaluate(()=>[multiFixture.clicks.length,multiFixture.submits]),[0,0]);
         // Preserve existing user selections, removing only the wrong selection.
         await setup(page,origin);
-        await page.evaluate(() => { const f=multiFixture; for(const p of f.state.previewOptions.filter(p => [0,1].includes(f.state.originalMultiChoiceOptions.indexOf(p.option)))) p.element.click(); f.clicks=[]; });
+        await page.evaluate(() => { const f=multiFixture; for(const p of f.state.previewOptions.filter(p => [0,1].includes(f.state.originalMultiChoiceOptions.indexOf(p.option)))) p.element.click();
+        f.clicks=[]; });
         const pre = await playChoiceRound(page,await detectQuestion(page),{enter:true,timeout:1000});
         assert.equal(pre.status,'advanced'); assert.deepEqual(await page.evaluate(() => multiFixture.clicks.sort()),[1,2]);
         // Semi-auto selects only, and aborts through the existing stop callback.
@@ -218,5 +219,6 @@ async function setup(page, origin) {
             assert.deepEqual(await page.evaluate(()=>[multiFixture.clicks.length,multiFixture.submits]),[0,0],code);
         }
         console.log('Multi-select: exact set/reordered DOM/preselection/semi-auto,25 pre-click refusals and8 post-click stale/ineffective-click refusals,3 mixed-question detection refusals,13 deny-list code refusals passed. Source-derived synthetic only.');
-    } finally { if(browser)await browser.close();await new Promise(r=>server.close(r)); }
+    } finally { if(browser)await browser.close();
+    await new Promise(r=>server.close(r)); }
 })().catch(e=>{console.error(e);process.exitCode=1;});

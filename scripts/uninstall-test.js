@@ -29,7 +29,8 @@ const {createRuntimeDirectory}=require('../lib/runtime-directory');
    if(scenario==='browser-symlink'){fs.rmSync(browsers,{recursive:true});fs.mkdirSync(path.join(home,'unrelated'));fs.writeFileSync(path.join(home,'unrelated','keep'),'inert');fs.symlinkSync(path.join(home,'unrelated'),browsers,process.platform==='win32'?'junction':'dir');}
    const choices=choicesFor(scenario);
    let removed=0,output='';
-   const perform=()=>uninstallCommand({home,ownDirectory:runtime.directory,cleanupOwn:async()=>{if(scenario==='cleanup-error')throw new Error('inert');runtime.remove(true);},executable:'inert.exe',env:{},confirm:async()=>choices,output:{write:text=>{output+=text;}},store:{async remove(){removed++;if(scenario==='store-error')throw new Error('inert');}}});
+   const perform=()=>uninstallCommand({home,ownDirectory:runtime.directory,cleanupOwn:async()=>{if(scenario==='cleanup-error')throw new Error('inert');
+   runtime.remove(true);},executable:'inert.exe',env:{},confirm:async()=>choices,output:{write:text=>{output+=text;}},store:{async remove(){removed++;if(scenario==='store-error')throw new Error('inert');}}});
    const result=await perform();
    assert.equal(removed,choices.login?1:0,'store.remove called exactly when the login item is confirmed');
    if(scenario==='cancel'){

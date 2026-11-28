@@ -321,5 +321,6 @@ async function setup(page, origin) {
             assert.deepEqual(await page.evaluate(() => [window.mathFixture.clicks.length, window.navigationClicks]), [0, 0]);
         }
         console.log('Plain block choice synthetic fixtures: exact renderer mapping despite reorder, semi1select/0Submit, auto1select/1Submit, getter0calls, multiline2paragraph with/without separator success, source-shaped wrapped paragraphs and7shape/drift refusals,5 renderer-bound presentation-header accepts+5 malformed-header refusals,8 variable/literal-text accepts+3 narrowed-body refusals,25 initial refusals with boundary+check diagnostics+6 pre-start changes+2 final-recheck drift0select PASS. No live answering proof.');
-    } finally { if(browser) await browser.close(); await new Promise(resolve => server.close(resolve)); }
+    } finally { if(browser) await browser.close();
+    await new Promise(resolve => server.close(resolve)); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
