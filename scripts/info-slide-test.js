@@ -160,6 +160,7 @@ const eachSequential = (values, run) => values.reduce((previous, value) => previ
         const mutate = (name) => page.evaluate((m) => {
             const f = window.infoSlideFixture;
             const container = document.querySelector('#ep-question-container');
+            const makeNoScope = () => ({ scope: () => ({}) });
             const appendControl = tag => {
                 const el = document.createElement(tag);
                 if (tag === 'button') el.textContent = 'Order me';
@@ -182,7 +183,7 @@ const eachSequential = (values, run) => values.reduce((previous, value) => previ
                 button: () => appendControl('button'),
                 contenteditable: () => appendControl('div'),
                 speaker: () => { const s = document.createElement('div'); s.className = 'voice-speaker'; container.append(s); },
-                noModel: () => { window.angular = { element: () => ({ scope: () => ({}) }) }; },
+                noModel: () => { window.angular = { element: makeNoScope }; },
             };
             mutations[m]();
         }, name);
